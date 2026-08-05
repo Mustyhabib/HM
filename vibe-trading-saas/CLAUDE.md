@@ -300,3 +300,34 @@ Format:
 Reason: ...
 Alternatives considered: ...
 ```
+## BRAND & DESIGN SYSTEM
+
+Brand name: H~M
+Logo: "H~M" text with blue→violet gradient and soft glow.
+
+Single color scheme for ALL pages (landing + dashboard):
+
+- bg base: #05060F
+- bg card/surface: #0B1020
+- bg elevated: #101730
+- border: #1E2A45
+- primary blue: #3B82F6
+- primary violet: #8B5CF6
+- primary gradient: linear-gradient(90deg, #7C3AED, #3B82F6)
+- success: #22C55E
+- danger: #EF4444
+- text primary: #F8FAFC
+- text muted: #94A3B8
+
+Typography:
+- UI font: Inter
+- Code/numbers font: JetBrains Mono
+
+Style rules:
+- Dark navy theme everywhere
+- Soft glow (box-shadow) on primary buttons and logo
+- Glowing gradient border on the agent prompt box
+- rounded-xl cards with 1px border
+- Subtle grid background on hero sections
+- Use shadcn/ui configured to this palette
+- Never use green/teal as brand color (green only for profit/success)

@@ -59,3 +59,41 @@ Alternatives considered:
     not per-tenant scoping — using it directly would require the same
     isolation problem solved twice (once for it, once for our own API).
 ```
+
+---
+
+```text
+[2026-08-05] Decision: Vendor Tradi (the engine) directly into the HM repo
+  as tracked files under `Tradi/`, not as a separate sibling repo pulled at
+  build time.
+
+Reason:
+  - The original `.gitignore` (commit e943c08) excluded `/Vibe-Trading/`
+    and described the engine as a sibling checkout pinned to a commit/tag,
+    pulled at worker build time. This was reversed in the same session
+    (commit f78487a) to a full vendor: the engine's 2,050 files are tracked
+    directly under `Tradi/`, the exclusion rule was dropped, and all
+    downstream docs (`PROJECT_BRIEF.md`, `ARCHITECTURE.md`, `CLAUDE.md`)
+    were written assuming the vendored layout.
+  - Full vendoring is the simpler model for a solo dev: one repo, one
+    clone, one `git log`, no build-time fetch step that can break, no
+    pinned-commit coordination between two repos. The worker Dockerfile /
+    deploy script can just `COPY Tradi/ /app/Tradi/` — no git-clone-at-
+    build-time, no deploy key, no submodule.
+  - MIT license permits this; the only obligation is keeping
+    `Tradi/LICENSE` and `Tradi/NOTICE` intact (verified present).
+  - Trade-off: every clone pulls ~13 MB of binary marketing assets
+    (`Tradi/assets/`, `Tradi/wiki/assets/`). Acceptable at this scale;
+    if clone size becomes a problem later, those assets can be moved to
+    LFS or stripped without affecting the engine's runtime code.
+
+Alternatives considered:
+  - Sibling-repo with gitignored local checkout, pinned at build time
+    (the original plan from commit e943c08). Rejected: adds a second repo
+    to coordinate, a deploy-key or PAT for the worker's build step, and a
+    pinned-commit file to keep in sync — none of which is justified when
+    the engine is MIT and the SaaS wrapper is the only consumer.
+  - Git submodule. Rejected: submodules add cognitive overhead and CI
+    complexity disproportionate to the benefit for a solo-dev project with
+    one consumer of one dependency.
+```

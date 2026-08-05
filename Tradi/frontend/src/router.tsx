@@ -1,7 +1,16 @@
 import { Suspense, lazy, type ComponentType } from "react";
 import { createBrowserRouter } from "react-router";
 import { Layout } from "@/components/layout/Layout";
+import { PublicLayout } from "@/components/layout/PublicLayout";
 
+// --- Public / SaaS pages ---
+const Landing = lazy(() => import("@/pages/Landing").then((m) => ({ default: m.Landing })));
+const Pricing = lazy(() => import("@/pages/Pricing").then((m) => ({ default: m.Pricing })));
+const Login = lazy(() => import("@/pages/Login").then((m) => ({ default: m.Login })));
+const Signup = lazy(() => import("@/pages/Signup").then((m) => ({ default: m.Signup })));
+const Dashboard = lazy(() => import("@/pages/Dashboard").then((m) => ({ default: m.Dashboard })));
+
+// --- Engine pages (existing) ---
 const Home = lazy(() => import("@/pages/Home").then((m) => ({ default: m.Home })));
 const Agent = lazy(() => import("@/pages/Agent").then((m) => ({ default: m.Agent })));
 const RunDetail = lazy(() =>
@@ -46,10 +55,22 @@ function wrap(Component: ComponentType) {
 }
 
 export const router = createBrowserRouter([
+  // --- Public pages (header + footer, no sidebar) ---
+  {
+    element: <PublicLayout />,
+    children: [
+      { path: "/", element: wrap(Landing) },
+      { path: "/pricing", element: wrap(Pricing) },
+      { path: "/login", element: wrap(Login) },
+      { path: "/signup", element: wrap(Signup) },
+    ],
+  },
+
+  // --- Authenticated app pages (sidebar layout) ---
   {
     element: <Layout />,
     children: [
-      { path: "/", element: wrap(Agent) },
+      { path: "/dashboard", element: wrap(Dashboard) },
       { path: "/about", element: wrap(Home) },
       { path: "/agent", element: wrap(Agent) },
       { path: "/runtime", element: wrap(Runtime) },
