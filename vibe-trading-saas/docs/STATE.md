@@ -31,6 +31,14 @@ Day 1 of 30 — 2026-08-05 (kickoff / infra setup, no product code yet)
 - `docs/ARCHITECTURE.md` populated: system diagram, component responsibilities,
   run states, quota-enforcement rule, deferred persistent-memory feature,
   post-MVP hardening list, two open questions (worker host, per-tier limits).
+- All remaining planning docs populated: `docs/DATABASE_SCHEMA.md` (9 tables,
+  full columns/constraints/RLS notes), `docs/SECURITY_CHECKLIST.md`
+  (pre-launch gate checklist), `docs/30_DAY_PLAN.md` (week-by-week MVP plan).
+- All `.claude/commands/*.md` written (architect, build, review, debug, ship)
+  and all `.claude/skills/*.md` written (supabase-rls, stripe-billing,
+  quota-enforcement, agent-worker, security-review) — concrete, code-level
+  guidance grounded in this project's actual schema/architecture decisions,
+  not generic boilerplate.
 
 ## Blocked
 
@@ -39,16 +47,16 @@ Day 1 of 30 — 2026-08-05 (kickoff / infra setup, no product code yet)
 
 ## Next action
 
-- `docs/DATABASE_SCHEMA.md`: define `plans`, `subscriptions`, `usage_periods`,
-  `usage_events`, `agent_runs`, `agent_artifacts`, `webhook_events`,
-  `audit_logs` (see `CLAUDE.md` "DATABASE PRINCIPLES" and the tables named in
-  `ARCHITECTURE.md`).
-- Resolve the two open questions in `ARCHITECTURE.md` (worker host choice;
-  per-tier timeout/`--max-iter` defaults) — can happen alongside or after the
-  schema.
-- Draft `docs/30_DAY_PLAN.md`.
-- Set up the actual Next.js app skeleton under `vibe-trading-saas/` once
-  schema is decided.
+All planning docs (`CLAUDE.md`, `docs/*.md`, `.claude/commands/*`,
+`.claude/skills/*`) are now written. Per `docs/30_DAY_PLAN.md` Day 2: create
+the Supabase project and apply the first migration from
+`docs/DATABASE_SCHEMA.md` (tables + seed `plans` + RLS policies per
+`.claude/skills/supabase-rls.md`). Then Day 3's Next.js app skeleton.
+
+Still-open decisions (`docs/ARCHITECTURE.md` → "Open questions"), not
+blocking Day 2/3 but needed before Day 5's real worker↔Tradi run:
+worker host choice (Railway/Fly.io/Hetzner), per-tier timeout/`--max-iter`
+defaults.
 
 ## Session log
 
@@ -56,3 +64,4 @@ Day 1 of 30 — 2026-08-05 (kickoff / infra setup, no product code yet)
 |---|---|---|
 | 2026-08-05 | 1 | GitHub/SSH setup, HM repo created, Tradi engine merged in, saas scaffold + docs kickoff |
 | 2026-08-05 | 1 | ARCHITECTURE.md + worker-invocation decision (subprocess-per-run, isolated HOME) |
+| 2026-08-05 | 1 | Finished all planning docs: DATABASE_SCHEMA, SECURITY_CHECKLIST, 30_DAY_PLAN, all commands + skills |
