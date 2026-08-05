@@ -11,7 +11,10 @@ interface AuthState {
   /** Call once on app mount — sets up the auth listener */
   initialize: () => () => void;
 
-  signUp: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUp: (
+    email: string,
+    password: string,
+  ) => Promise<{ error: string | null; needsConfirmation: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
@@ -50,9 +53,28 @@ export const useAuth = create<AuthState>((set) => ({
 
   signUp: async (email, password) => {
     set({ loading: true });
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({ email, password });
     set({ loading: false });
-    return { error: error?.message ?? null };
+
+    if (error) {
+      return { error: error.message, needsConfirmation: false };
+    }
+
+    // When "Confirm email" is on, Supabase masks a duplicate signup instead of
+    // erroring (anti-enumeration): it returns a user with an empty identities
+    // array and no session, and never sends a mail. Surface it as a real
+    // message so the user isn't told to check an inbox that stays empty.
+    if (data.user && data.user.identities?.length === 0) {
+      return {
+        error: "An account with this email already exists. Try logging in.",
+        needsConfirmation: false,
+      };
+    }
+
+    // A session means email confirmation is disabled — the user is already
+    // logged in. No session means a confirmation link was emailed and must be
+    // clicked before the account is usable.
+    return { error: null, needsConfirmation: data.session === null };
   },
 
   signIn: async (email, password) => {

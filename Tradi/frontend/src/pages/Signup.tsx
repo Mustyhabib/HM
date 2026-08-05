@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { useState, type FormEvent } from "react";
 import { useAuth } from "@/lib/auth-store";
 
@@ -9,6 +9,7 @@ export function Signup() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const { signUp, loading } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -24,12 +25,15 @@ export function Signup() {
       return;
     }
 
-    const { error: authError } = await signUp(email, password);
+    const { error: authError, needsConfirmation } = await signUp(email, password);
     if (authError) {
       setError(authError);
-    } else {
-      // Supabase sends a confirmation email by default
+    } else if (needsConfirmation) {
+      // Email confirmation is on — a link was sent, account isn't usable yet.
       setSuccess(true);
+    } else {
+      // Confirmation is off — the user is already signed in.
+      navigate("/dashboard", { replace: true });
     }
   };
 
