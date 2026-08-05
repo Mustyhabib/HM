@@ -1,0 +1,52 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/Tradi/.venv/bin/python",
+  "python.analysis.extraPaths": ["${workspaceFolder}/Tradi/agent"],
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": ["Tradi/agent/tests"],
+
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports.ruff": "explicit"
+    }
+  },
+  "ruff.lineLength": 120,
+
+  "[typescript][typescriptreact][javascript][javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[markdown]": {
+    "editor.wordWrap": "on",
+    "editor.formatOnSave": false
+  },
+  "[json][jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  "editor.rulers": [120],
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/.ruff_cache": true,
+    "**/*.egg-info": true
+  },
+  "search.exclude": {
+    "Tradi/README_ar.md": true,
+    "Tradi/README_ja.md": true,
+    "Tradi/README_ko.md": true,
+    "Tradi/README_zh.md": true,
+    "Tradi/requirements-lock.txt": true,
+    "Tradi/wiki/**": true,
+    "**/node_modules": true,
+    "**/.venv": true,
+    "**/dist": true,
+    "**/build": true
+  },
+
+  "git.autofetch": true
+}
