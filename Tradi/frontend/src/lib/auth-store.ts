@@ -73,18 +73,32 @@ export const useAuth = create<AuthState>((set) => ({
 
     // A session means email confirmation is disabled — the user is already
     // logged in. No session means a confirmation link was emailed and must be
-    // clicked before the account is usable.
+    // clicked before the account is usable. Set the session synchronously so a
+    // caller that navigates on success doesn't race the onAuthStateChange
+    // listener (AuthGuard would otherwise see a null user and bounce to /login).
+    if (data.session) {
+      set({ user: data.user, session: data.session });
+    }
     return { error: null, needsConfirmation: data.session === null };
   },
 
   signIn: async (email, password) => {
     set({ loading: true });
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    set({ loading: false });
-    return { error: error?.message ?? null };
+
+    if (error) {
+      set({ loading: false });
+      return { error: error.message };
+    }
+
+    // Set user/session synchronously rather than waiting for the async
+    // onAuthStateChange listener — otherwise navigate() on the caller side
+    // reaches AuthGuard before the store updates and gets bounced to /login.
+    set({ user: data.user, session: data.session, loading: false });
+    return { error: null };
   },
 
   signOut: async () => {
