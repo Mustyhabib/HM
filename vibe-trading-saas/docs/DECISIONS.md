@@ -97,3 +97,46 @@ Alternatives considered:
     complexity disproportionate to the benefit for a solo-dev project with
     one consumer of one dependency.
 ```
+
+---
+
+```text
+[2026-08-05] Decision: Billing will use Flutterwave, not Stripe. No billing
+  code has been written yet, so this replaces the intended provider before
+  any integration exists — CLAUDE.md's "PREFERRED STACK" (Stripe Checkout /
+  Customer Portal / webhooks) is superseded for payments only.
+
+Reason:
+  - Stripe onboarding/payouts are not reliably available for the operator's
+    region — "network connectivity of Stripe" — so Stripe cannot be the
+    merchant of record here regardless of how clean its API is.
+  - Flutterwave supports the region, settles in local currency, and offers
+    recurring billing via Payment Plans (tokenized card charging) plus
+    hosted checkout and webhooks — enough to cover the three subscription
+    tiers (Starter/Pro/Premium) without building card handling ourselves.
+  - The rest of CLAUDE.md's billing *principles* still hold and are
+    provider-agnostic: Postgres is the source of truth, webhook processing
+    must be idempotent, quota logic stays transactional, usage events stay
+    immutable. Only the vendor changes.
+
+Implications (not yet actioned — billing is post-signup work):
+  - The schema was created with Stripe-specific column names that will need
+    generalizing (or a rename migration): `profiles.stripe_customer_id`,
+    `subscriptions.stripe_subscription_id`, `plans.stripe_price_id`,
+    `webhook_events.stripe_event_id`. Prefer neutral names
+    (`billing_customer_id`, `billing_subscription_id`, `provider_plan_id`,
+    `provider_event_id`) so we're not locked to one vendor again.
+  - Webhook authenticity differs: Flutterwave sends a `verif-hash` header
+    to compare against a shared secret, rather than Stripe's signed-payload
+    scheme. Idempotency on `webhook_events` is unchanged.
+  - Pricing currency is an open question — tiers are defined in USD
+    ($20/$35/$50) but settlement may be in local currency.
+  - No Stripe/production keys were ever added; nothing to revoke.
+
+Alternatives considered:
+  - Stripe (original plan). Rejected: not reliably usable from the
+    operator's region.
+  - Paystack (also strong in the same region). Not chosen now, but the
+    provider-neutral column renaming above keeps it a low-cost switch if
+    Flutterwave disappoints.
+```
