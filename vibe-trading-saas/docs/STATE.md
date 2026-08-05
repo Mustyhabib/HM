@@ -2,7 +2,7 @@
 
 ## Current sprint day
 
-Day 2 of 30 — 2026-08-05 (Supabase + Auth wired)
+Day 4 of 30 — 2026-08-05 (worker skeleton + run lifecycle)
 
 ## Completed
 
@@ -187,6 +187,45 @@ Day 2 of 30 — 2026-08-05 (Supabase + Auth wired)
     `import.meta.env` support.
   - Verified: `tsc --noEmit` zero errors, `/dashboard` redirects
     to `/login`, signup form renders, landing page clean.
+- **Worker skeleton built** (`vibe-trading-saas/worker/`) — Python
+  package `hm_worker`, installed with `pip install -e ".[dev]"`,
+  entry point `hm-worker`. Day 3 was absorbed (its Next.js/Auth scope
+  was already delivered on Day 2), so this is Day 4 of the plan.
+  - `src/hm_worker/config.py` — frozen `Config` dataclass loaded once
+    from env, failing loudly on anything missing. Custom `__repr__`
+    redacts `service_role_key` so the key can't leak into a log line.
+    `WORKER_STALE_AFTER_SECONDS` defaults to
+    `WORKER_RUN_TIMEOUT_SECONDS + 300`.
+  - `src/hm_worker/db.py` — `RunQueue` wrapping the four lifecycle
+    RPCs: `claim` / `heartbeat` / `complete` / `fail`.
+  - `src/hm_worker/runner.py` — `Runner` protocol plus `StubRunner`
+    (sleeps, heartbeats, succeeds). Error taxonomy that drives the
+    refund decision: `UserInputError` (no refund), `SystemError_`
+    (refund), `RunTimeout` (refund, status `timeout`), `ClaimLost`
+    (row left untouched).
+  - `src/hm_worker/main.py` — polling loop, SIGINT/SIGTERM handlers
+    that drain the current run before exiting, and per-iteration error
+    backoff so a transient API fault can't kill the loop. `build_runner`
+    deliberately raises if `WORKER_EXECUTE_TRADI` is set — that's the
+    Day 5 slot for the real subprocess runner.
+  - Second migration applied: `add_worker_run_lifecycle_functions` —
+    `claim_agent_run`, `heartbeat_agent_run`, `complete_agent_run`,
+    `fail_agent_run`. All `SECURITY DEFINER`, granted to `service_role`
+    only. Claiming uses `SELECT ... FOR UPDATE SKIP LOCKED` inside the
+    function because PostgREST can't express it; that's what makes
+    multiple worker instances safe to run in parallel.
+  - Crash recovery: a claim whose heartbeat goes stale is reclaimed by
+    the next worker to poll. Every close is guarded by
+    `claimed_by = <this worker>`, so a worker that lost its claim can't
+    overwrite the result of the one that took over.
+  - `worker/README.md` — setup, run, test, queue state diagram, refund
+    table, deployment notes.
+  - Verified: 16 tests passing (`pytest`) — 6 on config (missing vars,
+    non-integer values, key redaction, stale-window default, worker-id
+    generation) and 10 on the loop (complete path, all four refund
+    outcomes, lost claim, signal drain, claim-failure backoff, stub
+    abort paths). Stale reclaim itself lives in SQL and is not yet
+    covered by a test.
 
 ## Blocked
 
@@ -194,20 +233,35 @@ Day 2 of 30 — 2026-08-05 (Supabase + Auth wired)
 
 ## Next action
 
-Day 2 complete. Per `docs/30_DAY_PLAN.md`:
-- Day 3 was originally "Next.js app skeleton + Supabase Auth" — already
-  done (frontend exists, auth wired).
-- **Next up: Day 4** — Worker skeleton: Python project, polling loop
-  against `agent_runs` with `SELECT ... FOR UPDATE SKIP LOCKED`, claim →
-  mark running → mark completed (no real Tradi invocation yet).
+Day 4 complete (Day 3 absorbed into Day 2). Per `docs/30_DAY_PLAN.md`:
+
+- **Next up: Day 5** — replace `StubRunner` with a real `TradiRunner`:
+  subprocess-per-run (`vibe-trading run -p ... --json --max-iter N`)
+  with an isolated `HOME`/`VIBE_TRADING_HOME` per run, per the
+  worker-invocation decision in `docs/DECISIONS.md`. Then wire it in at
+  `build_runner()` in `src/hm_worker/main.py`, which currently raises
+  when `WORKER_EXECUTE_TRADI` is set.
+- Then: one real end-to-end run — insert a queued `agent_runs` row by
+  hand, start the worker, watch it claim → run → complete.
+
+Not yet done on the worker:
+- **`worker/.env` does not exist yet**, so the worker has never actually
+  connected to Supabase — everything so far is unit tests against mocks.
+  Copy `.env.example` to `.env` and fill in `SUPABASE_URL` +
+  `SUPABASE_SERVICE_ROLE_KEY` (Supabase → Project Settings → API →
+  service_role) before the Day 5 end-to-end run.
+- No test covers stale-claim reclaim (the logic is in SQL).
+- Nothing yet writes to `agent_artifacts` — `StubRunner` returns output
+  but the worker only logs it.
+- Timeout enforcement is configured (`WORKER_RUN_TIMEOUT_SECONDS`) but
+  only the stub honours it; real enforcement arrives with `TradiRunner`.
 
 Still-open decisions (`docs/ARCHITECTURE.md` → "Open questions"):
 - Worker host choice (Railway/Fly.io/Hetzner)
 - Per-tier timeout/`--max-iter` defaults
 
-Architecture note: "reuse Tradi frontend" decision has held through Day 2
-(auth wired into the Vite SPA successfully). Should be formally recorded
-in `docs/DECISIONS.md`.
+Architecture note: "reuse Tradi frontend" decision has held through Day 4.
+Should be formally recorded in `docs/DECISIONS.md`.
 
 ## Session log
 
@@ -221,3 +275,4 @@ in `docs/DECISIONS.md`.
 | 2026-08-05 | 1 | H~M brand redesign: dark navy palette, gradient logo, Strategy Studio dashboard with Pine Script panel, equity curve, metrics cards. All pages verified in browser |
 | 2026-08-05 | 1 | Settings, Signals, Profile pages: 5-tab SaaS settings (account/billing/notifications/security/API), signal cards with filters, profile with stats + achievements + activity feed. All verified in browser |
 | 2026-08-05 | 2 | Supabase: 9 tables + RLS + seed plans + quota functions. Auth: Zustand store, AuthGuard/GuestGuard, Login/Signup wired to real Supabase Auth, route protection. tsc clean |
+| 2026-08-05 | 4 | Worker skeleton: `hm_worker` package (config/db/runner/main), run-lifecycle migration (claim/heartbeat/complete/fail, SKIP LOCKED), heartbeat + stale reclaim, refund taxonomy, graceful shutdown. 16 tests passing |
