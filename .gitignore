@@ -1,0 +1,42 @@
+# === Environment & secrets ===
+.env
+.env.*
+!.env.example
+
+# === OS junk ===
+.DS_Store
+Thumbs.db
+
+# === Editor / IDE ===
+*.swp
+*.swo
+*~
+
+# === Node (vibe-trading-saas frontend) ===
+node_modules/
+.next/
+out/
+.vercel/
+
+# === Python (worker) ===
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+dist/
+build/
+
+# === Supabase local dev ===
+supabase/.temp/
+supabase/.branches/
+
+# === Coverage / test artifacts ===
+.coverage
+coverage/
+.pytest_cache/
+
+# === Sentry ===
+.sentryclirc
+
+# === LLM Wiki (local knowledge base) ===
+.wiki/

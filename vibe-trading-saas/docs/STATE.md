@@ -2,7 +2,7 @@
 
 ## Current sprint day
 
-Day 1 of 30 — 2026-08-05 (kickoff / infra setup, no product code yet)
+Day 2 of 30 — 2026-08-05 (Supabase + Auth wired)
 
 ## Completed
 
@@ -39,24 +39,175 @@ Day 1 of 30 — 2026-08-05 (kickoff / infra setup, no product code yet)
   quota-enforcement, agent-worker, security-review) — concrete, code-level
   guidance grounded in this project's actual schema/architecture decisions,
   not generic boilerplate.
+- Audit pass: vendoring decision (Tradi fully tracked in-repo vs. sibling
+  checkout at build time) recorded in `docs/DECISIONS.md` — the original
+  `.gitignore` (commit `e943c08`) had excluded `/Vibe-Trading/` for a
+  sibling-repo approach, but `f78487a` vendored it directly; the decision
+  was made but never logged. Now recorded.
+- Root `.gitignore` restored (was 0 bytes after the vendoring change
+  dropped the old exclusion rule) — now covers `.env`, `node_modules`,
+  `.next`, `__pycache__`, `.venv`, Supabase local dev, OS junk, editor
+  temps.
+- **Frontend foundation built** — adapted the existing `Tradi/frontend/`
+  (React 19 + Vite + TypeScript + Tailwind 3 + react-router 8) instead of
+  creating a separate Next.js app. Decision: reuse the existing SPA stack
+  rather than introducing a second framework — it already has dark mode,
+  i18n, design tokens, and a full component library.
+  - New `PublicLayout` component (header + footer, no sidebar) for public
+    pages — sits alongside the existing sidebar `Layout` for authenticated
+    app pages.
+  - 5 new pages added:
+    - `Landing.tsx` — hero, how-it-works, features, CTA (root `/`)
+    - `Pricing.tsx` — 3-tier plan cards ($20/3, $35/7, $50/15) with
+      feature lists and FAQ
+    - `Login.tsx` — email/password form, TODO wired to Supabase Auth
+    - `Signup.tsx` — email/password/confirm form with client-side
+      validation, TODO wired to Supabase Auth
+    - `Dashboard.tsx` — stats cards, quick actions, recent runs placeholder
+  - `router.tsx` updated: public routes (`/`, `/pricing`, `/login`,
+    `/signup`) use `PublicLayout`; authenticated routes (`/dashboard`,
+    `/agent`, `/reports`, etc.) use sidebar `Layout`. Existing engine
+    pages all preserved and working.
+  - `.env.example` added with placeholders for `VITE_API_URL`,
+    `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`,
+    `VITE_STRIPE_PUBLISHABLE_KEY` (all commented out).
+  - `.claude/launch.json` added for dev server preview.
+  - Verified: `tsc --noEmit` passes (zero errors), `vite build` succeeds,
+    all 5 new pages render correctly in browser, existing engine pages
+    (`/agent`, `/reports`, `/settings`, etc.) unbroken, zero console
+    errors.
+- **H~M brand redesign applied** — complete visual overhaul per
+  `CLAUDE.md` → "BRAND & DESIGN SYSTEM":
+  - `index.css`: new CSS variable system using H~M dark navy palette
+    (#05060F base, #0B1020 card, #1E2A45 border, #3B82F6 primary blue,
+    #8B5CF6 primary violet). Single dark theme everywhere — no light
+    mode toggle. Added utility classes: `.gradient-text`, `.gradient-bg`,
+    `.gradient-border`, `.glow-blue/violet/gradient`, `.grid-bg`,
+    `.glow-pulse`.
+  - `tailwind.config.ts`: updated to reference new hex-based CSS vars
+    instead of HSL; added `secondary`, `elevated`, `ring` colors.
+  - `BrandMark.tsx`: replaced candlestick SVG icon with "H~M" gradient
+    text logo with glow. Added `BrandLogo` component.
+  - `Layout.tsx`: completely redesigned sidebar — new nav items (Home,
+    Agent, Signals, Usage, Settings, Wallet, Profile), H~M gradient
+    logo with PRO badge, "Upgrade Plan" gradient button, collapse toggle.
+    Stripped out i18n/session list/language switcher/SSE status (engine-
+    specific, not needed in the SaaS shell).
+  - `Dashboard.tsx`: rebuilt as "Strategy Studio" matching the reference
+    screenshot — AI prompt box with glowing gradient border + pulse
+    animation, AI Suggestions/Optimize/Validate/Explain action buttons,
+    Strategy Performance metrics (Sharpe 1.82, Win Rate 64%, Net Profit
+    +18.4%), SVG equity curve chart with gradient fill, bottom stats row
+    (Total Trades/Profitable/Max Drawdown/Profit Factor), Pine Script v5
+    code viewer panel on the right with syntax highlighting (keywords,
+    strings, numbers, functions, comments) + line numbers + header with
+    Save/Copy/Run Backtest buttons + footer status bar.
+  - `PublicLayout.tsx`: updated branding to H~M gradient logo, gradient
+    Sign Up button with glow.
+  - `Landing.tsx`: H~M branding, `.grid-bg` hero background, gradient
+    buttons with glow, violet→blue gradient text on "Research Agent".
+  - `Login.tsx` / `Signup.tsx`: H~M gradient logo, dark card-colored
+    inputs, gradient submit button with glow.
+  - `Pricing.tsx`: Pro card uses `.gradient-border` with glow, "Most
+    Popular" gradient badge, JetBrains Mono for prices.
+  - All pages verified in browser — zero console errors, `tsc --noEmit`
+    clean, `vite build` passes.
+- **Settings, Signals, and Profile pages built** — three new SaaS pages
+  replacing/extending the sidebar navigation:
+  - `SaasSettings.tsx` — 5-tab settings page (Account, Billing,
+    Notifications, Security, API Keys). Account: profile fields, dark
+    mode preference, danger zone (delete account). Billing: current
+    plan card with usage progress bar, payment method, billing history
+    table. Notifications: email + push toggles per category. Security:
+    password change, 2FA setup, session management. API Keys: live/test
+    key display with show/hide, copy, regenerate; webhooks section; API
+    docs link. Replaces the engine's LLM-config Settings page at
+    `/settings` (engine settings still available at `/settings/engine`).
+  - `Signals.tsx` — trading signals dashboard with 4 summary stat cards
+    (Active, Triggered, Win Rate, Total P&L), search by symbol,
+    status/direction filters, 8 mock signal cards each showing symbol,
+    direction badge (long/short), strategy name, status badge
+    (active/triggered/expired/cancelled), entry/target/stop price
+    levels, R:R ratio, confidence percentage, P&L for closed signals,
+    date. Disclaimer footer.
+  - `Profile.tsx` — user profile with gradient avatar (initials),
+    name, email, Pro plan badge, member-since date, copyable user ID.
+    Stats grid (Total Runs, Signals Generated, Win Rate, Days Active).
+    Current plan card with usage bar + upgrade/view-usage links.
+    Achievements section (5 badges, 3 earned, 2 in progress with
+    progress counters). Recent activity feed (6 items: runs, signals,
+    billing, account events) with typed icons and timestamps.
+  - `router.tsx` updated: `/settings` → SaasSettings, `/signals` →
+    Signals, `/profile` → Profile. Engine Settings preserved at
+    `/settings/engine`. All sidebar nav links now resolve to real pages.
+  - Verified: `tsc --noEmit` zero errors, zero console errors, all
+    three pages render correctly in browser.
+
+- **Supabase database created and migrated** — project
+  `wqjdumforbalfmtawwpg` (eu-central-1, Postgres 17), org "HM
+  Infrastructure". Two migrations applied:
+  - `create_initial_schema` — 9 tables per `DATABASE_SCHEMA.md`:
+    `profiles` (1:1 auth.users, auto-created via trigger),
+    `plans` (static tiers), `subscriptions` (mirrors Stripe),
+    `usage_periods` (transactional quota counter),
+    `usage_events` (immutable audit trail, trigger-enforced),
+    `agent_runs` (worker queue), `agent_artifacts` (storage refs),
+    `webhook_events` (Stripe idempotency), `audit_logs` (append-only,
+    trigger-enforced). Indexes on all query-hot columns. `updated_at`
+    trigger on subscriptions.
+  - `add_rls_policies_and_seed_plans` — RLS enabled on all 9 tables.
+    User-facing tables: SELECT where `user_id = auth.uid()`.
+    `agent_runs` also allows INSERT for owning user.
+    `webhook_events` and `audit_logs`: no client policies (service role
+    only). Plans seeded: starter $20/3, pro $35/7, premium $50/15.
+    Two SECURITY DEFINER functions: `start_agent_run()` (atomic quota
+    check + consume + create run, FOR UPDATE row lock) and
+    `refund_agent_run()` (atomic decrement + event log).
+- **Supabase Auth wired into frontend**:
+  - `@supabase/supabase-js` installed.
+  - `src/lib/supabase.ts` — Supabase client from env vars.
+  - `src/lib/auth-store.ts` — Zustand auth store with `signUp`,
+    `signIn`, `signOut`, session listener, loading/initialized state.
+  - `src/components/auth/AuthGuard.tsx` — `AuthGuard` (redirects to
+    `/login` if not authenticated) and `GuestGuard` (redirects to
+    `/dashboard` if already logged in). Both show loading spinner
+    while auth initializes.
+  - `router.tsx` updated: public routes (landing, pricing) open;
+    auth routes (login, signup) wrapped in `GuestGuard`; app routes
+    (dashboard, agent, settings, etc.) wrapped in `AuthGuard`.
+  - `Login.tsx` — now calls `signIn()` from auth store, redirects
+    to dashboard (or previous page) on success.
+  - `Signup.tsx` — now calls `signUp()` from auth store, shows
+    "check your email" success message.
+  - `Profile.tsx` — uses real auth email, working Log Out button
+    via `signOut()`.
+  - `.env` created with real Supabase URL + anon key.
+  - `.env.example` updated (Supabase vars now uncommented).
+  - `tsconfig.json` — added `vite/client` to types for
+    `import.meta.env` support.
+  - Verified: `tsc --noEmit` zero errors, `/dashboard` redirects
+    to `/login`, signup form renders, landing page clean.
 
 ## Blocked
 
-- Nothing currently blocking. Product code has not started yet — everything
-  so far is repo/infra scaffolding and design docs.
+- Nothing currently blocking.
 
 ## Next action
 
-All planning docs (`CLAUDE.md`, `docs/*.md`, `.claude/commands/*`,
-`.claude/skills/*`) are now written. Per `docs/30_DAY_PLAN.md` Day 2: create
-the Supabase project and apply the first migration from
-`docs/DATABASE_SCHEMA.md` (tables + seed `plans` + RLS policies per
-`.claude/skills/supabase-rls.md`). Then Day 3's Next.js app skeleton.
+Day 2 complete. Per `docs/30_DAY_PLAN.md`:
+- Day 3 was originally "Next.js app skeleton + Supabase Auth" — already
+  done (frontend exists, auth wired).
+- **Next up: Day 4** — Worker skeleton: Python project, polling loop
+  against `agent_runs` with `SELECT ... FOR UPDATE SKIP LOCKED`, claim →
+  mark running → mark completed (no real Tradi invocation yet).
 
-Still-open decisions (`docs/ARCHITECTURE.md` → "Open questions"), not
-blocking Day 2/3 but needed before Day 5's real worker↔Tradi run:
-worker host choice (Railway/Fly.io/Hetzner), per-tier timeout/`--max-iter`
-defaults.
+Still-open decisions (`docs/ARCHITECTURE.md` → "Open questions"):
+- Worker host choice (Railway/Fly.io/Hetzner)
+- Per-tier timeout/`--max-iter` defaults
+
+Architecture note: "reuse Tradi frontend" decision has held through Day 2
+(auth wired into the Vite SPA successfully). Should be formally recorded
+in `docs/DECISIONS.md`.
 
 ## Session log
 
@@ -65,3 +216,8 @@ defaults.
 | 2026-08-05 | 1 | GitHub/SSH setup, HM repo created, Tradi engine merged in, saas scaffold + docs kickoff |
 | 2026-08-05 | 1 | ARCHITECTURE.md + worker-invocation decision (subprocess-per-run, isolated HOME) |
 | 2026-08-05 | 1 | Finished all planning docs: DATABASE_SCHEMA, SECURITY_CHECKLIST, 30_DAY_PLAN, all commands + skills |
+| 2026-08-05 | 1 | Audit: recorded vendoring decision in DECISIONS.md, restored root .gitignore (was 0 bytes) |
+| 2026-08-05 | 1 | Frontend foundation: Landing, Pricing, Login, Signup, Dashboard pages + PublicLayout + .env.example. Build + type-check pass, all pages verified in browser |
+| 2026-08-05 | 1 | H~M brand redesign: dark navy palette, gradient logo, Strategy Studio dashboard with Pine Script panel, equity curve, metrics cards. All pages verified in browser |
+| 2026-08-05 | 1 | Settings, Signals, Profile pages: 5-tab SaaS settings (account/billing/notifications/security/API), signal cards with filters, profile with stats + achievements + activity feed. All verified in browser |
+| 2026-08-05 | 2 | Supabase: 9 tables + RLS + seed plans + quota functions. Auth: Zustand store, AuthGuard/GuestGuard, Login/Signup wired to real Supabase Auth, route protection. tsc clean |
