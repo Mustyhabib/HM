@@ -1,22 +1,27 @@
-import { Link } from "react-router";
+import { Link, useNavigate, useLocation } from "react-router";
 import { useState, type FormEvent } from "react";
+import { useAuth } from "@/lib/auth-store";
 
 export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { signIn, loading } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleSubmit = (e: FormEvent) => {
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? "/dashboard";
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    setLoading(true);
 
-    // TODO: Wire to Supabase Auth (Day 2+)
-    setTimeout(() => {
-      setError("Auth not connected yet — coming soon.");
-      setLoading(false);
-    }, 500);
+    const { error: authError } = await signIn(email, password);
+    if (authError) {
+      setError(authError);
+    } else {
+      navigate(from, { replace: true });
+    }
   };
 
   return (

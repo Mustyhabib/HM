@@ -1,14 +1,16 @@
 import { Link } from "react-router";
 import { useState, type FormEvent } from "react";
+import { useAuth } from "@/lib/auth-store";
 
 export function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const { signUp, loading } = useAuth();
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -22,13 +24,13 @@ export function Signup() {
       return;
     }
 
-    setLoading(true);
-
-    // TODO: Wire to Supabase Auth (Day 2+)
-    setTimeout(() => {
-      setError("Auth not connected yet — coming soon.");
-      setLoading(false);
-    }, 500);
+    const { error: authError } = await signUp(email, password);
+    if (authError) {
+      setError(authError);
+    } else {
+      // Supabase sends a confirmation email by default
+      setSuccess(true);
+    }
   };
 
   return (
@@ -99,12 +101,21 @@ export function Signup() {
             </p>
           )}
 
+          {success && (
+            <div className="rounded-lg bg-success/10 border border-success/20 px-3 py-3 text-sm text-success">
+              <p className="font-medium">Check your email!</p>
+              <p className="mt-1 text-xs text-success/80">
+                We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account.
+              </p>
+            </div>
+          )}
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || success}
             className="w-full rounded-lg gradient-bg glow-gradient py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-60"
           >
-            {loading ? "Creating account…" : "Create account"}
+            {loading ? "Creating account…" : success ? "Email sent ✓" : "Create account"}
           </button>
 
           <p className="text-center text-xs text-muted-foreground">

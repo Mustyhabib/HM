@@ -2,7 +2,7 @@
 
 ## Current sprint day
 
-Day 1 of 30 — 2026-08-05 (frontend foundation complete)
+Day 2 of 30 — 2026-08-05 (Supabase + Auth wired)
 
 ## Completed
 
@@ -112,6 +112,81 @@ Day 1 of 30 — 2026-08-05 (frontend foundation complete)
     Popular" gradient badge, JetBrains Mono for prices.
   - All pages verified in browser — zero console errors, `tsc --noEmit`
     clean, `vite build` passes.
+- **Settings, Signals, and Profile pages built** — three new SaaS pages
+  replacing/extending the sidebar navigation:
+  - `SaasSettings.tsx` — 5-tab settings page (Account, Billing,
+    Notifications, Security, API Keys). Account: profile fields, dark
+    mode preference, danger zone (delete account). Billing: current
+    plan card with usage progress bar, payment method, billing history
+    table. Notifications: email + push toggles per category. Security:
+    password change, 2FA setup, session management. API Keys: live/test
+    key display with show/hide, copy, regenerate; webhooks section; API
+    docs link. Replaces the engine's LLM-config Settings page at
+    `/settings` (engine settings still available at `/settings/engine`).
+  - `Signals.tsx` — trading signals dashboard with 4 summary stat cards
+    (Active, Triggered, Win Rate, Total P&L), search by symbol,
+    status/direction filters, 8 mock signal cards each showing symbol,
+    direction badge (long/short), strategy name, status badge
+    (active/triggered/expired/cancelled), entry/target/stop price
+    levels, R:R ratio, confidence percentage, P&L for closed signals,
+    date. Disclaimer footer.
+  - `Profile.tsx` — user profile with gradient avatar (initials),
+    name, email, Pro plan badge, member-since date, copyable user ID.
+    Stats grid (Total Runs, Signals Generated, Win Rate, Days Active).
+    Current plan card with usage bar + upgrade/view-usage links.
+    Achievements section (5 badges, 3 earned, 2 in progress with
+    progress counters). Recent activity feed (6 items: runs, signals,
+    billing, account events) with typed icons and timestamps.
+  - `router.tsx` updated: `/settings` → SaasSettings, `/signals` →
+    Signals, `/profile` → Profile. Engine Settings preserved at
+    `/settings/engine`. All sidebar nav links now resolve to real pages.
+  - Verified: `tsc --noEmit` zero errors, zero console errors, all
+    three pages render correctly in browser.
+
+- **Supabase database created and migrated** — project
+  `wqjdumforbalfmtawwpg` (eu-central-1, Postgres 17), org "HM
+  Infrastructure". Two migrations applied:
+  - `create_initial_schema` — 9 tables per `DATABASE_SCHEMA.md`:
+    `profiles` (1:1 auth.users, auto-created via trigger),
+    `plans` (static tiers), `subscriptions` (mirrors Stripe),
+    `usage_periods` (transactional quota counter),
+    `usage_events` (immutable audit trail, trigger-enforced),
+    `agent_runs` (worker queue), `agent_artifacts` (storage refs),
+    `webhook_events` (Stripe idempotency), `audit_logs` (append-only,
+    trigger-enforced). Indexes on all query-hot columns. `updated_at`
+    trigger on subscriptions.
+  - `add_rls_policies_and_seed_plans` — RLS enabled on all 9 tables.
+    User-facing tables: SELECT where `user_id = auth.uid()`.
+    `agent_runs` also allows INSERT for owning user.
+    `webhook_events` and `audit_logs`: no client policies (service role
+    only). Plans seeded: starter $20/3, pro $35/7, premium $50/15.
+    Two SECURITY DEFINER functions: `start_agent_run()` (atomic quota
+    check + consume + create run, FOR UPDATE row lock) and
+    `refund_agent_run()` (atomic decrement + event log).
+- **Supabase Auth wired into frontend**:
+  - `@supabase/supabase-js` installed.
+  - `src/lib/supabase.ts` — Supabase client from env vars.
+  - `src/lib/auth-store.ts` — Zustand auth store with `signUp`,
+    `signIn`, `signOut`, session listener, loading/initialized state.
+  - `src/components/auth/AuthGuard.tsx` — `AuthGuard` (redirects to
+    `/login` if not authenticated) and `GuestGuard` (redirects to
+    `/dashboard` if already logged in). Both show loading spinner
+    while auth initializes.
+  - `router.tsx` updated: public routes (landing, pricing) open;
+    auth routes (login, signup) wrapped in `GuestGuard`; app routes
+    (dashboard, agent, settings, etc.) wrapped in `AuthGuard`.
+  - `Login.tsx` — now calls `signIn()` from auth store, redirects
+    to dashboard (or previous page) on success.
+  - `Signup.tsx` — now calls `signUp()` from auth store, shows
+    "check your email" success message.
+  - `Profile.tsx` — uses real auth email, working Log Out button
+    via `signOut()`.
+  - `.env` created with real Supabase URL + anon key.
+  - `.env.example` updated (Supabase vars now uncommented).
+  - `tsconfig.json` — added `vite/client` to types for
+    `import.meta.env` support.
+  - Verified: `tsc --noEmit` zero errors, `/dashboard` redirects
+    to `/login`, signup form renders, landing page clean.
 
 ## Blocked
 
@@ -119,20 +194,20 @@ Day 1 of 30 — 2026-08-05 (frontend foundation complete)
 
 ## Next action
 
-Per `docs/30_DAY_PLAN.md` Day 2: create the Supabase project and apply
-the first migration from `docs/DATABASE_SCHEMA.md` (tables + seed `plans`
-+ RLS policies per `.claude/skills/supabase-rls.md`). Then wire Supabase
-Auth into the existing Login/Signup pages.
+Day 2 complete. Per `docs/30_DAY_PLAN.md`:
+- Day 3 was originally "Next.js app skeleton + Supabase Auth" — already
+  done (frontend exists, auth wired).
+- **Next up: Day 4** — Worker skeleton: Python project, polling loop
+  against `agent_runs` with `SELECT ... FOR UPDATE SKIP LOCKED`, claim →
+  mark running → mark completed (no real Tradi invocation yet).
 
-Still-open decisions (`docs/ARCHITECTURE.md` → "Open questions"), not
-blocking Day 2 but needed before Day 5's real worker↔Tradi run:
-worker host choice (Railway/Fly.io/Hetzner), per-tier timeout/`--max-iter`
-defaults.
+Still-open decisions (`docs/ARCHITECTURE.md` → "Open questions"):
+- Worker host choice (Railway/Fly.io/Hetzner)
+- Per-tier timeout/`--max-iter` defaults
 
-Architecture note: the plan originally called for Next.js App Router but
-we chose to reuse `Tradi/frontend/` (React + Vite SPA) instead — simpler,
-no second framework, existing design system and component library carry
-over. Record this in `docs/DECISIONS.md` if it holds past Day 2.
+Architecture note: "reuse Tradi frontend" decision has held through Day 2
+(auth wired into the Vite SPA successfully). Should be formally recorded
+in `docs/DECISIONS.md`.
 
 ## Session log
 
@@ -144,3 +219,5 @@ over. Record this in `docs/DECISIONS.md` if it holds past Day 2.
 | 2026-08-05 | 1 | Audit: recorded vendoring decision in DECISIONS.md, restored root .gitignore (was 0 bytes) |
 | 2026-08-05 | 1 | Frontend foundation: Landing, Pricing, Login, Signup, Dashboard pages + PublicLayout + .env.example. Build + type-check pass, all pages verified in browser |
 | 2026-08-05 | 1 | H~M brand redesign: dark navy palette, gradient logo, Strategy Studio dashboard with Pine Script panel, equity curve, metrics cards. All pages verified in browser |
+| 2026-08-05 | 1 | Settings, Signals, Profile pages: 5-tab SaaS settings (account/billing/notifications/security/API), signal cards with filters, profile with stats + achievements + activity feed. All verified in browser |
+| 2026-08-05 | 2 | Supabase: 9 tables + RLS + seed plans + quota functions. Auth: Zustand store, AuthGuard/GuestGuard, Login/Signup wired to real Supabase Auth, route protection. tsc clean |

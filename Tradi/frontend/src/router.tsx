@@ -2,6 +2,7 @@ import { Suspense, lazy, type ComponentType } from "react";
 import { createBrowserRouter } from "react-router";
 import { Layout } from "@/components/layout/Layout";
 import { PublicLayout } from "@/components/layout/PublicLayout";
+import { AuthGuard, GuestGuard } from "@/components/auth/AuthGuard";
 
 // --- Public / SaaS pages ---
 const Landing = lazy(() => import("@/pages/Landing").then((m) => ({ default: m.Landing })));
@@ -9,6 +10,9 @@ const Pricing = lazy(() => import("@/pages/Pricing").then((m) => ({ default: m.P
 const Login = lazy(() => import("@/pages/Login").then((m) => ({ default: m.Login })));
 const Signup = lazy(() => import("@/pages/Signup").then((m) => ({ default: m.Signup })));
 const Dashboard = lazy(() => import("@/pages/Dashboard").then((m) => ({ default: m.Dashboard })));
+const SaasSettings = lazy(() => import("@/pages/SaasSettings").then((m) => ({ default: m.SaasSettings })));
+const Signals = lazy(() => import("@/pages/Signals").then((m) => ({ default: m.Signals })));
+const Profile = lazy(() => import("@/pages/Profile").then((m) => ({ default: m.Profile })));
 
 // --- Engine pages (existing) ---
 const Home = lazy(() => import("@/pages/Home").then((m) => ({ default: m.Home })));
@@ -61,29 +65,49 @@ export const router = createBrowserRouter([
     children: [
       { path: "/", element: wrap(Landing) },
       { path: "/pricing", element: wrap(Pricing) },
-      { path: "/login", element: wrap(Login) },
-      { path: "/signup", element: wrap(Signup) },
     ],
   },
 
-  // --- Authenticated app pages (sidebar layout) ---
+  // --- Auth pages (public layout, redirect if already logged in) ---
   {
-    element: <Layout />,
+    element: <GuestGuard />,
     children: [
-      { path: "/dashboard", element: wrap(Dashboard) },
-      { path: "/about", element: wrap(Home) },
-      { path: "/agent", element: wrap(Agent) },
-      { path: "/runtime", element: wrap(Runtime) },
-      { path: "/scheduled", element: wrap(Scheduled) },
-      { path: "/reports", element: wrap(Reports) },
-      { path: "/settings", element: wrap(Settings) },
-      { path: "/runs/:runId", element: wrap(RunDetail) },
-      { path: "/compare", element: wrap(Compare) },
-      { path: "/correlation", element: wrap(Correlation) },
-      { path: "/alpha-zoo", element: wrap(AlphaZoo) },
-      { path: "/alpha-zoo/bench", element: wrap(AlphaZoo) },
-      { path: "/alpha-zoo/compare", element: wrap(AlphaZoo) },
-      { path: "/alpha-zoo/:alphaId", element: wrap(AlphaZoo) },
+      {
+        element: <PublicLayout />,
+        children: [
+          { path: "/login", element: wrap(Login) },
+          { path: "/signup", element: wrap(Signup) },
+        ],
+      },
+    ],
+  },
+
+  // --- Authenticated app pages (sidebar layout, redirect to login if not authed) ---
+  {
+    element: <AuthGuard />,
+    children: [
+      {
+        element: <Layout />,
+        children: [
+          { path: "/dashboard", element: wrap(Dashboard) },
+          { path: "/about", element: wrap(Home) },
+          { path: "/agent", element: wrap(Agent) },
+          { path: "/runtime", element: wrap(Runtime) },
+          { path: "/scheduled", element: wrap(Scheduled) },
+          { path: "/reports", element: wrap(Reports) },
+          { path: "/settings", element: wrap(SaasSettings) },
+          { path: "/signals", element: wrap(Signals) },
+          { path: "/profile", element: wrap(Profile) },
+          { path: "/settings/engine", element: wrap(Settings) },
+          { path: "/runs/:runId", element: wrap(RunDetail) },
+          { path: "/compare", element: wrap(Compare) },
+          { path: "/correlation", element: wrap(Correlation) },
+          { path: "/alpha-zoo", element: wrap(AlphaZoo) },
+          { path: "/alpha-zoo/bench", element: wrap(AlphaZoo) },
+          { path: "/alpha-zoo/compare", element: wrap(AlphaZoo) },
+          { path: "/alpha-zoo/:alphaId", element: wrap(AlphaZoo) },
+        ],
+      },
     ],
   },
 ]);

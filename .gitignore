@@ -37,3 +37,6 @@ coverage/
 
 # === Sentry ===
 .sentryclirc
+
+# === LLM Wiki (local knowledge base) ===
+.wiki/
