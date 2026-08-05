@@ -1,0 +1,3 @@
+# Vendored engine — its own repo (Mustyhabib/vibe-trading-engine), not tracked here.
+# Cloned as a sibling checkout; pulled at worker build time pinned to a commit/tag.
+/Vibe-Trading/
