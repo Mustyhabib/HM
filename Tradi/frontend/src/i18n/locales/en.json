@@ -29,7 +29,7 @@
     "collapse": "Collapse",
     "expand": "Expand",
     "skipToMain": "Skip to main content",
-    "sidebar": "Vibe-Trading sidebar",
+    "sidebar": "H~Mltd sidebar",
     "mainNavigation": "Main navigation",
     "about": "About"
   },
@@ -361,7 +361,7 @@
     "clearApiKey": "Clear saved API key",
     "channels": {
       "title": "IM Channels",
-      "description": "Connect chat adapters to the same Vibe-Trading session runtime used by the Web UI and CLI.",
+      "description": "Connect chat adapters to the same H~Mltd session runtime used by the Web UI and CLI.",
       "runtime": "Runtime",
       "running": "Running",
       "stopped": "Stopped",

@@ -29,10 +29,10 @@ export function Login() {
       <div className="w-full max-w-sm space-y-6">
         {/* Header */}
         <div className="flex flex-col items-center gap-3 text-center">
-          <span className="text-3xl font-bold gradient-text glow-gradient">H~M</span>
+          <span className="text-3xl font-bold gradient-text glow-gradient">H~Mltd</span>
           <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
           <p className="text-sm text-muted-foreground">
-            Log in to your H~M account
+            Log in to your H~Mltd account
           </p>
         </div>
 

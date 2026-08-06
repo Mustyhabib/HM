@@ -197,7 +197,7 @@ export function SaasSettings() {
                 <Toggle
                   icon={Moon}
                   label="Dark mode"
-                  description="Always enabled — H~M uses a dark theme"
+                  description="Always enabled — H~Mltd uses a dark theme"
                   checked={true}
                   onChange={() => {}}
                 />
@@ -470,7 +470,7 @@ export function SaasSettings() {
           <>
             <Section
               title="API Access"
-              description="Generate API keys for programmatic access to your H~M account"
+              description="Generate API keys for programmatic access to your H~Mltd account"
             >
               <div className="rounded-lg border border-border bg-[#05060F] p-4">
                 <div className="flex items-center justify-between">

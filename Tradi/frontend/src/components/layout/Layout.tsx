@@ -55,7 +55,7 @@ export function Layout() {
         >
           <Link to="/dashboard" className="flex items-center gap-2">
             {collapsed ? (
-              <span className="text-lg font-bold gradient-text">H~M</span>
+              <span className="text-lg font-bold gradient-text">H~Mltd</span>
             ) : (
               <>
                 <BrandLogo />
