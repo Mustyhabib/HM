@@ -8,7 +8,7 @@ launch-gate checklist; this is how to actually walk it against a diff.
 
 ```bash
 git diff --name-only | grep -E \
-  'route\.ts$|webhook|stripe|rls|migration|\.sql$|worker|agent_runs|subprocess'
+  'route\.ts$|webhook|paystack|rls|migration|\.sql$|worker|agent_runs|subprocess'
 ```
 
 If nothing matches, this is very likely a low-risk UI/copy change — say so
@@ -36,9 +36,10 @@ and move on rather than padding out a review with irrelevant checks.
 - Does a new failure path correctly call (or correctly *not* call)
   `refund_agent_run` per the system-caused vs. user-caused distinction?
 
-## If it touches Stripe/webhooks
+## If it touches Paystack/webhooks
 
-- Signature verification still present and still before any DB write?
+- `x-paystack-signature` header check still present and still before any DB write, and
+  the transaction re-verified via `/transaction/verify/{reference}` before money moves?
 - Still inserting into `webhook_events` and treating a unique-violation as
   a no-op, rather than a new dedupe mechanism invented locally?
 

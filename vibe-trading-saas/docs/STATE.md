@@ -2,7 +2,7 @@
 
 ## Current sprint day
 
-Day 4 of 30 — 2026-08-05 (worker skeleton + run lifecycle)
+Day 4 of 30 — 2026-08-06 (billing provider set to Paystack + NGN; Stripe parked for later). Day 5 worker `TradiRunner` remains the next feature step.
 
 ## Completed
 
@@ -277,3 +277,4 @@ Should be formally recorded in `docs/DECISIONS.md`.
 | 2026-08-05 | 2 | Supabase: 9 tables + RLS + seed plans + quota functions. Auth: Zustand store, AuthGuard/GuestGuard, Login/Signup wired to real Supabase Auth, route protection. tsc clean |
 | 2026-08-05 | 4 | Worker skeleton: `hm_worker` package (config/db/runner/main), run-lifecycle migration (claim/heartbeat/complete/fail, SKIP LOCKED), heartbeat + stale reclaim, refund taxonomy, graceful shutdown. 16 tests passing |
 | 2026-08-05 | 4 | Signup/login fixed & verified live. Root cause was Supabase email rate limit; disabled email confirmation (3 auth toggles: allow-signups ON, email-provider ON, confirm-email OFF). Code: signup confirmation-off branch + synchronous session set so post-auth redirect doesn't race AuthGuard. Both flows land on /dashboard. Billing pivot Stripe→Flutterwave recorded (D8) |
+| 2026-08-06 | 4 | Billing set to **Paystack + NGN** (Stripe parked). Established the operator is a Nigerian entity with no US/UK company, so Stripe can't onboard; customers are Nigerian crypto/forex/indices traders. Recovered the stashed NGN work and swapped Flutterwave→Paystack across frontend (₦70k/₦120k/₦200k), CLAUDE.md, docs, commands, skills, wiki; authored `paystack-billing.md`, kept `stripe-billing.md` parked. No DB migration needed — live schema already has neutral columns + `plans.price_ngn`. Neutral billing columns kept (Stripe-compatible). D8 updated; DECISIONS.md records the Paystack decision + compliance framing (present as education SaaS). |

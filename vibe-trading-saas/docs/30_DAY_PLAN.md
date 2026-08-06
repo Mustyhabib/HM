@@ -33,7 +33,7 @@ plan — this is a plan, not a commitment log.
 
 **Week 1 exit criteria:** a run can be inserted directly in Supabase and
 come back completed with a real Tradi-generated artifact, end to end,
-without touching Stripe or the frontend UI yet.
+without touching Paystack or the frontend UI yet.
 
 ## Week 2 (Days 8–14): Core product loop
 
@@ -55,15 +55,15 @@ watch it complete, and see the result — with real quota decrementing.
 ## Week 3 (Days 15–21): Billing
 
 - **Day 15** — Pricing page (3 tiers, static copy from `PROJECT_BRIEF.md`).
-- **Day 16** — Stripe Checkout integration for subscribing to a plan
-  (test-mode keys only, per `SECURITY_CHECKLIST.md`).
-- **Day 17** — Webhook handler (`checkout.session.completed`,
-  `customer.subscription.updated/deleted`) writing to `subscriptions`,
-  idempotent via `webhook_events`.
+- **Day 16** — Paystack checkout integration (Plan per tier) for
+  subscribing to a plan (test keys only, per `SECURITY_CHECKLIST.md`).
+- **Day 17** — Webhook handler (`charge.success`,
+  `subscription.disable`) writing to `subscriptions`, idempotent via
+  `webhook_events` and authenticated with the `x-paystack-signature` header.
 - **Day 18** — `usage_periods` creation tied to subscription period
   start/end; verify a new billing period actually resets usable quota.
-- **Day 19** — Billing settings page: Stripe Customer Portal redirect for
-  plan changes / cancellation.
+- **Day 19** — Billing settings page: cancel / change plan via our own API
+  route calling Paystack (no hosted customer portal like Stripe's).
 - **Day 20** — End-to-end billing test: subscribe → consume quota → hit
   the cap → confirm run creation is blocked with a clear message.
 - **Day 21** — Buffer / catch-up.
@@ -91,11 +91,11 @@ quota, start to finish, with no manual DB edits required.
 - **Day 28** — Buffer / catch-up.
 
 **Week 4 exit criteria:** `SECURITY_CHECKLIST.md` fully checked off, ready
-to flip Stripe to live mode.
+to flip Paystack to live mode.
 
 ## Days 29–30: Launch
 
-- **Day 29** — Switch Stripe to live keys (explicit, deliberate step per
+- **Day 29** — Switch Paystack to live keys (explicit, deliberate step per
   `CLAUDE.md` rule 2). Deploy worker to its final host (resolve the
   `ARCHITECTURE.md` open question on Railway/Fly.io/Hetzner if not already
   settled). Final smoke test with a real card in live mode (refund it

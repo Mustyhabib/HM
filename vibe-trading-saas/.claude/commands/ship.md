@@ -9,7 +9,7 @@ infra changes specifically because "small" changes are where those hide.
    session.
 2. If the change touches billing, quota, or RLS: walk the relevant section
    of `docs/SECURITY_CHECKLIST.md` explicitly, not from memory.
-3. If the change touches Stripe: confirm test-mode keys are still what's
+3. If the change touches Paystack: confirm test keys are still what's
    configured, unless this is the deliberate, explicitly-confirmed switch
    to live keys (`CLAUDE.md` rule 2, `docs/30_DAY_PLAN.md` Day 29).
 4. Confirm no secret, token, or service-role key appears in the diff.

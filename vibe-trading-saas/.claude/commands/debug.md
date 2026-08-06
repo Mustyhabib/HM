@@ -19,9 +19,9 @@ which one is at fault:
    - Did it hit the worker's wall-clock timeout, or one of `Tradi`'s own
      (`TIMEOUT_SECONDS` default 120s per LLM call,
      `VIBE_TRADING_TOOL_TIMEOUT_SECONDS` default 1800s per tool)?
-4. **Stripe/webhooks** — check `webhook_events` for whether the event
-   arrived and was marked `processed_at`, and Stripe's own dashboard event
-   log, before assuming the handler is broken.
+4. **Paystack/webhooks** — check `webhook_events` for whether the event
+   arrived and was marked `processed_at`, and Paystack's own dashboard
+   event log, before assuming the handler is broken.
 
 Reproduce with the narrowest possible case before proposing a fix. State the
 root cause in one sentence before writing the fix — if you can't state it in

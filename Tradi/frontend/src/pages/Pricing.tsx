@@ -5,24 +5,28 @@ import { cn } from "@/lib/utils";
 interface Plan {
   id: string;
   name: string;
-  price: number;
+  priceNgn: number;
   uses: number;
   description: string;
   popular?: boolean;
 }
 
+// Charge currency is Naira (Paystack). The USD figure shown alongside is
+// display-only, at a fixed reference rate. See docs/DECISIONS.md.
+const NGN_PER_USD = 1300;
+
 const PLANS: Plan[] = [
   {
     id: "starter",
     name: "Starter",
-    price: 20,
+    priceNgn: 70000,
     uses: 3,
     description: "For getting started with AI trading research.",
   },
   {
     id: "pro",
     name: "Pro",
-    price: 35,
+    priceNgn: 120000,
     uses: 7,
     description: "For active traders who research regularly.",
     popular: true,
@@ -30,7 +34,7 @@ const PLANS: Plan[] = [
   {
     id: "premium",
     name: "Premium",
-    price: 50,
+    priceNgn: 200000,
     uses: 15,
     description: "For power users who need the most research runs.",
   },
@@ -80,8 +84,13 @@ export function Pricing() {
             <p className="mt-1 text-sm text-muted-foreground">{plan.description}</p>
 
             <div className="mt-6">
-              <span className="text-4xl font-bold font-mono">${plan.price}</span>
+              <span className="text-4xl font-bold font-mono">
+                ₦{plan.priceNgn.toLocaleString()}
+              </span>
               <span className="text-muted-foreground">/month</span>
+              <div className="mt-1 text-sm text-muted-foreground font-mono">
+                ≈ ${Math.round(plan.priceNgn / NGN_PER_USD).toLocaleString()}/mo
+              </div>
             </div>
 
             <div className="mt-2 rounded-lg bg-[#101730] px-3 py-2 text-sm">

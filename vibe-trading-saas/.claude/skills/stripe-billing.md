@@ -1,5 +1,12 @@
 # Skill: Stripe billing for this project
 
+> **⚠️ PARKED — not the active provider.** The MVP bills via **Paystack**
+> (a Nigerian entity can't onboard Stripe); see
+> [`paystack-billing.md`](paystack-billing.md) and `docs/DECISIONS.md` (D8).
+> Kept for later: if a US/UK entity is formed to serve international USD
+> customers, Stripe would run alongside Paystack (the DB columns are already
+> provider-neutral). Until then, do not implement from this file.
+
 Three fixed-price subscription tiers (`docs/PROJECT_BRIEF.md` → pricing
 table). No metered billing, no add-on purchases at MVP (`CLAUDE.md`
 explicitly defers those). Keep the integration boring: Checkout + Portal +

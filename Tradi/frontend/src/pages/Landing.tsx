@@ -114,7 +114,7 @@ export function Landing() {
             Ready to start researching?
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Plans start at $20/month. No credit card required to sign up.
+            Plans start at ₦70,000/month (~$54). No credit card required to sign up.
           </p>
           <Link
             to="/signup"

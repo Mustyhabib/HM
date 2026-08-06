@@ -14,9 +14,9 @@ someday-list.
       (Next.js API routes, worker) — never shipped to the client bundle
       (`CLAUDE.md` → "SECURITY PRINCIPLES": "Do not expose service-role keys
       to the frontend").
-- [ ] Stripe **secret key** and **webhook signing secret** server-side only;
+- [ ] Paystack **secret key** and **webhook secret hash** server-side only;
       only the **publishable key** reaches the browser.
-- [ ] Development uses Stripe test-mode keys; switching to live keys is an
+- [ ] Development uses Paystack test keys; switching to live keys is an
       explicit, confirmed action, not a side effect of deploying
       (`CLAUDE.md` rule 2).
 - [ ] `.env` files are gitignored everywhere (root, `vibe-trading-saas/`,
@@ -48,11 +48,13 @@ someday-list.
 - [ ] `usage_events` rows are genuinely immutable — `UPDATE`/`DELETE`
       revoked at the DB grant level, not just left undone in the API
       (`CLAUDE.md`: "Usage events must be immutable").
-- [ ] Stripe webhook handler is idempotent against replay: same event ID
+- [ ] Paystack webhook handler is idempotent against replay: same event ID
       processed twice has no double effect (`CLAUDE.md` rule 9,
       `webhook_events` table in `DATABASE_SCHEMA.md`).
-- [ ] Stripe webhook signature verified before any processing (reject
-      unsigned/invalid-signature requests).
+- [ ] Paystack webhook `x-paystack-signature` header verified against the secret hash
+      before any processing (reject unsigned/mismatched requests), and the
+      transaction re-verified via `/transaction/verify/{reference}` before acting on
+      money.
 - [ ] `agent_runs.idempotency_key` actually enforced (`UNIQUE` constraint,
       not just documented) so a retried "Run" click can't double-charge a
       use.

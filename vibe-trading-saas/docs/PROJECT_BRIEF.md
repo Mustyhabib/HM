@@ -37,9 +37,9 @@ keys.
 
 | Tier | Price/mo | Agent uses/mo |
 |---|---|---|
-| Starter | $20 | 3 |
-| Pro | $35 | 7 |
-| Premium | $50 | 15 |
+| Starter | ₦70,000 (~$54) | 3 |
+| Pro | ₦120,000 (~$92) | 7 |
+| Premium | ₦200,000 (~$154) | 15 |
 
 1 "use" = 1 completed agent run. System-caused failures refund the use;
 user-caused invalid input may not. No rollover at MVP. Resets on billing
@@ -48,20 +48,20 @@ period.
 ## MVP feature set
 
 See "MVP FEATURES" in `CLAUDE.md` for the full 15-item list (landing page,
-pricing, auth, dashboard, Stripe checkout, quota, run queue/status/results,
+pricing, auth, dashboard, Paystack checkout, quota, run queue/status/results,
 usage history, billing settings, admin visibility, legal pages, monitoring).
 
 ## Target scale & budget
 
 Long-term target: 1,000+ users. MVP phase: launch small, validate, then
 scale — do not build for 1,000 users on day one. Target infra budget ~$100/mo
-core, separate LLM/API usage budget, Stripe fees expected. Full constraints in
+core, separate LLM/API usage budget, Paystack fees expected. Full constraints in
 `CLAUDE.md` ("SOLO DEVELOPER CONSTRAINTS" / "BUDGET CONSTRAINTS").
 
 ## Stack
 
 Next.js + Tailwind + TypeScript (Vercel/Cloudflare Pages) · Supabase (Postgres
-+ Auth + Storage + RLS) · Stripe (Checkout + Portal + Webhooks) · Python
++ Auth + Storage + RLS) · Paystack (Checkout + Plans + Webhooks) · Python
 worker (Railway/Fly.io/Hetzner) wrapping the `Tradi/` engine · Sentry +
 uptime monitoring. Full detail: `CLAUDE.md` → "PREFERRED STACK",
 `docs/ARCHITECTURE.md` (TODO).

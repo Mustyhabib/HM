@@ -24,9 +24,11 @@ This is not a live trading execution platform at MVP. It is analysis/research on
 
 There are 3 monthly subscription tiers:
 
-1. Starter: $20/month = 3 agent uses/month
-2. Pro: $35/month = 7 agent uses/month
-3. Premium: $50/month = 15 agent uses/month
+Charged in Naira via Paystack; USD shown for reference at ₦1,300 = $1.
+
+1. Starter: ₦70,000/month (~$54) = 3 agent uses/month
+2. Pro: ₦120,000/month (~$92) = 7 agent uses/month
+3. Premium: ₦200,000/month (~$154) = 15 agent uses/month
 
 Definitions:
 
@@ -66,7 +68,7 @@ Target MVP operating budget:
 
 - Around $100/month for core infrastructure
 - Separate budget for LLM/API usage
-- Stripe transaction fees are expected
+- Paystack transaction fees are expected
 - Prefer free or cheap tiers initially
 - Upgrade only when real usage justifies it
 
@@ -88,10 +90,10 @@ Use this stack unless there is a very strong reason not to:
 - Row Level Security enabled by default
 
 ### Billing
-- Stripe
-- Stripe Checkout
-- Stripe Customer Portal
-- Stripe Webhooks
+- Paystack (Nigerian entity, no US/UK company — Stripe can't onboard; see docs/DECISIONS.md D8. Stripe parked for later.)
+- Paystack hosted checkout
+- Paystack Plans (recurring subscriptions)
+- Paystack Webhooks (verified via the `x-paystack-signature` header — HMAC-SHA512 of the raw body with the secret key)
 
 ### Cache/Rate Limiting
 - Upstash Redis if needed
@@ -118,7 +120,7 @@ The MVP must include:
 2. Pricing page
 3. Signup/login
 4. User dashboard
-5. Stripe subscription checkout
+5. Paystack subscription checkout
 6. Monthly usage quota
 7. Start agent run
 8. Agent run queue
@@ -156,7 +158,7 @@ Do not build these yet unless I explicitly request them:
 You must follow these rules:
 
 1. Never put secrets in code, logs, or docs
-2. Never use production Stripe keys during development unless I explicitly confirm
+2. Never use production/live Paystack keys during development unless I explicitly confirm
 3. Never store unencrypted broker API keys
 4. Never enable live trading without explicit approval
 5. Never delete database tables without confirmation
@@ -188,7 +190,7 @@ Usage events must be immutable.
 
 Agent runs must have idempotency keys.
 
-Stripe webhook processing must be idempotent.
+Paystack webhook processing must be idempotent.
 
 ## SECURITY PRINCIPLES
 

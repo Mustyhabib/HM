@@ -244,7 +244,7 @@ export function SaasSettings() {
                       </span>
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      $35/month · 7 agent runs · Renews Aug 15, 2026
+                      ₦120,000/month · 7 agent runs · Renews Aug 15, 2026
                     </div>
                   </div>
                 </div>
@@ -301,9 +301,9 @@ export function SaasSettings() {
                   </thead>
                   <tbody className="divide-y divide-border">
                     {[
-                      { date: "Aug 1, 2026", desc: "Pro Plan — Monthly", amount: "$35.00", status: "Paid" },
-                      { date: "Jul 1, 2026", desc: "Pro Plan — Monthly", amount: "$35.00", status: "Paid" },
-                      { date: "Jun 1, 2026", desc: "Starter Plan — Monthly", amount: "$20.00", status: "Paid" },
+                      { date: "Aug 1, 2026", desc: "Pro Plan — Monthly", amount: "₦120,000", status: "Paid" },
+                      { date: "Jul 1, 2026", desc: "Pro Plan — Monthly", amount: "₦120,000", status: "Paid" },
+                      { date: "Jun 1, 2026", desc: "Starter Plan — Monthly", amount: "₦70,000", status: "Paid" },
                     ].map((row) => (
                       <tr key={row.date}>
                         <td className="py-3 font-mono text-xs">{row.date}</td>
@@ -328,7 +328,7 @@ export function SaasSettings() {
 
             <div className="text-center">
               <button className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition">
-                Manage subscription on Stripe <ExternalLink className="h-3.5 w-3.5" />
+                Manage subscription on Paystack <ExternalLink className="h-3.5 w-3.5" />
               </button>
             </div>
           </>

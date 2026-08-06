@@ -140,3 +140,55 @@ Alternatives considered:
     provider-neutral column renaming above keeps it a low-cost switch if
     Flutterwave disappoints.
 ```
+
+---
+
+```text
+[2026-08-06] Decision: Billing provider is Paystack (NGN), superseding the
+  Flutterwave choice above. Stripe stays parked for later. Pricing stays in
+  Naira (₦70,000 / ₦120,000 / ₦200,000).
+
+Context:
+  - The Flutterwave decision (above) was made when Stripe looked unreachable
+    from the operator's region. The real constraint is now clearer: the
+    operator is a Nigerian entity with no US/UK company, so Stripe cannot
+    onboard the business at all — Stripe registers merchants by country of
+    entity, not by bank account, and a Grey/virtual USD account does not
+    satisfy that requirement.
+  - Customers are Nigerian-focused (crypto/forex/indices retail traders)
+    paying with naira cards, which mostly decline USD charges.
+
+Reason for Paystack over Flutterwave:
+  - Both work for a Nigerian entity and settle to a Nigerian bank in NGN.
+  - Paystack (Stripe-owned) has the better API, docs, reliability, and
+    compliance handling. Flutterwave is kept only as a fallback if Paystack
+    rejects the business category at KYC.
+  - Subscriptions via Paystack Plans; hosted checkout; webhooks authenticated
+    by the `x-paystack-signature` header (HMAC-SHA512 of the raw body), then
+    re-verified via `/transaction/verify/{reference}` before acting on money.
+
+DB: No migration needed. The live schema already has provider-neutral columns
+  (`billing_customer_id`, `provider_price_id`, `provider_subscription_id`,
+  `provider_event_id`) and `plans.price_ngn` (NGN) — exactly what this decision
+  wants. Neutral names are kept (Stripe-compatible, cheap to add a second
+  provider later).
+
+Compliance: crypto/forex/"trading" businesses are restricted by both Paystack
+  and Flutterwave. Present the product as AI research/education software (a SaaS
+  subscription) — not a trading, brokerage, or signals service — in the merchant
+  application and marketing. This matches the product reality (`CLAUDE.md`:
+  "analysis/research only, not live trading").
+
+Stripe (parked): revisit only if a US/UK entity is formed to serve the
+  international slice in USD — at which point Stripe (USD, international) runs
+  alongside Paystack (NGN, Nigeria) as a deliberate two-provider setup, which
+  the neutral columns already support. `stripe-billing.md` is kept as a parked
+  reference.
+
+Alternatives considered:
+  - Stripe now. Not possible — no supported-country entity; Grey/virtual
+    accounts don't satisfy Stripe's entity requirement.
+  - Stay on Flutterwave. Rejected: Paystack is the better-built option for the
+    same market; Flutterwave kept only as a category-rejection fallback.
+  - Keep USD pricing. Rejected: naira cards don't reliably charge in USD.
+```
