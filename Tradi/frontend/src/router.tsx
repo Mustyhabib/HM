@@ -13,6 +13,7 @@ const Dashboard = lazy(() => import("@/pages/Dashboard").then((m) => ({ default:
 const SaasSettings = lazy(() => import("@/pages/SaasSettings").then((m) => ({ default: m.SaasSettings })));
 const Signals = lazy(() => import("@/pages/Signals").then((m) => ({ default: m.Signals })));
 const Profile = lazy(() => import("@/pages/Profile").then((m) => ({ default: m.Profile })));
+const RunView = lazy(() => import("@/pages/RunView").then((m) => ({ default: m.RunView })));
 
 // --- Engine pages (existing) ---
 const Home = lazy(() => import("@/pages/Home").then((m) => ({ default: m.Home })));
@@ -90,6 +91,7 @@ export const router = createBrowserRouter([
         element: <Layout />,
         children: [
           { path: "/dashboard", element: wrap(Dashboard) },
+          { path: "/run/:runId", element: wrap(RunView) },
           { path: "/about", element: wrap(Home) },
           { path: "/agent", element: wrap(Agent) },
           { path: "/runtime", element: wrap(Runtime) },

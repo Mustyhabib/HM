@@ -1,10 +1,8 @@
 import { useState } from "react";
+import { Link } from "react-router";
 import {
-  Send,
-  Sparkles,
-  SlidersHorizontal,
-  CheckCircle2,
-  HelpCircle,
+  Bot,
+  ArrowRight,
   TrendingUp,
   Target,
   DollarSign,
@@ -85,13 +83,6 @@ const BOTTOM_STATS = [
   { label: "Profitable Trades", value: "97" },
   { label: "Max Drawdown", value: "-11.2%", negative: true },
   { label: "Profit Factor", value: "2.34" },
-];
-
-const AI_ACTIONS = [
-  { icon: Sparkles, label: "AI Suggestions" },
-  { icon: SlidersHorizontal, label: "Optimize" },
-  { icon: CheckCircle2, label: "Validate" },
-  { icon: HelpCircle, label: "Explain" },
 ];
 
 /* ─── Equity curve SVG (placeholder) ─── */
@@ -307,8 +298,6 @@ function PineScriptLine({ line }: { line: string }) {
 
 /* ─── Dashboard page ─── */
 export function Dashboard() {
-  const [prompt, setPrompt] = useState("");
-
   return (
     <div className="flex h-full">
       {/* ─── Left: Strategy Studio ─── */}
@@ -327,36 +316,25 @@ export function Dashboard() {
           </p>
         </div>
 
-        {/* Prompt box with gradient border */}
+        {/* Launch the agent workspace (single prompt box lives on /agent) */}
         <div className="gradient-border glow-pulse rounded-xl mb-6">
-          <div className="rounded-xl bg-card p-4">
-            <div className="flex items-end gap-3">
-              <div className="flex-1">
-                <input
-                  type="text"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="Ask H~Mltd to generate a strategy..."
-                  className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
-                />
-              </div>
-              <button className="flex h-9 w-9 items-center justify-center rounded-lg gradient-bg glow-gradient text-white transition hover:opacity-90">
-                <Send className="h-4 w-4" />
-              </button>
+          <div className="flex flex-col gap-3 rounded-xl bg-card p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-foreground">
+                Research with the H~Mltd Agent
+              </h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Ask trading research questions, run backtests, and launch agent swarms — all from the Agent workspace.
+              </p>
             </div>
-
-            {/* AI action buttons */}
-            <div className="mt-3 flex items-center gap-2">
-              {AI_ACTIONS.map(({ icon: Icon, label }) => (
-                <button
-                  key={label}
-                  className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
-                >
-                  <Icon className="h-3 w-3" />
-                  {label}
-                </button>
-              ))}
-            </div>
+            <Link
+              to="/agent"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg gradient-bg glow-gradient px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
+            >
+              <Bot className="h-4 w-4" />
+              Open Agent
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
         </div>
 

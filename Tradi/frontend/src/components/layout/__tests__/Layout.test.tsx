@@ -2,116 +2,84 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { Layout } from "../Layout";
 
-const sessions = [
-  {
-    session_id: "session-1",
-    title: "A very long session title that must truncate",
-  },
-];
+// The current sidebar is the H~Mltd SaaS shell: a fixed set of top-level
+// destinations plus a collapse toggle whose preference persists to
+// localStorage under "hm-sidebar". (The richer session sidebar — sessions,
+// rename, language switcher, i18n landmarks — belonged to the pre-redesign
+// Vibe-Trading layout and was intentionally removed.)
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => ({
-      "app.version": "v0.1.13",
-      "layout.agent": "Agent",
-      "layout.alphaZoo": "Alpha Zoo",
-      "layout.cancel": "Cancel",
-      "layout.collapse": "Collapse",
-      "layout.confirm": "Confirm",
-      "layout.correlation": "Correlation Matrix",
-      "layout.dark": "Dark",
-      "layout.delete": "Delete",
-      "layout.expand": "Expand",
-      "layout.home": "Home",
-      "layout.language": "Language",
-      "layout.light": "Light",
-      "layout.mainNavigation": "Main navigation",
-      "layout.newChat": "New Chat",
-      "layout.noSessions": "No sessions yet",
-      "layout.rename": "Rename",
-      "layout.reports": "Reports",
-      "layout.runtime": "Runtime",
-      "layout.sessions": "Sessions",
-      "layout.settings": "Settings",
-      "layout.sidebar": "H~Mltd sidebar",
-      "layout.skipToMain": "Skip to main content",
-    })[key] ?? key,
-    i18n: {
-      language: "en",
-      languages: ["en"],
-      changeLanguage: vi.fn().mockResolvedValue(undefined),
-    },
-  }),
-}));
+const NAV = [
+  { label: "Home", href: "/dashboard" },
+  { label: "Agent", href: "/agent" },
+  { label: "Signals", href: "/signals" },
+  { label: "Usage", href: "/usage" },
+  { label: "Settings", href: "/settings" },
+  { label: "Wallet", href: "/wallet" },
+] as const;
 
-vi.mock("@/hooks/useDarkMode", () => ({
-  useDarkMode: () => ({ dark: false, toggle: vi.fn() }),
-}));
-
-vi.mock("@/lib/api", () => ({
-  api: {
-    listSessions: vi.fn().mockResolvedValue([
-      {
-        session_id: "session-1",
-        title: "A very long session title that must truncate",
-      },
-    ]),
-    deleteSession: vi.fn().mockResolvedValue(undefined),
-    renameSession: vi.fn().mockResolvedValue(undefined),
-  },
-}));
-
-vi.mock("@/stores/agent", () => ({
-  useAgentStore: (selector: (state: {
-    sseStatus: string;
-    sseRetryAttempt: number;
-    streamingSessionId: null;
-  }) => unknown) => selector({
-    sseStatus: "connected",
-    sseRetryAttempt: 0,
-    streamingSessionId: null,
-  }),
-}));
-
-function renderLayout() {
+function renderLayout(initialPath = "/agent") {
   return render(
-    <MemoryRouter initialEntries={["/agent"]}>
+    <MemoryRouter initialEntries={[initialPath]}>
       <Routes>
         <Route element={<Layout />}>
           <Route path="/agent" element={<div>Agent content</div>} />
+          <Route path="/signals" element={<div>Signals content</div>} />
         </Route>
       </Routes>
     </MemoryRouter>,
   );
 }
 
-describe("Layout accessibility", () => {
-  it("labels landmarks, brand, main content, and the new-chat affordance", () => {
+afterEach(() => {
+  window.localStorage.clear();
+});
+
+describe("Layout", () => {
+  it("renders the brand link and every primary navigation destination", () => {
     renderLayout();
 
-    expect(screen.getByRole("complementary", { name: "H~Mltd sidebar" })).toHaveClass("max-md:w-12");
-    expect(screen.getByRole("navigation", { name: "Main navigation" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "H~Mltd" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "New Chat" })).toHaveAttribute("title", "New Chat");
-    expect(screen.getByText("Skip to main content")).toHaveAttribute("href", "#main");
-    expect(screen.getByRole("main")).toHaveAttribute("id", "main");
-    expect(screen.getByRole("main").parentElement).toHaveClass("relative");
+    // Brand mark returns to the dashboard.
+    expect(screen.getByRole("link", { name: /H~Mltd/ })).toHaveAttribute(
+      "href",
+      "/dashboard",
+    );
+
+    for (const { label, href } of NAV) {
+      expect(screen.getByRole("link", { name: label })).toHaveAttribute("href", href);
+    }
   });
 
-  it("exposes session actions on keyboard focus and labels the rename input", async () => {
+  it("highlights the destination matching the current route", () => {
+    renderLayout("/agent");
+
+    expect(screen.getByRole("link", { name: "Agent" })).toHaveClass("text-primary");
+    expect(screen.getByRole("link", { name: "Signals" })).not.toHaveClass(
+      "text-primary",
+    );
+  });
+
+  it("renders routed content through the main outlet", () => {
+    renderLayout("/agent");
+
+    expect(screen.getByText("Agent content")).toBeInTheDocument();
+  });
+
+  it("collapses the sidebar and persists the preference", () => {
+    renderLayout();
+    const sidebar = screen.getByRole("complementary");
+    expect(sidebar).toHaveClass("w-56");
+
+    fireEvent.click(screen.getByTitle("Collapse sidebar"));
+
+    expect(sidebar).toHaveClass("w-16");
+    expect(window.localStorage.getItem("hm-sidebar")).toBe("collapsed");
+  });
+
+  it("starts collapsed when the stored preference says so", () => {
+    window.localStorage.setItem("hm-sidebar", "collapsed");
     renderLayout();
 
-    const title = await screen.findByText(sessions[0].title);
-    expect(title).toHaveClass("min-w-0", "truncate");
-
-    const renameButton = screen.getByRole("button", { name: "Rename" });
-    expect(renameButton.parentElement).toHaveClass("group-focus-within:opacity-100");
-    fireEvent.click(renameButton);
-
-    expect(screen.getByRole("textbox", { name: `Rename: ${sessions[0].title}` })).toHaveClass(
-      "focus:ring-2",
-      "focus:ring-primary/40",
-    );
+    expect(screen.getByRole("complementary")).toHaveClass("w-16");
   });
 
   it("does not crash when localStorage access is blocked", () => {
@@ -123,25 +91,5 @@ describe("Layout accessibility", () => {
     });
 
     expect(() => renderLayout()).not.toThrow();
-  });
-
-  it("uses button disclosure semantics for the language switcher", () => {
-    renderLayout();
-
-    const languageButton = screen.getByRole("button", { name: "Language" });
-    expect(languageButton).toHaveAttribute("aria-expanded", "false");
-    expect(languageButton).not.toHaveAttribute("aria-haspopup");
-  });
-
-  it("synchronizes the sidebar preference from another tab", () => {
-    window.localStorage.setItem("qa-sidebar", "expanded");
-    renderLayout();
-    const sidebar = screen.getByRole("complementary", { name: "H~Mltd sidebar" });
-    expect(sidebar).toHaveClass("w-64");
-
-    window.localStorage.setItem("qa-sidebar", "collapsed");
-    fireEvent(window, new StorageEvent("storage", { key: "qa-sidebar" }));
-
-    expect(sidebar).toHaveClass("w-12");
   });
 });
