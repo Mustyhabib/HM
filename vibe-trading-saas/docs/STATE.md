@@ -2,7 +2,7 @@
 
 ## Current sprint day
 
-Day 4 of 30 — 2026-08-06 (billing provider set to Paystack + NGN; Stripe parked for later). Day 5 worker `TradiRunner` remains the next feature step.
+Day 5 of 30 — 2026-08-06 (real `TradiRunner` implemented + unit-tested). The one real end-to-end run is pending `worker/.env` (service-role key) + an LLM key.
 
 ## Completed
 
@@ -226,6 +226,20 @@ Day 4 of 30 — 2026-08-06 (billing provider set to Paystack + NGN; Stripe parke
     outcomes, lost claim, signal drain, claim-failure backoff, stub
     abort paths). Stale reclaim itself lives in SQL and is not yet
     covered by a test.
+- **TradiRunner built** (`worker/src/hm_worker/runner.py`, Day 5) — real
+  subprocess-per-run execution implementing the same `Runner` interface, so the
+  polling loop is unchanged. Runs `vibe-trading run -p "<prompt>" --json
+  --no-rich --max-iter N`; prompt passed as an argv element (never `shell=True`).
+  Per-run isolation (D1): `HOME`/`VIBE_TRADING_HOME`/`VIBE_TRADING_ALLOWED_RUN_ROOTS`
+  → a fresh `<runs_root>/<run_id>` dir; no broker/live-trading env, so the mandate
+  gate keeps live trading off. Worker-owned wall-clock timeout (terminate → kill).
+  Outcome → refund mapping (D7): success only on exit 0 + `status=="success"`;
+  timeout → `RunTimeout` (refund); shutdown → `SystemError_` (refund);
+  heartbeat-false → `ClaimLost`; any other failure/bad-JSON → `SystemError_`
+  (refund). Wired into `build_runner()` (raise removed; flipped by
+  `WORKER_EXECUTE_TRADI`); config gained `tradi_command`/`runs_root`. 9 hermetic
+  tests via a fake CLI (no engine/LLM/Supabase) — **25 worker tests passing,
+  black-clean**.
 
 ## Blocked
 
@@ -233,16 +247,19 @@ Day 4 of 30 — 2026-08-06 (billing provider set to Paystack + NGN; Stripe parke
 
 ## Next action
 
-Day 4 complete (Day 3 absorbed into Day 2). Per `docs/30_DAY_PLAN.md`:
+Day 5 code done: `TradiRunner` is implemented, wired into `build_runner()`,
+and unit-tested (25 worker tests, black-clean). Per `docs/30_DAY_PLAN.md`,
+what remains:
 
-- **Next up: Day 5** — replace `StubRunner` with a real `TradiRunner`:
-  subprocess-per-run (`vibe-trading run -p ... --json --max-iter N`)
-  with an isolated `HOME`/`VIBE_TRADING_HOME` per run, per the
-  worker-invocation decision in `docs/DECISIONS.md`. Then wire it in at
-  `build_runner()` in `src/hm_worker/main.py`, which currently raises
-  when `WORKER_EXECUTE_TRADI` is set.
-- Then: one real end-to-end run — insert a queued `agent_runs` row by
-  hand, start the worker, watch it claim → run → complete.
+- **One real end-to-end run** (needs secrets → the operator does this):
+  create `worker/.env` (`SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`), have the
+  Tradi engine installed (`pip install -e Tradi/`) + an LLM key
+  (DeepSeek/OpenRouter), set `WORKER_EXECUTE_TRADI=1`, insert a queued
+  `agent_runs` row by hand, and watch the worker claim → run → complete.
+- **Then Day 6** — artifacts: parse the `--json` `run_dir`, upload workspace
+  files to Supabase Storage, write `agent_artifacts`. `TradiRunner` cleans up
+  the run dir today; Day 6 hooks artifact upload in before cleanup (the
+  `cleanup` flag is the seam).
 
 Not yet done on the worker:
 - **`worker/.env` does not exist yet**, so the worker has never actually
@@ -253,8 +270,8 @@ Not yet done on the worker:
 - No test covers stale-claim reclaim (the logic is in SQL).
 - Nothing yet writes to `agent_artifacts` — `StubRunner` returns output
   but the worker only logs it.
-- Timeout enforcement is configured (`WORKER_RUN_TIMEOUT_SECONDS`) but
-  only the stub honours it; real enforcement arrives with `TradiRunner`.
+- `TradiRunner` deletes the per-run dir after reading the result; artifact
+  upload (Day 6) must hook in before that cleanup runs (`cleanup` flag).
 
 Still-open decisions (`docs/ARCHITECTURE.md` → "Open questions"):
 - Worker host choice (Railway/Fly.io/Hetzner)
@@ -278,3 +295,4 @@ Should be formally recorded in `docs/DECISIONS.md`.
 | 2026-08-05 | 4 | Worker skeleton: `hm_worker` package (config/db/runner/main), run-lifecycle migration (claim/heartbeat/complete/fail, SKIP LOCKED), heartbeat + stale reclaim, refund taxonomy, graceful shutdown. 16 tests passing |
 | 2026-08-05 | 4 | Signup/login fixed & verified live. Root cause was Supabase email rate limit; disabled email confirmation (3 auth toggles: allow-signups ON, email-provider ON, confirm-email OFF). Code: signup confirmation-off branch + synchronous session set so post-auth redirect doesn't race AuthGuard. Both flows land on /dashboard. Billing pivot Stripe→Flutterwave recorded (D8) |
 | 2026-08-06 | 4 | Billing set to **Paystack + NGN** (Stripe parked). Established the operator is a Nigerian entity with no US/UK company, so Stripe can't onboard; customers are Nigerian crypto/forex/indices traders. Recovered the stashed NGN work and swapped Flutterwave→Paystack across frontend (₦70k/₦120k/₦200k), CLAUDE.md, docs, commands, skills, wiki; authored `paystack-billing.md`, kept `stripe-billing.md` parked. No DB migration needed — live schema already has neutral columns + `plans.price_ngn`. Neutral billing columns kept (Stripe-compatible). D8 updated; DECISIONS.md records the Paystack decision + compliance framing (present as education SaaS). |
+| 2026-08-06 | 5 | Day 5 `TradiRunner`: real subprocess-per-run execution (isolated `HOME` per run via D1, worker-owned wall-clock timeout terminate→kill, `--json` envelope parsing, refund-taxonomy mapping per D7, heartbeat + graceful abort). Wired into `build_runner()` (Day-4 raise removed); config gained `tradi_command`/`runs_root`; documented in `worker/.env.example`. 9 hermetic tests via a fake CLI → 25 worker tests passing, black-clean. Real end-to-end run still pending `worker/.env` (service-role key) + an LLM key. |

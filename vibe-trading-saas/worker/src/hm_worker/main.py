@@ -10,7 +10,7 @@ import threading
 
 from .config import Config, ConfigError, load_config
 from .db import ClaimedRun, RunQueue
-from .runner import ClaimLost, Runner, RunError, StubRunner, SystemError_
+from .runner import ClaimLost, Runner, RunError, StubRunner, SystemError_, TradiRunner
 
 log = logging.getLogger("hm_worker")
 
@@ -33,8 +33,12 @@ def _install_signal_handlers(stop: threading.Event) -> None:
 
 def build_runner(config: Config) -> Runner:
     if config.execute_tradi:
-        # Day 5 wires the real subprocess runner in here.
-        raise ConfigError("WORKER_EXECUTE_TRADI is set but TradiRunner is not implemented yet")
+        return TradiRunner(
+            command=config.tradi_command,
+            runs_root=config.runs_root,
+            timeout_seconds=config.run_timeout_seconds,
+            heartbeat_seconds=config.heartbeat_seconds,
+        )
     return StubRunner(config.stub_duration_seconds, config.heartbeat_seconds)
 
 

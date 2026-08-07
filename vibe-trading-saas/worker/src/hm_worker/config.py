@@ -53,6 +53,10 @@ class Config:
     execute_tradi: bool
     stub_duration_seconds: int
 
+    # Day 5: how the worker launches the engine and where per-run HOME dirs live.
+    tradi_command: str = "vibe-trading"
+    runs_root: str = "/var/vibe-runs"
+
     def __repr__(self) -> str:  # pragma: no cover - defensive, keeps the key out of logs
         return (
             f"Config(supabase_url={self.supabase_url!r}, worker_id={self.worker_id!r}, "
@@ -77,4 +81,6 @@ def load_config() -> Config:
         execute_tradi=os.environ.get("WORKER_EXECUTE_TRADI", "").strip().lower()
         in {"1", "true", "yes"},
         stub_duration_seconds=_int("WORKER_STUB_DURATION_SECONDS", 3),
+        tradi_command=os.environ.get("WORKER_TRADI_COMMAND", "").strip() or "vibe-trading",
+        runs_root=os.environ.get("WORKER_RUNS_ROOT", "").strip() or "/var/vibe-runs",
     )
