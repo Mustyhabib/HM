@@ -2,7 +2,7 @@
 
 ## Current sprint day
 
-Day 5 of 30 — 2026-08-07 (`TradiRunner` **verified end-to-end**: a queued `agent_runs` row was claimed, run through the real Tradi engine on DeepSeek in an isolated HOME, and marked `completed`). Day 6 (artifact persistence) is next.
+Day 6 of 30 — 2026-08-07 (artifact persistence **done + verified E2E**: a completed run's outputs are collected, uploaded to a private Storage bucket, and recorded in `agent_artifacts`; signed URLs work, RLS enforced). **Week 1 complete.** Week 2 (dashboard "start a run" flow) is next.
 
 ## Completed
 
@@ -240,6 +240,16 @@ Day 5 of 30 — 2026-08-07 (`TradiRunner` **verified end-to-end**: a queued `age
   `WORKER_EXECUTE_TRADI`); config gained `tradi_command`/`runs_root`. 9 hermetic
   tests via a fake CLI (no engine/LLM/Supabase) — **25 worker tests passing,
   black-clean**.
+- **Artifact persistence built** (Day 6) — on a successful run `TradiRunner`
+  reads the isolated workspace (`runs/` + `sessions/`) into memory as `Artifact`s
+  (report/trace/pine/code/metrics/json), extracting the final answer from
+  `trace.jsonl` into an `answer.md` report; skips `sessions.db` + capture logs.
+  New `ArtifactStore` uploads them to the private `agent-artifacts` Storage
+  bucket (`<user_id>/<run_id>/<name>`) and inserts `agent_artifacts` rows —
+  best-effort, only after a successful `complete()`. Wired via
+  `main → run_forever → process_run`; `RunQueue.client` exposed. Verified E2E:
+  a live run produced 7 artifacts, a 60s signed URL fetched an object, and the
+  anon key sees 0 rows (RLS). **29 worker tests, black-clean.**
 
 ## Blocked
 
@@ -247,30 +257,23 @@ Day 5 of 30 — 2026-08-07 (`TradiRunner` **verified end-to-end**: a queued `age
 
 ## Next action
 
-Day 5 done and **verified end-to-end** (2026-08-07): `TradiRunner` implemented,
-wired into `build_runner()`, unit-tested (25 worker tests), and proven live — a
-queued `agent_runs` row was claimed via `claim_agent_run` (SKIP LOCKED), run
-through the real Tradi engine (DeepSeek `deepseek-v4-flash`) in an isolated
-`HOME=/tmp/vibe-runs/<run_id>`, and closed as `completed` (~28s). Next:
+**Week 1 complete.** The full run pipeline works end-to-end: a queued
+`agent_runs` row is claimed, run through the real Tradi engine (DeepSeek) in an
+isolated workspace, closed as `completed`, and its artifacts land in Storage +
+`agent_artifacts` (signed URLs work, RLS enforced). Config learnings from Days
+5–6 are folded into `worker/.env.example` + README.
 
-- **Day 6 — artifacts**: parse the `--json` `run_dir`, upload workspace files to
-  Supabase Storage, write `agent_artifacts`. `TradiRunner` cleans up the run dir
-  today (nothing persisted yet); Day 6 hooks artifact upload in before cleanup
-  (the `cleanup` flag is the seam).
-
-Config learnings from the E2E (folded into `worker/.env.example` + README):
-- `WORKER_RUNS_ROOT` must be a **writable** dir. Default `/var/vibe-runs` needs
-  root/pre-creation; dev uses `/tmp/vibe-runs`.
-- LLM config (`LANGCHAIN_*`, `*_API_KEY`) lives in `Tradi/agent/.env`, **never**
-  `worker/.env` — the engine loads `agent/.env` with `override=False`, so a copy
-  in the worker env would shadow it and win.
-- DeepSeek base URL must be `…/v1` (not `…/anthropic`); models are
-  `deepseek-v4-flash` / `deepseek-v4-pro`.
+Next — **Week 2 (Days 8–14): the product loop in the UI** (`docs/30_DAY_PLAN.md`):
+- **Days 8–9** — dashboard "start a run" flow: prompt box → server-side quota
+  check-and-consume (`start_agent_run` RPC) → `agent_runs` insert with an
+  idempotency key. This is the first frontend↔worker connection.
+- **Days 10–11** — run status page (poll or Supabase Realtime for
+  `queued→running→completed`) + result page rendering the `answer.md` report via
+  a signed URL.
+- **Days 12–13** — usage history; system-failure refund surfaced in the UI.
 
 Still not done on the worker:
 - No test covers stale-claim reclaim (the logic is in SQL).
-- Nothing yet persists agent output — `TradiRunner` returns a summary and cleans
-  up the run dir; artifact capture is Day 6.
 - **Hardening (deferred)**: `TradiRunner._build_env` copies the whole worker env
   into the engine subprocess, so `SUPABASE_SERVICE_ROLE_KEY` leaks into the
   LLM-driven process. Strip worker-only secrets before spawning (least privilege).
@@ -299,3 +302,4 @@ Should be formally recorded in `docs/DECISIONS.md`.
 | 2026-08-06 | 4 | Billing set to **Paystack + NGN** (Stripe parked). Established the operator is a Nigerian entity with no US/UK company, so Stripe can't onboard; customers are Nigerian crypto/forex/indices traders. Recovered the stashed NGN work and swapped Flutterwave→Paystack across frontend (₦70k/₦120k/₦200k), CLAUDE.md, docs, commands, skills, wiki; authored `paystack-billing.md`, kept `stripe-billing.md` parked. No DB migration needed — live schema already has neutral columns + `plans.price_ngn`. Neutral billing columns kept (Stripe-compatible). D8 updated; DECISIONS.md records the Paystack decision + compliance framing (present as education SaaS). |
 | 2026-08-06 | 5 | Day 5 `TradiRunner`: real subprocess-per-run execution (isolated `HOME` per run via D1, worker-owned wall-clock timeout terminate→kill, `--json` envelope parsing, refund-taxonomy mapping per D7, heartbeat + graceful abort). Wired into `build_runner()` (Day-4 raise removed); config gained `tradi_command`/`runs_root`; documented in `worker/.env.example`. 9 hermetic tests via a fake CLI → 25 worker tests passing, black-clean. Real end-to-end run still pending `worker/.env` (service-role key) + an LLM key. |
 | 2026-08-07 | 5 | **Day 5 verified end-to-end.** Installed the Tradi engine (`Tradi/.venv`, `+[longbridge,deepseek]`); DeepSeek configured in `agent/.env` (base `…/anthropic`→`/v1`, model `deepseek-v4-flash`). Ran `hm-worker` with the real `service_role` key → claimed a queued row, `TradiRunner` ran the engine on DeepSeek in isolated `HOME=/tmp/vibe-runs/<id>`, closed it `completed` (~28s). Fixes: `WORKER_RUNS_ROOT`→`/tmp/vibe-runs` (writable); neutralized `worker/.env` LLM vars (they shadow `agent/.env`). Learnings folded into `.env.example`/README. |
+| 2026-08-07 | 6 | **Day 6 artifact persistence, verified E2E.** `TradiRunner` now scans the isolated workspace (runs/ + sessions/) into in-memory `Artifact`s and extracts the answer from `trace.jsonl` → `answer.md` (report). New `ArtifactStore` uploads to the private `agent-artifacts` bucket (`<user_id>/<run_id>/<name>`) + inserts `agent_artifacts` rows (best-effort, post-complete); wired via `main→run_forever→process_run`, `RunQueue.client` exposed. Live run → 7 artifacts, a 60s signed URL fetched an object, anon sees 0 rows (RLS). 29 worker tests, black-clean. Private bucket created. |

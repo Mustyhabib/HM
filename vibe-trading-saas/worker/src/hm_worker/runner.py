@@ -66,12 +66,22 @@ class ClaimLost(RunError):
     """Another worker reclaimed this run mid-flight; drop it silently."""
 
 
+@dataclass(frozen=True)
+class Artifact:
+    """One file produced by a run, read into memory before the workspace is
+    cleaned up. ``name`` is the path relative to the run workspace."""
+
+    kind: str
+    name: str
+    content: bytes
+
+
 @dataclass
 class RunResult:
-    """What a runner produces. Artifacts are wired up on Day 6."""
+    """What a runner produces: a short summary plus the run's artifacts."""
 
     output: str = ""
-    artifacts: list[dict] = field(default_factory=list)
+    artifacts: list[Artifact] = field(default_factory=list)
 
 
 class Runner(Protocol):
@@ -120,6 +130,11 @@ class StubRunner:
 EXIT_SUCCESS = 0
 EXIT_RUN_FAILED = 1
 EXIT_USAGE_ERROR = 2
+
+# Artifacts are read into memory before cleanup — skip anything oversized.
+MAX_ARTIFACT_BYTES = 15 * 1024 * 1024
+# Worker-internal capture / engine index files that are never user artifacts.
+_ARTIFACT_EXCLUDE = {"stdout.log", "stderr.log", "sessions.db"}
 
 
 class TradiRunner:
@@ -195,9 +210,12 @@ class TradiRunner:
                     text=True,
                 )
                 self._supervise(proc, run, heartbeat, stop)
-            return self._interpret(
+            result = self._interpret(
                 proc.returncode, stdout_path.read_text(errors="replace"), stderr_path
             )
+            # Read artifacts into memory before the workspace is cleaned up.
+            result.artifacts = self._collect_artifacts(run_dir)
+            return result
         finally:
             if self._cleanup:
                 shutil.rmtree(run_dir, ignore_errors=True)
@@ -251,6 +269,70 @@ class TradiRunner:
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait()
+
+    def _collect_artifacts(self, workspace: Path) -> list[Artifact]:
+        """Read every run output under the isolated workspace into memory.
+
+        The workspace holds the engine's ``runs/<id>/`` (metadata, generated
+        code, metrics, pine) and ``sessions/<id>/trace.jsonl`` (the trace, which
+        carries the final answer). We also synthesize an ``answer.md`` report so
+        the result page has readable text, not just raw files.
+        """
+        artifacts: list[Artifact] = []
+        answer = self._extract_answer(workspace)
+        if answer:
+            artifacts.append(Artifact("report", "answer.md", answer.encode("utf-8")))
+        for path in sorted(workspace.rglob("*")):
+            if not path.is_file() or path.name in _ARTIFACT_EXCLUDE:
+                continue
+            rel = path.relative_to(workspace).as_posix()
+            try:
+                if path.stat().st_size > MAX_ARTIFACT_BYTES:
+                    log.warning("skipping oversized artifact %s", rel)
+                    continue
+                content = path.read_bytes()
+            except OSError:
+                continue
+            artifacts.append(Artifact(self._classify(rel), rel, content))
+        return artifacts
+
+    @staticmethod
+    def _extract_answer(workspace: Path) -> str | None:
+        """Pull the last ``answer`` event's text out of any trace.jsonl."""
+        for trace in workspace.rglob("trace.jsonl"):
+            answer: str | None = None
+            try:
+                lines = trace.read_text(errors="replace").splitlines()
+            except OSError:
+                continue
+            for line in lines:
+                line = line.strip()
+                if not line.startswith("{"):
+                    continue
+                try:
+                    evt = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(evt, dict) and evt.get("type") == "answer":
+                    text = evt.get("content") or evt.get("text") or evt.get("answer")
+                    if text:
+                        answer = text if isinstance(text, str) else json.dumps(text)
+            if answer:
+                return answer
+        return None
+
+    @staticmethod
+    def _classify(rel: str) -> str:
+        n = rel.lower()
+        if n.endswith(".pine"):
+            return "pine"
+        if n.endswith("trace.jsonl"):
+            return "trace"
+        if n.endswith(".csv"):
+            return "metrics"
+        if n.startswith("code/") or "/code/" in n or n.endswith(".py"):
+            return "code"
+        return "json"
 
     def _interpret(self, returncode: int, stdout_text: str, stderr_path: Path) -> RunResult:
         payload = self._parse_json_envelope(stdout_text)

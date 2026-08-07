@@ -46,6 +46,10 @@ class RunQueue:
     def worker_id(self) -> str:
         return self._config.worker_id
 
+    @property
+    def client(self) -> Client:
+        return self._client
+
     def claim(self) -> ClaimedRun | None:
         """Atomically take the oldest queued run, or reclaim an abandoned one.
 

@@ -50,6 +50,19 @@ if prompt == "USAGE":
 if prompt == "BADJSON":
     print("this is not json")
     sys.exit(0)
+if prompt == "ARTIFACTS":
+    home = Path(os.environ["HOME"])
+    (home / "runs" / "r1").mkdir(parents=True, exist_ok=True)
+    (home / "runs" / "r1" / "llm_usage.json").write_text('{"tokens": 42}')
+    (home / "runs" / "r1" / "strategy.pine").write_text("//@version=5")
+    (home / "sessions" / "s1").mkdir(parents=True, exist_ok=True)
+    (home / "sessions" / "s1" / "trace.jsonl").write_text(
+        '{"type":"step"}\n{"type":"answer","content":"An SMA is the mean price over N periods."}\n'
+    )
+    (home / "sessions.db").write_bytes(b"BINARYINDEX")
+    print(json.dumps({"status": "success", "run_id": "r1",
+                      "run_dir": str(home / "runs" / "r1"), "reason": None}))
+    sys.exit(0)
 if prompt == "SLEEP":
     time.sleep(30)
 sys.exit(0)
@@ -147,3 +160,21 @@ def test_lost_claim_aborts(fake_command, tmp_path):
         make_runner(fake_command, tmp_path, timeout_seconds=30, heartbeat_seconds=1).execute(
             make_run("SLEEP"), lambda: False, threading.Event()
         )
+
+
+def test_collects_artifacts_from_workspace(fake_command, tmp_path):
+    result = make_runner(fake_command, tmp_path, cleanup=False).execute(
+        make_run("ARTIFACTS"), lambda: True, threading.Event()
+    )
+    by_name = {a.name: a for a in result.artifacts}
+    # the final answer is extracted from the session trace into a readable report
+    assert by_name["answer.md"].kind == "report"
+    assert b"SMA is the mean" in by_name["answer.md"].content
+    # engine outputs collected + classified; the raw session trace is kept
+    assert by_name["runs/r1/strategy.pine"].kind == "pine"
+    assert by_name["runs/r1/llm_usage.json"].kind == "json"
+    assert by_name["sessions/s1/trace.jsonl"].kind == "trace"
+    # the binary FTS index and the worker's own capture logs are excluded
+    assert "sessions.db" not in by_name
+    assert "stdout.log" not in by_name
+    assert "stderr.log" not in by_name
