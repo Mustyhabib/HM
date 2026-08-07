@@ -2,7 +2,7 @@
 
 ## Current sprint day
 
-Day 5 of 30 — 2026-08-06 (real `TradiRunner` implemented + unit-tested). The one real end-to-end run is pending `worker/.env` (service-role key) + an LLM key.
+Day 5 of 30 — 2026-08-07 (`TradiRunner` **verified end-to-end**: a queued `agent_runs` row was claimed, run through the real Tradi engine on DeepSeek in an isolated HOME, and marked `completed`). Day 6 (artifact persistence) is next.
 
 ## Completed
 
@@ -247,31 +247,33 @@ Day 5 of 30 — 2026-08-06 (real `TradiRunner` implemented + unit-tested). The o
 
 ## Next action
 
-Day 5 code done: `TradiRunner` is implemented, wired into `build_runner()`,
-and unit-tested (25 worker tests, black-clean). Per `docs/30_DAY_PLAN.md`,
-what remains:
+Day 5 done and **verified end-to-end** (2026-08-07): `TradiRunner` implemented,
+wired into `build_runner()`, unit-tested (25 worker tests), and proven live — a
+queued `agent_runs` row was claimed via `claim_agent_run` (SKIP LOCKED), run
+through the real Tradi engine (DeepSeek `deepseek-v4-flash`) in an isolated
+`HOME=/tmp/vibe-runs/<run_id>`, and closed as `completed` (~28s). Next:
 
-- **One real end-to-end run** (needs secrets → the operator does this):
-  create `worker/.env` (`SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`), have the
-  Tradi engine installed (`pip install -e Tradi/`) + an LLM key
-  (DeepSeek/OpenRouter), set `WORKER_EXECUTE_TRADI=1`, insert a queued
-  `agent_runs` row by hand, and watch the worker claim → run → complete.
-- **Then Day 6** — artifacts: parse the `--json` `run_dir`, upload workspace
-  files to Supabase Storage, write `agent_artifacts`. `TradiRunner` cleans up
-  the run dir today; Day 6 hooks artifact upload in before cleanup (the
-  `cleanup` flag is the seam).
+- **Day 6 — artifacts**: parse the `--json` `run_dir`, upload workspace files to
+  Supabase Storage, write `agent_artifacts`. `TradiRunner` cleans up the run dir
+  today (nothing persisted yet); Day 6 hooks artifact upload in before cleanup
+  (the `cleanup` flag is the seam).
 
-Not yet done on the worker:
-- **`worker/.env` does not exist yet**, so the worker has never actually
-  connected to Supabase — everything so far is unit tests against mocks.
-  Copy `.env.example` to `.env` and fill in `SUPABASE_URL` +
-  `SUPABASE_SERVICE_ROLE_KEY` (Supabase → Project Settings → API →
-  service_role) before the Day 5 end-to-end run.
+Config learnings from the E2E (folded into `worker/.env.example` + README):
+- `WORKER_RUNS_ROOT` must be a **writable** dir. Default `/var/vibe-runs` needs
+  root/pre-creation; dev uses `/tmp/vibe-runs`.
+- LLM config (`LANGCHAIN_*`, `*_API_KEY`) lives in `Tradi/agent/.env`, **never**
+  `worker/.env` — the engine loads `agent/.env` with `override=False`, so a copy
+  in the worker env would shadow it and win.
+- DeepSeek base URL must be `…/v1` (not `…/anthropic`); models are
+  `deepseek-v4-flash` / `deepseek-v4-pro`.
+
+Still not done on the worker:
 - No test covers stale-claim reclaim (the logic is in SQL).
-- Nothing yet writes to `agent_artifacts` — `StubRunner` returns output
-  but the worker only logs it.
-- `TradiRunner` deletes the per-run dir after reading the result; artifact
-  upload (Day 6) must hook in before that cleanup runs (`cleanup` flag).
+- Nothing yet persists agent output — `TradiRunner` returns a summary and cleans
+  up the run dir; artifact capture is Day 6.
+- **Hardening (deferred)**: `TradiRunner._build_env` copies the whole worker env
+  into the engine subprocess, so `SUPABASE_SERVICE_ROLE_KEY` leaks into the
+  LLM-driven process. Strip worker-only secrets before spawning (least privilege).
 
 Still-open decisions (`docs/ARCHITECTURE.md` → "Open questions"):
 - Worker host choice (Railway/Fly.io/Hetzner)
@@ -296,3 +298,4 @@ Should be formally recorded in `docs/DECISIONS.md`.
 | 2026-08-05 | 4 | Signup/login fixed & verified live. Root cause was Supabase email rate limit; disabled email confirmation (3 auth toggles: allow-signups ON, email-provider ON, confirm-email OFF). Code: signup confirmation-off branch + synchronous session set so post-auth redirect doesn't race AuthGuard. Both flows land on /dashboard. Billing pivot Stripe→Flutterwave recorded (D8) |
 | 2026-08-06 | 4 | Billing set to **Paystack + NGN** (Stripe parked). Established the operator is a Nigerian entity with no US/UK company, so Stripe can't onboard; customers are Nigerian crypto/forex/indices traders. Recovered the stashed NGN work and swapped Flutterwave→Paystack across frontend (₦70k/₦120k/₦200k), CLAUDE.md, docs, commands, skills, wiki; authored `paystack-billing.md`, kept `stripe-billing.md` parked. No DB migration needed — live schema already has neutral columns + `plans.price_ngn`. Neutral billing columns kept (Stripe-compatible). D8 updated; DECISIONS.md records the Paystack decision + compliance framing (present as education SaaS). |
 | 2026-08-06 | 5 | Day 5 `TradiRunner`: real subprocess-per-run execution (isolated `HOME` per run via D1, worker-owned wall-clock timeout terminate→kill, `--json` envelope parsing, refund-taxonomy mapping per D7, heartbeat + graceful abort). Wired into `build_runner()` (Day-4 raise removed); config gained `tradi_command`/`runs_root`; documented in `worker/.env.example`. 9 hermetic tests via a fake CLI → 25 worker tests passing, black-clean. Real end-to-end run still pending `worker/.env` (service-role key) + an LLM key. |
+| 2026-08-07 | 5 | **Day 5 verified end-to-end.** Installed the Tradi engine (`Tradi/.venv`, `+[longbridge,deepseek]`); DeepSeek configured in `agent/.env` (base `…/anthropic`→`/v1`, model `deepseek-v4-flash`). Ran `hm-worker` with the real `service_role` key → claimed a queued row, `TradiRunner` ran the engine on DeepSeek in isolated `HOME=/tmp/vibe-runs/<id>`, closed it `completed` (~28s). Fixes: `WORKER_RUNS_ROOT`→`/tmp/vibe-runs` (writable); neutralized `worker/.env` LLM vars (they shadow `agent/.env`). Learnings folded into `.env.example`/README. |

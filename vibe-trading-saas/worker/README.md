@@ -4,14 +4,16 @@ Polls `agent_runs` for queued work, executes it, and writes the result back.
 Long-running process — not serverless, because an agent run outlives any
 function timeout (see `docs/ARCHITECTURE.md`).
 
-**Day 4 status:** queue mechanics only. `StubRunner` sleeps and succeeds; it
-does not invoke Tradi. Day 5 replaces it with a real subprocess runner.
+**Day 5 status:** real execution via `TradiRunner` (one subprocess per run) —
+**verified end-to-end** (queued row → claim → DeepSeek run → `completed`). Set
+`WORKER_EXECUTE_TRADI=true` to use it; unset falls back to `StubRunner` (sleeps
+and succeeds, no engine). See "Running the real engine" below.
 
 ## Setup
 
 ```bash
 cd vibe-trading-saas/worker
-python -m venv .venv && source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 cp .env.example .env    # then fill in SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
 ```
@@ -25,6 +27,51 @@ never in a `VITE_*` variable, never in git.
 ```bash
 hm-worker
 ```
+
+## Running the real engine (TradiRunner)
+
+By default `WORKER_EXECUTE_TRADI` is false → the stub runner is used. To run the
+real Tradi engine:
+
+1. **Install the engine** (separate package + venv; from repo root):
+   ```bash
+   cd Tradi && python3 -m venv .venv && .venv/bin/pip install -e ".[longbridge,deepseek]"
+   ```
+2. **Enable it** in `worker/.env`:
+   ```
+   WORKER_EXECUTE_TRADI=true
+   WORKER_TRADI_COMMAND=/home/aurora/HM/Tradi/.venv/bin/vibe-trading
+   WORKER_RUNS_ROOT=/tmp/vibe-runs   # must be WRITABLE; default /var/vibe-runs needs root
+   ```
+3. **Configure the LLM in `Tradi/agent/.env`** — the engine's own env, loaded by
+   absolute path, so it's read even under the worker's isolated per-run `HOME`.
+   **Do NOT put LLM config (`LANGCHAIN_*`, `*_API_KEY`) in `worker/.env`** — the
+   engine loads `agent/.env` with `override=False`, so worker-env copies would
+   shadow it and win.
+
+`TradiRunner` launches one subprocess per run with `HOME` / `VIBE_TRADING_HOME` /
+`VIBE_TRADING_ALLOWED_RUN_ROOTS` pointed at a fresh `<runs_root>/<run_id>` dir,
+then runs `vibe-trading run -p "<prompt>" --json --no-rich --max-iter N`.
+
+**Verify the engine + keys load under isolation** (mirrors the worker's env):
+
+```bash
+HOME=$(mktemp -d) /home/aurora/HM/Tradi/.venv/bin/vibe-trading \
+  run -p "reply OK" --json --no-rich --max-iter 2
+```
+
+`{"status": "success", ...}` is good; a `provider_stream_error … 404` means the
+LLM endpoint/model is wrong — see below.
+
+### DeepSeek gotchas (these cost a 404)
+
+- **Base URL:** `DEEPSEEK_BASE_URL="https://api.deepseek.com/v1"` (or the bare
+  root). **Not** `…/anthropic` — that's DeepSeek's Anthropic-SDK endpoint and
+  404s the OpenAI-style path the DeepSeek provider uses.
+- **Model names** here are `deepseek-v4-flash` (cheap; dev) and `deepseek-v4-pro`
+  — there is no `deepseek-chat`. List them with `GET https://api.deepseek.com/models`.
+- Keep exactly one active `LANGCHAIN_PROVIDER=` line, and keys flush-left (a
+  leading space can make dotenv skip the variable).
 
 ## Test
 
