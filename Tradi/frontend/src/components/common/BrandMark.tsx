@@ -11,7 +11,7 @@ export function BrandMark({
       aria-hidden="true"
       style={{ fontSize: "inherit" }}
     >
-      {showText ? "H~M" : "H~M"}
+      {showText ? "H~Mltd" : "H~Mltd"}
     </span>
   );
 }
@@ -21,7 +21,7 @@ export function BrandLogo({ className = "" }: { className?: string }) {
   return (
     <div className={`flex items-center gap-1.5 ${className}`}>
       <span className="text-xl font-bold gradient-text glow-gradient select-none">
-        H~M
+        H~Mltd
       </span>
     </div>
   );

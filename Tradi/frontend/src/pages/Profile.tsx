@@ -203,7 +203,7 @@ export function Profile() {
           <div className="mt-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Plan</span>
-              <span className="text-sm font-medium">Pro — $35/mo</span>
+              <span className="text-sm font-medium">Pro — ₦120,000/mo</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Runs this period</span>
@@ -308,7 +308,7 @@ export function Profile() {
           <ActivityItem
             type="billing"
             action="Subscription renewed"
-            detail="Pro Plan — $35.00 charged to Visa ending 4242"
+            detail="Pro Plan — ₦120,000 charged to Visa ending 4242"
             time="Aug 1"
           />
           <ActivityItem

@@ -17,25 +17,25 @@ stack, no live trading at MVP).
                   │  Next.js app (Vercel/CF Pages)  │
                   │  - landing, pricing, dashboard  │
                   │  - Supabase Auth (session cookie)│
-                  │  - Stripe Checkout redirect      │
+                  │  - Paystack Checkout            │
                   └───────┬───────────────┬─────────┘
                           │               │
-              Postgres/RLS│               │ Stripe API
+              Postgres/RLS│               │ Paystack API
                           ▼               ▼
-              ┌───────────────────┐  ┌──────────────┐
-              │      Supabase      │  │    Stripe     │
-              │  - Auth            │  │  - Checkout   │
-              │  - Postgres (RLS)  │  │  - Portal     │
-              │  - Storage         │  │  - Webhooks   │──┐
-              └─────────┬──────────┘  └───────────────┘  │
+              ┌───────────────────┐  ┌────────────────────┐
+              │      Supabase      │  │      Paystack      │
+              │  - Auth            │  │  - Checkout        │
+              │  - Postgres (RLS)  │  │  - Plans           │
+              │  - Storage         │  │  - Webhooks        │──┐
+              └─────────┬──────────┘  └────────────────────┘  │
                         │ ▲                                │ webhook POST
               claim job │ │ status/results                 ▼
                         │ │                    ┌─────────────────────────┐
                         ▼ │                    │ Next.js API route        │
-              ┌────────────────────┐           │ /api/webhooks/stripe     │
-              │  Python worker      │           │ (idempotent, verifies    │
-              │  (Railway/Fly/      │           │  signature, writes to    │
-              │   Hetzner)          │           │  webhook_events table)   │
+              ┌────────────────────┐           │ /api/webhooks/paystack  │
+              │  Python worker      │           │ (idempotent; verifies   │
+              │  (Railway/Fly/      │           │  signature, writes to   │
+              │   Hetzner)          │           │  webhook_events table)  │
               │                     │           └─────────────────────────┘
               │  poll agent_runs    │
               │  WHERE status=      │
@@ -62,8 +62,8 @@ stack, no live trading at MVP).
 ### Frontend — Next.js (App Router)
 
 Landing, pricing, auth (via Supabase Auth), dashboard, run start/status/
-result pages, usage history, billing settings (Stripe Customer Portal
-redirect), legal pages, basic admin view. Talks to Supabase directly for
+result pages, usage history, billing settings (Paystack billing
+management), legal pages, basic admin view. Talks to Supabase directly for
 reads the RLS policies allow, and to a small set of Next.js API routes for
 anything that needs the service-role key (webhook handling, run creation
 that must double-check server-side quota — see "Quota enforcement" below).
@@ -75,12 +75,14 @@ Every user-owned table gets RLS scoping by `user_id`. See
 `docs/DATABASE_SCHEMA.md` (TODO) for table definitions. Storage holds run
 artifacts (reports, charts) behind signed URLs, not public buckets.
 
-### Stripe — Checkout, Customer Portal, Webhooks
+### Paystack — Checkout, Plans, Webhooks
 
 Subscription billing for the three tiers (`CLAUDE.md` → "PRICING MODEL").
-Webhook handler must be idempotent (`webhook_events` table keyed by Stripe
+Webhook handler must be idempotent (`webhook_events` table keyed by the provider
 event ID) — this is a hard rule (`CLAUDE.md` → safety rule 9), not
-optional.
+optional. Authenticity is checked via the `x-paystack-signature` header
+(HMAC-SHA512 of the raw request body with the secret key) before any DB
+write.
 
 ### Worker — Python, long-running process
 

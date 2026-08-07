@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 
 /* ─── Pine Script sample ─── */
 const PINE_SCRIPT = `// @version=5
-strategy("H~M AI Strategy", overlay=true,
+strategy("H~Mltd AI Strategy", overlay=true,
   initial_capital=100000, default_qty_type=strategy.percent,
   default_qty_value=10)
 
@@ -323,7 +323,7 @@ export function Dashboard() {
             </span>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Create, test, and optimize quantitative strategies with H~M
+            Create, test, and optimize quantitative strategies with H~Mltd
           </p>
         </div>
 
@@ -336,7 +336,7 @@ export function Dashboard() {
                   type="text"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="Ask H~M to generate a strategy..."
+                  placeholder="Ask H~Mltd to generate a strategy..."
                   className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
                 />
               </div>

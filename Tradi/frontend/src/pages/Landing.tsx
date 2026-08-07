@@ -93,7 +93,7 @@ export function Landing() {
       <section className="border-t border-border/60 py-16">
         <div className="mx-auto max-w-5xl px-4 sm:px-6">
           <h2 className="text-center text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Why H~M
+            Why H~Mltd
           </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
             {FEATURES.map(({ icon: Icon, title, desc }) => (
@@ -114,7 +114,7 @@ export function Landing() {
             Ready to start researching?
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Plans start at $20/month. No credit card required to sign up.
+            Plans start at ₦70,000/month (~$54). No credit card required to sign up.
           </p>
           <Link
             to="/signup"

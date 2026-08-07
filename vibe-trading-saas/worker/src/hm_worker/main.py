@@ -8,9 +8,10 @@ import signal
 import sys
 import threading
 
+from .artifacts import ArtifactStore
 from .config import Config, ConfigError, load_config
 from .db import ClaimedRun, RunQueue
-from .runner import ClaimLost, Runner, RunError, StubRunner, SystemError_
+from .runner import ClaimLost, Runner, RunError, StubRunner, SystemError_, TradiRunner
 
 log = logging.getLogger("hm_worker")
 
@@ -33,12 +34,22 @@ def _install_signal_handlers(stop: threading.Event) -> None:
 
 def build_runner(config: Config) -> Runner:
     if config.execute_tradi:
-        # Day 5 wires the real subprocess runner in here.
-        raise ConfigError("WORKER_EXECUTE_TRADI is set but TradiRunner is not implemented yet")
+        return TradiRunner(
+            command=config.tradi_command,
+            runs_root=config.runs_root,
+            timeout_seconds=config.run_timeout_seconds,
+            heartbeat_seconds=config.heartbeat_seconds,
+        )
     return StubRunner(config.stub_duration_seconds, config.heartbeat_seconds)
 
 
-def process_run(queue: RunQueue, runner: Runner, run: ClaimedRun, stop: threading.Event) -> None:
+def process_run(
+    queue: RunQueue,
+    runner: Runner,
+    run: ClaimedRun,
+    stop: threading.Event,
+    artifacts: ArtifactStore | None = None,
+) -> None:
     """Execute one claimed run and record its outcome.
 
     Never raises: a run that blows up must close the row, not kill the worker.
@@ -62,6 +73,10 @@ def process_run(queue: RunQueue, runner: Runner, run: ClaimedRun, stop: threadin
 
     if queue.complete(run.id):
         log.info("completed run %s", run.id)
+        # Best-effort: only persist artifacts for a run we actually closed.
+        if artifacts is not None and result.artifacts:
+            stored = artifacts.persist(run, result.artifacts)
+            log.info("stored %d/%d artifact(s) for run %s", stored, len(result.artifacts), run.id)
     else:
         # Claim was lost between the last heartbeat and the close.
         log.warning("run %s could not be completed — claim no longer held", run.id)
@@ -70,7 +85,13 @@ def process_run(queue: RunQueue, runner: Runner, run: ClaimedRun, stop: threadin
         log.debug("run %s output: %s", run.id, result.output[:200])
 
 
-def run_forever(config: Config, queue: RunQueue, runner: Runner, stop: threading.Event) -> None:
+def run_forever(
+    config: Config,
+    queue: RunQueue,
+    runner: Runner,
+    stop: threading.Event,
+    artifacts: ArtifactStore | None = None,
+) -> None:
     log.info("worker %s polling %s", config.worker_id, config.supabase_url)
 
     consecutive_errors = 0
@@ -89,7 +110,7 @@ def run_forever(config: Config, queue: RunQueue, runner: Runner, stop: threading
             stop.wait(timeout=config.idle_backoff_seconds)
             continue
 
-        process_run(queue, runner, run, stop)
+        process_run(queue, runner, run, stop, artifacts)
 
         if not stop.is_set():
             stop.wait(timeout=config.poll_interval_seconds)
@@ -110,7 +131,9 @@ def main() -> int:
     stop = threading.Event()
     _install_signal_handlers(stop)
 
-    run_forever(config, RunQueue(config), runner, stop)
+    queue = RunQueue(config)
+    artifacts = ArtifactStore(queue.client) if config.execute_tradi else None
+    run_forever(config, queue, runner, stop, artifacts)
     return 0
 
 

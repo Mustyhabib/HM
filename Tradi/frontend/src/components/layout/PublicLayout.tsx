@@ -24,10 +24,10 @@ export function PublicLayout() {
             <Link
               to="/"
               className="flex items-center gap-1.5"
-              aria-label="H~M home"
+              aria-label="H~Mltd home"
             >
               <span className="text-xl font-bold gradient-text glow-gradient">
-                H~M
+                H~Mltd
               </span>
             </Link>
             <nav
@@ -80,9 +80,9 @@ export function PublicLayout() {
       <footer className="border-t border-border/60 py-8">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 sm:flex-row sm:justify-between sm:px-6">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="font-bold gradient-text">H~M</span>
+            <span className="font-bold gradient-text">H~Mltd</span>
             <span>
-              &copy; {new Date().getFullYear()} H~M. All rights reserved.
+              &copy; {new Date().getFullYear()} H~Mltd. All rights reserved.
             </span>
           </div>
           <div className="flex gap-4 text-sm text-muted-foreground">

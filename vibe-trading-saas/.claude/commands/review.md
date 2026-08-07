@@ -13,7 +13,7 @@ pass — run `/simplify` separately for cleanups. Walk the diff against:
   gates, or is there a race window between check and use?
 - Is `usage_events` actually append-only in this change (no update/delete
   path introduced)?
-- Is Stripe webhook handling idempotent against a replayed event ID?
+- Is Paystack webhook handling idempotent against a replayed event ID?
 
 **Agent execution safety** (`docs/ARCHITECTURE.md`, `docs/
 SECURITY_CHECKLIST.md`)

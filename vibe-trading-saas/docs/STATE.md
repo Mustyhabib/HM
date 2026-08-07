@@ -2,7 +2,7 @@
 
 ## Current sprint day
 
-Day 4 of 30 — 2026-08-05 (worker skeleton + run lifecycle)
+Day 6 of 30 — 2026-08-07 (artifact persistence **done + verified E2E**: a completed run's outputs are collected, uploaded to a private Storage bucket, and recorded in `agent_artifacts`; signed URLs work, RLS enforced). **Week 1 complete.** Week 2 (dashboard "start a run" flow) is next.
 
 ## Completed
 
@@ -226,6 +226,30 @@ Day 4 of 30 — 2026-08-05 (worker skeleton + run lifecycle)
     outcomes, lost claim, signal drain, claim-failure backoff, stub
     abort paths). Stale reclaim itself lives in SQL and is not yet
     covered by a test.
+- **TradiRunner built** (`worker/src/hm_worker/runner.py`, Day 5) — real
+  subprocess-per-run execution implementing the same `Runner` interface, so the
+  polling loop is unchanged. Runs `vibe-trading run -p "<prompt>" --json
+  --no-rich --max-iter N`; prompt passed as an argv element (never `shell=True`).
+  Per-run isolation (D1): `HOME`/`VIBE_TRADING_HOME`/`VIBE_TRADING_ALLOWED_RUN_ROOTS`
+  → a fresh `<runs_root>/<run_id>` dir; no broker/live-trading env, so the mandate
+  gate keeps live trading off. Worker-owned wall-clock timeout (terminate → kill).
+  Outcome → refund mapping (D7): success only on exit 0 + `status=="success"`;
+  timeout → `RunTimeout` (refund); shutdown → `SystemError_` (refund);
+  heartbeat-false → `ClaimLost`; any other failure/bad-JSON → `SystemError_`
+  (refund). Wired into `build_runner()` (raise removed; flipped by
+  `WORKER_EXECUTE_TRADI`); config gained `tradi_command`/`runs_root`. 9 hermetic
+  tests via a fake CLI (no engine/LLM/Supabase) — **25 worker tests passing,
+  black-clean**.
+- **Artifact persistence built** (Day 6) — on a successful run `TradiRunner`
+  reads the isolated workspace (`runs/` + `sessions/`) into memory as `Artifact`s
+  (report/trace/pine/code/metrics/json), extracting the final answer from
+  `trace.jsonl` into an `answer.md` report; skips `sessions.db` + capture logs.
+  New `ArtifactStore` uploads them to the private `agent-artifacts` Storage
+  bucket (`<user_id>/<run_id>/<name>`) and inserts `agent_artifacts` rows —
+  best-effort, only after a successful `complete()`. Wired via
+  `main → run_forever → process_run`; `RunQueue.client` exposed. Verified E2E:
+  a live run produced 7 artifacts, a 60s signed URL fetched an object, and the
+  anon key sees 0 rows (RLS). **29 worker tests, black-clean.**
 
 ## Blocked
 
@@ -233,28 +257,26 @@ Day 4 of 30 — 2026-08-05 (worker skeleton + run lifecycle)
 
 ## Next action
 
-Day 4 complete (Day 3 absorbed into Day 2). Per `docs/30_DAY_PLAN.md`:
+**Week 1 complete.** The full run pipeline works end-to-end: a queued
+`agent_runs` row is claimed, run through the real Tradi engine (DeepSeek) in an
+isolated workspace, closed as `completed`, and its artifacts land in Storage +
+`agent_artifacts` (signed URLs work, RLS enforced). Config learnings from Days
+5–6 are folded into `worker/.env.example` + README.
 
-- **Next up: Day 5** — replace `StubRunner` with a real `TradiRunner`:
-  subprocess-per-run (`vibe-trading run -p ... --json --max-iter N`)
-  with an isolated `HOME`/`VIBE_TRADING_HOME` per run, per the
-  worker-invocation decision in `docs/DECISIONS.md`. Then wire it in at
-  `build_runner()` in `src/hm_worker/main.py`, which currently raises
-  when `WORKER_EXECUTE_TRADI` is set.
-- Then: one real end-to-end run — insert a queued `agent_runs` row by
-  hand, start the worker, watch it claim → run → complete.
+Next — **Week 2 (Days 8–14): the product loop in the UI** (`docs/30_DAY_PLAN.md`):
+- **Days 8–9** — dashboard "start a run" flow: prompt box → server-side quota
+  check-and-consume (`start_agent_run` RPC) → `agent_runs` insert with an
+  idempotency key. This is the first frontend↔worker connection.
+- **Days 10–11** — run status page (poll or Supabase Realtime for
+  `queued→running→completed`) + result page rendering the `answer.md` report via
+  a signed URL.
+- **Days 12–13** — usage history; system-failure refund surfaced in the UI.
 
-Not yet done on the worker:
-- **`worker/.env` does not exist yet**, so the worker has never actually
-  connected to Supabase — everything so far is unit tests against mocks.
-  Copy `.env.example` to `.env` and fill in `SUPABASE_URL` +
-  `SUPABASE_SERVICE_ROLE_KEY` (Supabase → Project Settings → API →
-  service_role) before the Day 5 end-to-end run.
+Still not done on the worker:
 - No test covers stale-claim reclaim (the logic is in SQL).
-- Nothing yet writes to `agent_artifacts` — `StubRunner` returns output
-  but the worker only logs it.
-- Timeout enforcement is configured (`WORKER_RUN_TIMEOUT_SECONDS`) but
-  only the stub honours it; real enforcement arrives with `TradiRunner`.
+- **Hardening (deferred)**: `TradiRunner._build_env` copies the whole worker env
+  into the engine subprocess, so `SUPABASE_SERVICE_ROLE_KEY` leaks into the
+  LLM-driven process. Strip worker-only secrets before spawning (least privilege).
 
 Still-open decisions (`docs/ARCHITECTURE.md` → "Open questions"):
 - Worker host choice (Railway/Fly.io/Hetzner)
@@ -277,3 +299,7 @@ Should be formally recorded in `docs/DECISIONS.md`.
 | 2026-08-05 | 2 | Supabase: 9 tables + RLS + seed plans + quota functions. Auth: Zustand store, AuthGuard/GuestGuard, Login/Signup wired to real Supabase Auth, route protection. tsc clean |
 | 2026-08-05 | 4 | Worker skeleton: `hm_worker` package (config/db/runner/main), run-lifecycle migration (claim/heartbeat/complete/fail, SKIP LOCKED), heartbeat + stale reclaim, refund taxonomy, graceful shutdown. 16 tests passing |
 | 2026-08-05 | 4 | Signup/login fixed & verified live. Root cause was Supabase email rate limit; disabled email confirmation (3 auth toggles: allow-signups ON, email-provider ON, confirm-email OFF). Code: signup confirmation-off branch + synchronous session set so post-auth redirect doesn't race AuthGuard. Both flows land on /dashboard. Billing pivot Stripe→Flutterwave recorded (D8) |
+| 2026-08-06 | 4 | Billing set to **Paystack + NGN** (Stripe parked). Established the operator is a Nigerian entity with no US/UK company, so Stripe can't onboard; customers are Nigerian crypto/forex/indices traders. Recovered the stashed NGN work and swapped Flutterwave→Paystack across frontend (₦70k/₦120k/₦200k), CLAUDE.md, docs, commands, skills, wiki; authored `paystack-billing.md`, kept `stripe-billing.md` parked. No DB migration needed — live schema already has neutral columns + `plans.price_ngn`. Neutral billing columns kept (Stripe-compatible). D8 updated; DECISIONS.md records the Paystack decision + compliance framing (present as education SaaS). |
+| 2026-08-06 | 5 | Day 5 `TradiRunner`: real subprocess-per-run execution (isolated `HOME` per run via D1, worker-owned wall-clock timeout terminate→kill, `--json` envelope parsing, refund-taxonomy mapping per D7, heartbeat + graceful abort). Wired into `build_runner()` (Day-4 raise removed); config gained `tradi_command`/`runs_root`; documented in `worker/.env.example`. 9 hermetic tests via a fake CLI → 25 worker tests passing, black-clean. Real end-to-end run still pending `worker/.env` (service-role key) + an LLM key. |
+| 2026-08-07 | 5 | **Day 5 verified end-to-end.** Installed the Tradi engine (`Tradi/.venv`, `+[longbridge,deepseek]`); DeepSeek configured in `agent/.env` (base `…/anthropic`→`/v1`, model `deepseek-v4-flash`). Ran `hm-worker` with the real `service_role` key → claimed a queued row, `TradiRunner` ran the engine on DeepSeek in isolated `HOME=/tmp/vibe-runs/<id>`, closed it `completed` (~28s). Fixes: `WORKER_RUNS_ROOT`→`/tmp/vibe-runs` (writable); neutralized `worker/.env` LLM vars (they shadow `agent/.env`). Learnings folded into `.env.example`/README. |
+| 2026-08-07 | 6 | **Day 6 artifact persistence, verified E2E.** `TradiRunner` now scans the isolated workspace (runs/ + sessions/) into in-memory `Artifact`s and extracts the answer from `trace.jsonl` → `answer.md` (report). New `ArtifactStore` uploads to the private `agent-artifacts` bucket (`<user_id>/<run_id>/<name>`) + inserts `agent_artifacts` rows (best-effort, post-complete); wired via `main→run_forever→process_run`, `RunQueue.client` exposed. Live run → 7 artifacts, a 60s signed URL fetched an object, anon sees 0 rows (RLS). 29 worker tests, black-clean. Private bucket created. |

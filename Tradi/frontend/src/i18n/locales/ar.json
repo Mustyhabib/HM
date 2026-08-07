@@ -24,7 +24,7 @@
     "collapse": "طي",
     "expand": "توسيع",
     "skipToMain": "تخطَّ إلى المحتوى الرئيسي",
-    "sidebar": "الشريط الجانبي لـ Vibe-Trading",
+    "sidebar": "الشريط الجانبي لـ H~Mltd",
     "mainNavigation": "التنقل الرئيسي",
     "about": "حول"
   },
@@ -356,7 +356,7 @@
     "clearApiKey": "مسح مفتاح API المحفوظ",
     "channels": {
       "title": "قنوات IM",
-      "description": "صل محولات الدردشة بنفس وقت تشغيل جلسات Vibe-Trading المستخدم في Web UI و CLI.",
+      "description": "صل محولات الدردشة بنفس وقت تشغيل جلسات H~Mltd المستخدم في Web UI و CLI.",
       "runtime": "وقت التشغيل",
       "running": "قيد التشغيل",
       "stopped": "متوقف",

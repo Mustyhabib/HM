@@ -14,7 +14,7 @@ One row per authenticated user, 1:1 with `auth.users`.
 |---|---|---|
 | `id` | `uuid` PK | `= auth.users.id` |
 | `email` | `text` | mirrored from auth for convenience/admin views |
-| `stripe_customer_id` | `text` | nullable until first checkout |
+| `billing_customer_id` | `text` | provider (Paystack) customer ref; nullable until first checkout |
 | `is_admin` | `boolean` | default `false` |
 | `created_at` | `timestamptz` | default `now()` |
 
@@ -29,9 +29,9 @@ Static reference table for the 3 tiers. Seeded via migration, not user-writable.
 |---|---|---|
 | `id` | `text` PK | `'starter' \| 'pro' \| 'premium'` |
 | `name` | `text` | display name |
-| `price_cents` | `integer` | `2000 \| 3500 \| 5000` |
+| `price_ngn` | `integer` | monthly price in whole Naira: `70000 \| 120000 \| 200000` |
 | `monthly_uses` | `integer` | `3 \| 7 \| 15` |
-| `stripe_price_id` | `text` | Stripe Price object id |
+| `provider_price_id` | `text` | Paystack Plan id |
 | `active` | `boolean` | default `true`; lets a tier be retired without deleting history |
 
 RLS: `select` for all authenticated users (needed for the pricing page);
@@ -39,7 +39,7 @@ no client writes.
 
 ## `subscriptions`
 
-Mirrors Stripe subscription state. One active row per user in the common
+Mirrors the provider (Paystack) subscription state. One active row per user in the common
 case, but keep it a table (not a column on `profiles`) so history survives
 plan changes/cancellations.
 
@@ -48,8 +48,8 @@ plan changes/cancellations.
 | `id` | `uuid` PK | default `gen_random_uuid()` |
 | `user_id` | `uuid` FK → `profiles.id` | |
 | `plan_id` | `text` FK → `plans.id` | |
-| `stripe_subscription_id` | `text` UNIQUE | |
-| `status` | `text` | `'active' \| 'past_due' \| 'canceled' \| 'incomplete'` (mirrors Stripe) |
+| `provider_subscription_id` | `text` UNIQUE | Paystack subscription/payment-plan ref |
+| `status` | `text` | `'active' \| 'past_due' \| 'canceled' \| 'incomplete'` (normalized from the provider) |
 | `current_period_start` | `timestamptz` | |
 | `current_period_end` | `timestamptz` | drives `usage_periods` boundaries |
 | `cancel_at_period_end` | `boolean` | default `false` |
@@ -57,7 +57,7 @@ plan changes/cancellations.
 
 RLS: `select` where `user_id = auth.uid()`. All writes go through the
 service-role webhook handler only — never client-writable, since this table
-is the billing source of truth and must match Stripe exactly.
+is the billing source of truth and must match the provider (Paystack) exactly.
 
 ## `usage_periods`
 
@@ -152,14 +152,14 @@ RLS: `select` where `user_id = auth.uid()`. Insert only via service role
 
 ## `webhook_events`
 
-Idempotency ledger for Stripe webhooks — `CLAUDE.md` safety rule 9: "Never
+Idempotency ledger for Paystack webhooks — `CLAUDE.md` safety rule 9: "Never
 implement payment logic without webhook idempotency."
 
 | Column | Type | Notes |
 |---|---|---|
 | `id` | `uuid` PK | |
-| `stripe_event_id` | `text` UNIQUE | the actual dedupe key |
-| `type` | `text` | e.g. `'checkout.session.completed'` |
+| `provider_event_id` | `text` UNIQUE | the actual dedupe key (Paystack event/transaction id) |
+| `type` | `text` | e.g. `'charge.success'`, `'subscription.disable'` |
 | `payload` | `jsonb` | raw event, for replay/debugging |
 | `processed_at` | `timestamptz` | nullable until handled successfully |
 | `created_at` | `timestamptz` | |

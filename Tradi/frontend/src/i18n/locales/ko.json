@@ -24,7 +24,7 @@
     "collapse": "접기",
     "expand": "펼치기",
     "skipToMain": "본문으로 건너뛰기",
-    "sidebar": "Vibe-Trading 사이드바",
+    "sidebar": "H~Mltd 사이드바",
     "mainNavigation": "주 내비게이션",
     "about": "소개"
   },
@@ -356,7 +356,7 @@
     "clearApiKey": "저장된 API 키 삭제",
     "channels": {
       "title": "IM 채널",
-      "description": "채팅 어댑터를 Web UI와 CLI가 사용하는 동일한 Vibe-Trading 세션 런타임에 연결합니다.",
+      "description": "채팅 어댑터를 Web UI와 CLI가 사용하는 동일한 H~Mltd 세션 런타임에 연결합니다.",
       "runtime": "런타임",
       "running": "실행 중",
       "stopped": "중지됨",
