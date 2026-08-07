@@ -26,6 +26,13 @@ export interface RunArtifact {
   created_at: string;
 }
 
+export interface UsageSnapshot {
+  uses_allowed: number;
+  uses_consumed: number;
+  remaining: number;
+  period_end: string;
+}
+
 const ARTIFACT_BUCKET = "agent-artifacts";
 
 /** Map the RPC's raise-exception messages to friendly UI copy. */
@@ -51,6 +58,33 @@ export async function startRun(prompt: string, maxIter = 10): Promise<string> {
   });
   if (error) throw new Error(friendlyStartError(error.message));
   return data as string;
+}
+
+/**
+ * Read-only snapshot of the caller's active billing period (RLS-scoped to the
+ * user). The quota decrement is owned by `start_agent_run` server-side — this
+ * is display/gating only, never a second write. Returns null when there is no
+ * active period (e.g. no subscription).
+ */
+export async function getActiveUsage(): Promise<UsageSnapshot | null> {
+  const nowIso = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("usage_periods")
+    .select("uses_allowed,uses_consumed,period_end")
+    .lte("period_start", nowIso)
+    .gt("period_end", nowIso)
+    .order("period_start", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  const remaining = Math.max(0, data.uses_allowed - data.uses_consumed);
+  return {
+    uses_allowed: data.uses_allowed,
+    uses_consumed: data.uses_consumed,
+    remaining,
+    period_end: data.period_end,
+  };
 }
 
 export async function getRun(runId: string): Promise<AgentRun | null> {
