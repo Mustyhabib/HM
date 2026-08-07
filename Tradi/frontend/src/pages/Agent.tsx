@@ -1,14 +1,19 @@
-import { useCallback, useRef, useState } from "react";
-import { useNavigate } from "react-router";
-import { Send, Loader2, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router";
+import { Send, Loader2, Sparkles, Crown } from "lucide-react";
 import { toast } from "sonner";
-import { startRun } from "@/lib/runs";
+import { cn } from "@/lib/utils";
+import { startRun, getActiveUsage, type UsageSnapshot } from "@/lib/runs";
 
 /**
  * The Agent workspace is the single research entry point. A prompt is queued as
- * a metered run via the `start_agent_run` RPC (quota check + consume happen
- * atomically server-side) and the user is taken to the run status page, where
- * the worker's progress, result, and artifacts are shown.
+ * a metered run via the `start_agent_run` RPC (the quota check + 1-use consume
+ * happen atomically server-side) and the user is taken to the run status page.
+ *
+ * The quota shown here is READ-ONLY (RLS-scoped): it surfaces the tier-based
+ * allowance and proactively gates the prompt when none remain. The server RPC
+ * stays the sole authority — the frontend never writes the counter, so there's
+ * no double-charge.
  */
 
 const EXAMPLES = [
@@ -25,14 +30,52 @@ export function Agent() {
   const [error, setError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const [usage, setUsage] = useState<UsageSnapshot | null>(null);
+  const [usageLoaded, setUsageLoaded] = useState(false);
+  const [usageError, setUsageError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getActiveUsage()
+      .then((u) => {
+        if (cancelled) return;
+        setUsage(u);
+        setUsageLoaded(true);
+      })
+      .catch(() => {
+        // Fail open — the server RPC still enforces quota. Don't hard-block the
+        // UI on a transient read error; the run-start will surface any problem.
+        if (cancelled) return;
+        setUsageError(true);
+        setUsageLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const noPlan = usageLoaded && !usageError && usage === null;
+  const outOfQuota =
+    usageLoaded && !usageError && usage !== null && usage.remaining <= 0;
+  const blocked = noPlan || outOfQuota;
+
   const submit = useCallback(
     async (raw: string) => {
       const prompt = raw.trim();
-      if (!prompt || starting) return;
+      if (!prompt || starting || blocked) return;
       setStarting(true);
       setError(null);
       try {
         const runId = await startRun(prompt);
+        // Refetch usage to show the consumed use immediately (and keep it fresh
+        // for when the user returns from RunView). Fail open — if the read fails,
+        // the stale display is better than hard-blocking the navigation.
+        try {
+          const u = await getActiveUsage();
+          setUsage(u);
+        } catch {
+          // Silent fail — navigate with stale quota display
+        }
         navigate(`/run/${runId}`);
       } catch (e) {
         // friendlyStartError() already maps quota_exceeded / no-plan /
@@ -43,7 +86,7 @@ export function Agent() {
         setStarting(false);
       }
     },
-    [navigate, starting],
+    [navigate, starting, blocked],
   );
 
   const fillExample = useCallback((example: string) => {
@@ -65,10 +108,28 @@ export function Agent() {
           <span className="gradient-text">H~Mltd</span> Agent
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Ask a trading research question. Each run is queued to the agent and
-          metered against your plan.
+          Ask a trading research question. Each run consumes one use from your
+          plan.
         </p>
       </div>
+
+      {/* Quota-exhausted / no-plan banner */}
+      {blocked && (
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-danger/30 bg-danger/5 p-3">
+          <p className="text-xs text-foreground">
+            {noPlan
+              ? "You don't have an active plan. Subscribe to start running the agent."
+              : `You've used all ${usage?.uses_allowed} runs in your plan this period — it resets at your next billing date.`}
+          </p>
+          <Link
+            to="/pricing"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg gradient-bg glow-gradient px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90"
+          >
+            <Crown className="h-3.5 w-3.5" />
+            {noPlan ? "See plans" : "Upgrade"}
+          </Link>
+        </div>
+      )}
 
       {/* Prompt box — glowing gradient border (brand) */}
       <div className="gradient-border glow-pulse rounded-2xl">
@@ -100,14 +161,18 @@ export function Agent() {
                   submit(input);
                 }
               }}
-              disabled={starting}
-              placeholder="Ask H~Mltd a trading research question…"
+              disabled={starting || blocked}
+              placeholder={
+                blocked
+                  ? "No runs left — upgrade to continue"
+                  : "Ask H~Mltd a trading research question…"
+              }
               aria-label="Trading research prompt"
               className="max-h-40 min-h-[52px] flex-1 resize-none overflow-y-auto bg-transparent px-3 py-3 text-sm outline-none disabled:opacity-60"
             />
             <button
               type="submit"
-              disabled={starting || !input.trim()}
+              disabled={starting || blocked || !input.trim()}
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl gradient-bg glow-gradient text-white transition hover:opacity-90 disabled:opacity-50"
               aria-label="Start run"
               title="Start run"
@@ -123,9 +188,28 @@ export function Agent() {
       </div>
 
       {error && <p className="mt-2 px-1 text-xs text-danger">{error}</p>}
-      <p className="mt-2 px-1 text-[11px] text-muted-foreground">
-        Press Enter to run · Shift+Enter for a new line
-      </p>
+
+      {/* Hint + remaining-quota pill */}
+      <div className="mt-2 flex items-center justify-between gap-2 px-1">
+        <p className="text-[11px] text-muted-foreground">
+          Press Enter to run · Shift+Enter for a new line
+        </p>
+        {usageLoaded && !usageError && usage !== null && (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium",
+              usage.remaining <= 0
+                ? "border-danger/40 text-danger"
+                : usage.remaining <= 1
+                  ? "border-amber-500/40 text-amber-500"
+                  : "border-border text-muted-foreground",
+            )}
+            title="Runs remaining in your current billing period"
+          >
+            {usage.remaining} of {usage.uses_allowed} runs left
+          </span>
+        )}
+      </div>
 
       {/* Examples */}
       <div className="mt-8">
@@ -138,7 +222,7 @@ export function Agent() {
               key={ex}
               type="button"
               onClick={() => fillExample(ex)}
-              disabled={starting}
+              disabled={starting || blocked}
               className="rounded-xl border border-border bg-card p-3 text-left text-xs leading-relaxed text-muted-foreground transition hover:border-primary/40 hover:text-foreground disabled:opacity-50"
             >
               {ex}
