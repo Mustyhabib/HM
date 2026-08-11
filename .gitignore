@@ -40,3 +40,12 @@ coverage/
 
 # === LLM Wiki (local knowledge base) ===
 .wiki/
+
+# === Obsidian vault & config ===
+.obsidian/
+"HM vault/"
+HM vault/
+*.canvas
+
+# === Claude Code internal ===
+Tradi/frontend/.claude/
