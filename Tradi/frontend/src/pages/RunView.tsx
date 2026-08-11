@@ -9,7 +9,6 @@ import {
   Loader2,
   X,
   XCircle,
-  Sparkles,
 } from "lucide-react";
 import {
   getRun,
@@ -20,6 +19,47 @@ import {
 } from "@/lib/runs";
 
 const ACTIVE = new Set(["queued", "running"]);
+
+/** Rotating arc SVG — orbital ring shown during active states */
+function SpinRing() {
+  return (
+    <svg viewBox="0 0 36 36" className="h-9 w-9 spin-ring" fill="none" aria-hidden>
+      <defs>
+        <linearGradient id="ring-g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#06B6D4" />
+          <stop offset="100%" stopColor="#3B82F6" />
+        </linearGradient>
+      </defs>
+      <circle cx="18" cy="18" r="14" stroke="var(--border)" strokeWidth="2" />
+      <circle cx="18" cy="18" r="14" stroke="url(#ring-g)" strokeWidth="2"
+        strokeLinecap="round" strokeDasharray="20 68" />
+    </svg>
+  );
+}
+
+/** Three-dot typing indicator */
+function TypingDots() {
+  return (
+    <span className="ml-1 inline-flex items-center gap-1" aria-hidden>
+      <span className="typing-dot" />
+      <span className="typing-dot" />
+      <span className="typing-dot" />
+    </span>
+  );
+}
+
+/** Animated checkmark stroke — drawn on completion */
+function CheckDraw() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="none" aria-hidden>
+      <path d="M4 12.5l5.5 5.5L20 7"
+        stroke="#22C55E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+        strokeDasharray="28" strokeDashoffset="28"
+        className="stroke-draw"
+      />
+    </svg>
+  );
+}
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string; icon: ReactNode }> = {
@@ -224,18 +264,18 @@ export function RunView() {
             <StatusTimeline status={run.status} />
           </div>
 
-          {/* ─── Active state: shimmer + status copy ─── */}
+          {/* ─── Active state: spin ring + typing dots + shimmer ─── */}
           {ACTIVE.has(run.status) && (
-            <div className="rounded-xl border border-border bg-card p-6">
-              <div className="mb-4 flex items-center gap-2 text-sm">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <div className="font-medium text-foreground">
+            <div className="rounded-xl border border-primary/20 bg-card p-6 glass">
+              <div className="mb-5 flex items-center gap-3">
+                {/* Orbital spin ring replacing static icon */}
+                <SpinRing />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1 font-medium text-foreground text-sm">
                     {run.status === "queued" ? "Waiting for a worker" : "Agent is thinking"}
+                    {run.status === "running" && <TypingDots />}
                   </div>
-                  <div className="text-xs text-muted-foreground">
+                  <div className="mt-0.5 text-xs text-muted-foreground">
                     {run.status === "queued"
                       ? "Your run is next in line — this usually takes a few seconds."
                       : "Researching, analyzing, and drafting your report…"}
@@ -277,9 +317,10 @@ export function RunView() {
 
           {/* ─── Completed report ─── */}
           {run.status === "completed" && (
-            <div className="rounded-xl border border-border bg-card">
+            <div className="rounded-xl border border-success/20 bg-card">
               <div className="flex items-center justify-between border-b border-border/60 px-5 py-3">
                 <h2 className="flex items-center gap-2 text-sm font-semibold">
+                  <CheckDraw />
                   <FileText className="h-4 w-4 text-primary" /> Research Report
                 </h2>
                 {artifacts.length > 0 && (

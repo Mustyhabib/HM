@@ -31,26 +31,57 @@ const EXAMPLES = [
     label: "Backtest a strategy",
     prompt:
       "Backtest a 10/21 EMA crossover on AAPL over the last 2 years and report Sharpe, win rate, and max drawdown.",
+    preview: "Sharpe 1.82 · Win rate 64% · Max DD –11.2%",
   },
   {
     icon: BarChart3,
     label: "Compare regimes",
     prompt:
       "Compare momentum vs mean-reversion on BTC/USDT for 2024 and tell me which regime each favored.",
+    preview: "Momentum dominated Q1–Q3, mean-rev outperformed Q4",
   },
   {
     icon: Search,
     label: "Screen for setups",
     prompt:
       "Screen for oversold names: RSI(14) below 30 with rising 50-day volume, and rank the top 10.",
+    preview: "10 signals found — MSFT, META, AMZN top-ranked",
   },
   {
     icon: Layers,
     label: "Pairs trading edge",
     prompt:
       "Build and evaluate a simple pairs-trading strategy on KO and PEP, then summarize the edge.",
+    preview: "Cointegrated 95% CI · Sharpe 1.41 · 38 trades/yr",
   },
 ];
+
+/** Neural-network motif SVG — represents the agent's reasoning graph */
+function AgentBrainSVG() {
+  const nodes: [number, number][] = [[24,5],[8,18],[40,18],[16,33],[32,33],[24,26]];
+  const edges: [number, number, number, number][] = [
+    [24,5,8,18],[24,5,40,18],[8,18,16,33],[8,18,24,26],
+    [40,18,32,33],[40,18,24,26],[24,26,16,33],[24,26,32,33],
+  ];
+  return (
+    <svg viewBox="0 0 48 38" fill="none" className="h-9 w-9" aria-hidden>
+      <defs>
+        <linearGradient id="ag-g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#06B6D4" />
+          <stop offset="100%" stopColor="#3B82F6" />
+        </linearGradient>
+      </defs>
+      {edges.map(([x1,y1,x2,y2],i) => (
+        <line key={i} x1={x1} y1={y1} x2={x2} y2={y2}
+          stroke="url(#ag-g)" strokeWidth="1.2" strokeOpacity="0.3" />
+      ))}
+      {nodes.map(([cx,cy],i) => (
+        <circle key={i} cx={cx} cy={cy} r={i === 0 ? 4.5 : 3}
+          fill="url(#ag-g)" fillOpacity={i === 0 ? 1 : 0.65} />
+      ))}
+    </svg>
+  );
+}
 
 export function Agent() {
   const navigate = useNavigate();
@@ -131,6 +162,13 @@ export function Agent() {
     <div className="mx-auto flex min-h-full max-w-3xl flex-col justify-center px-6 py-12">
       {/* ─── Header ─── */}
       <div className="mb-8 text-center msg-enter">
+        <div className="mb-4 flex justify-center">
+          <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/20 bg-primary/8">
+            <AgentBrainSVG />
+            {/* Pulse ring */}
+            <span className="pointer-events-none absolute inset-0 rounded-2xl border border-primary/30 animate-ping opacity-20" style={{ animationDuration: "2.5s" }} />
+          </div>
+        </div>
         <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/8 px-3 py-1 text-[11px] font-medium text-primary">
           <Sparkles className="h-3 w-3" />
           Research Studio
@@ -245,28 +283,40 @@ export function Agent() {
         )}
       </div>
 
-      {/* ─── Example prompts ─── */}
+      {/* ─── Example prompts — shown as mini conversations ─── */}
       <div className="mt-10">
         <div className="mb-3 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 text-primary" /> Or try a starting point
         </div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {EXAMPLES.map(({ icon: Icon, label, prompt }) => (
+        <div className="grid gap-2.5 sm:grid-cols-2">
+          {EXAMPLES.map(({ icon: Icon, label, prompt, preview }, i) => (
             <button
               key={label}
               type="button"
               onClick={() => fillExample(prompt)}
               disabled={starting || blocked}
-              className="group flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-left transition hover:border-primary/40 hover:bg-elevated/50 disabled:cursor-not-allowed disabled:opacity-40"
+              className="group flex flex-col gap-2 rounded-xl border border-border bg-card p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:bg-elevated/40 hover:shadow-lg hover:shadow-primary/5 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-elevated border border-border transition group-hover:border-primary/30 group-hover:bg-primary/10">
-                <Icon className="h-4 w-4 text-primary" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-xs font-semibold text-foreground">{label}</div>
-                <div className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                  {prompt}
+              {/* Label row */}
+              <div className="flex items-center gap-1.5">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border bg-elevated transition group-hover:border-primary/30 group-hover:bg-primary/8">
+                  <Icon className="h-3 w-3 text-primary" />
                 </div>
+                <span className="text-[11px] font-semibold text-foreground">{label}</span>
+              </div>
+              {/* User bubble */}
+              <div
+                className="bubble-user ml-3 px-3 py-1.5 text-[11px] leading-relaxed text-muted-foreground"
+                style={{ animationDelay: `${i * 55}ms` }}
+              >
+                {prompt.length > 62 ? prompt.slice(0, 62) + "…" : prompt}
+              </div>
+              {/* AI response bubble */}
+              <div
+                className="bubble-ai px-3 py-1.5 text-[11px] font-mono leading-relaxed text-muted-foreground"
+                style={{ animationDelay: `${i * 55 + 80}ms` }}
+              >
+                <span className="mr-1 text-[9px] text-primary">▶</span>{preview}
               </div>
             </button>
           ))}
