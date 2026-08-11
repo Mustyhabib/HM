@@ -97,12 +97,12 @@ function EquityCurve() {
     <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-full" preserveAspectRatio="none">
       <defs>
         <linearGradient id="eq-gradient" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#06B6D4" />
-          <stop offset="100%" stopColor="#3B82F6" />
+          <stop offset="0%" stopColor="#F43F5E" />
+          <stop offset="100%" stopColor="#D946EF" />
         </linearGradient>
         <linearGradient id="eq-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.2" />
-          <stop offset="100%" stopColor="#3B82F6" stopOpacity="0" />
+          <stop offset="0%" stopColor="#D946EF" stopOpacity="0.2" />
+          <stop offset="100%" stopColor="#D946EF" stopOpacity="0" />
         </linearGradient>
       </defs>
       {[0.25, 0.5, 0.75].map((f) => (
@@ -118,7 +118,8 @@ function EquityCurve() {
         />
       ))}
       <path d={areaD} fill="url(#eq-fill)" />
-      <path d={pathD} fill="none" stroke="url(#eq-gradient)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={pathD} fill="none" stroke="url(#eq-gradient)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+        className="sparkline-draw" style={{ '--sl-len': '820' } as React.CSSProperties} />
     </svg>
   );
 }
@@ -156,7 +157,7 @@ function PineScriptPanel() {
             className="flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] text-muted-foreground transition hover:bg-elevated hover:text-foreground"
           >
             <Copy className="h-3 w-3" />
-            {copied ? "Copied" : "Copy"}
+            {copied ? "✓ strategy.pine" : "Copy"}
           </button>
           <button className="rounded-md gradient-bg glow-gradient px-2.5 py-1 text-[11px] font-medium text-white transition hover:opacity-90">
             Run Backtest
@@ -307,10 +308,10 @@ export function Dashboard() {
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              {METRICS.map(({ label, value, icon: Icon, color, positive }) => (
+              {METRICS.map(({ label, value, icon: Icon, color, positive }, i) => (
                 <div
                   key={label}
-                  className="rounded-xl border border-border bg-card p-5 transition hover:border-border/80"
+                  className="rounded-xl border border-border bg-card p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-lg hover:shadow-primary/5"
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -321,7 +322,10 @@ export function Dashboard() {
                     </div>
                   </div>
                   <div className="mt-3 flex items-end gap-2">
-                    <span className="font-mono text-2xl font-bold tracking-tight">{value}</span>
+                    <span
+                      className="font-mono text-2xl font-bold tracking-tight count-in"
+                      style={{ animationDelay: `${i * 120}ms` }}
+                    >{value}</span>
                     {positive !== undefined && (
                       <span className="mb-1 flex items-center text-xs text-success">
                         <ArrowUpRight className="h-3 w-3" />

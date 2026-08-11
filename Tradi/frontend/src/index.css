@@ -3,87 +3,213 @@
 @tailwind utilities;
 
 @layer base {
-  /* ─── H~M Dark Navy — single theme for all pages ─── */
+  /* ─── H~Mltd — Aurora Fire: violet → fuchsia → rose → amber ─── */
   :root {
-    --background: #05060F;
+    --background: #070410;
     --foreground: #F8FAFC;
-    --card: #0B1020;
+    --card: #0F0920;
     --card-foreground: #F8FAFC;
-    --popover: #101730;
+    --popover: #160E28;
     --popover-foreground: #F8FAFC;
-    --primary: #3B82F6;
+    --primary: #D946EF;            /* fuchsia — signature accent */
     --primary-foreground: #FFFFFF;
-    --secondary: #22D3EE;
-    --secondary-foreground: #05060F;
-    --muted: #101730;
-    --muted-foreground: #94A3B8;
+    --secondary: #7C3AED;          /* deep violet */
+    --secondary-foreground: #F8FAFC;
+    --muted: #160E28;
+    --muted-foreground: #A78BCA;
     --destructive: #EF4444;
     --destructive-foreground: #FFFFFF;
-    --border: #1E2A45;
-    --ring: #3B82F6;
+    --border: #2A1845;
+    --ring: #D946EF;
     --radius: 0.75rem;
 
     /* Semantic */
     --success: #22C55E;
     --danger: #EF4444;
-    --warning: #F59E0B;
-    --info: #06B6D4;
+    --warning: #FB923C;
+    --info: #F43F5E;
 
     /* Surfaces */
-    --surface-elevated: #101730;
-    --bg-panel: #080D1A;
-    --bg-input: #05060F;
+    --surface-elevated: #160E28;
+    --bg-panel: #0A0815;
+    --bg-input: #070410;
+
+    /* Shimmer tokens — theme-aware */
+    --shimmer-a: rgba(255,255,255,0.03);
+    --shimmer-b: rgba(255,255,255,0.07);
 
     /* Chart tokens */
-    --chart-grid: #1E2A45;
-    --chart-text: #94A3B8;
-    --chart-axis: #1E2A45;
-    --chart-compare-a: #3B82F6;
-    --chart-compare-b: #22D3EE;
+    --chart-grid: #2A1845;
+    --chart-text: #A78BCA;
+    --chart-axis: #2A1845;
+    --chart-compare-a: #D946EF;
+    --chart-compare-b: #FB923C;
 
-    /* Brand gradient stops (cyan → blue "signal") */
-    --brand-a: #06B6D4;
-    --brand-b: #3B82F6;
+    /* Aurora fire gradient — 4 stops: violet → fuchsia → rose → amber */
+    --brand-a: #7C3AED;   /* deep violet */
+    --brand-b: #D946EF;   /* fuchsia */
+    --brand-c: #F43F5E;   /* rose */
+    --brand-d: #FB923C;   /* amber */
 
     color-scheme: dark;
   }
 
-  /* Legacy .dark class — same values, no toggle needed */
+  /* .dark — keeps Tailwind's darkMode:"class" variants working */
   .dark {
-    --background: #05060F;
+    --background: #070410;
     --foreground: #F8FAFC;
-    --card: #0B1020;
+    --card: #0F0920;
     --card-foreground: #F8FAFC;
-    --popover: #101730;
+    --popover: #160E28;
     --popover-foreground: #F8FAFC;
-    --primary: #3B82F6;
+    --primary: #D946EF;
     --primary-foreground: #FFFFFF;
-    --secondary: #22D3EE;
-    --secondary-foreground: #05060F;
-    --muted: #101730;
-    --muted-foreground: #94A3B8;
+    --secondary: #7C3AED;
+    --secondary-foreground: #F8FAFC;
+    --muted: #160E28;
+    --muted-foreground: #A78BCA;
     --destructive: #EF4444;
     --destructive-foreground: #FFFFFF;
-    --border: #1E2A45;
-    --ring: #3B82F6;
-
+    --border: #2A1845;
+    --ring: #D946EF;
     --success: #22C55E;
     --danger: #EF4444;
-    --warning: #F59E0B;
-    --info: #06B6D4;
+    --warning: #FB923C;
+    --info: #F43F5E;
+    --surface-elevated: #160E28;
+    --bg-panel: #0A0815;
+    --bg-input: #070410;
+    --shimmer-a: rgba(255,255,255,0.03);
+    --shimmer-b: rgba(255,255,255,0.07);
+    --chart-grid: #2A1845;
+    --chart-text: #A78BCA;
+    --chart-axis: #2A1845;
+    --chart-compare-a: #D946EF;
+    --chart-compare-b: #FB923C;
+    --brand-a: #7C3AED;
+    --brand-b: #D946EF;
+    --brand-c: #F43F5E;
+    --brand-d: #FB923C;
+    color-scheme: dark;
+  }
 
-    --surface-elevated: #101730;
-    --bg-panel: #080D1A;
-    --bg-input: #05060F;
+  /* ── Light mode via system preference ── */
+  @media (prefers-color-scheme: light) {
+    :root {
+      --background: #FAF9FF;
+      --foreground: #0F0A1E;
+      --card: #FFFFFF;
+      --card-foreground: #0F0A1E;
+      --popover: #F5F3FF;
+      --popover-foreground: #0F0A1E;
+      --primary: #7C3AED;
+      --primary-foreground: #FFFFFF;
+      --secondary: #C026D3;
+      --secondary-foreground: #FFFFFF;
+      --muted: #FAF5FF;
+      --muted-foreground: #6B4D8A;
+      --destructive: #DC2626;
+      --destructive-foreground: #FFFFFF;
+      --border: #EDE9FE;
+      --ring: #7C3AED;
+      --success: #16A34A;
+      --danger: #DC2626;
+      --warning: #D97706;
+      --info: #E11D48;
+      --surface-elevated: #F5F3FF;
+      --bg-panel: #FAF5FF;
+      --bg-input: #FFFFFF;
+      --shimmer-a: rgba(0,0,0,0.03);
+      --shimmer-b: rgba(0,0,0,0.07);
+      --chart-grid: #EDE9FE;
+      --chart-text: #6B4D8A;
+      --chart-axis: #EDE9FE;
+      --chart-compare-a: #7C3AED;
+      --chart-compare-b: #D97706;
+      --brand-a: #6D28D9;
+      --brand-b: #A21CAF;
+      --brand-c: #E11D48;
+      --brand-d: #D97706;
+      color-scheme: light;
+    }
+  }
 
-    --chart-grid: #1E2A45;
-    --chart-text: #94A3B8;
-    --chart-axis: #1E2A45;
-    --chart-compare-a: #3B82F6;
-    --chart-compare-b: #22D3EE;
+  /* ── Manual dark — wins over system preference ── */
+  :root[data-theme="dark"] {
+    --background: #070410;
+    --foreground: #F8FAFC;
+    --card: #0F0920;
+    --card-foreground: #F8FAFC;
+    --popover: #160E28;
+    --popover-foreground: #F8FAFC;
+    --primary: #D946EF;
+    --primary-foreground: #FFFFFF;
+    --secondary: #7C3AED;
+    --secondary-foreground: #F8FAFC;
+    --muted: #160E28;
+    --muted-foreground: #A78BCA;
+    --destructive: #EF4444;
+    --destructive-foreground: #FFFFFF;
+    --border: #2A1845;
+    --ring: #D946EF;
+    --success: #22C55E;
+    --danger: #EF4444;
+    --warning: #FB923C;
+    --info: #F43F5E;
+    --surface-elevated: #160E28;
+    --bg-panel: #0A0815;
+    --bg-input: #070410;
+    --shimmer-a: rgba(255,255,255,0.03);
+    --shimmer-b: rgba(255,255,255,0.07);
+    --chart-grid: #2A1845;
+    --chart-text: #A78BCA;
+    --chart-axis: #2A1845;
+    --chart-compare-a: #D946EF;
+    --chart-compare-b: #FB923C;
+    --brand-a: #7C3AED;
+    --brand-b: #D946EF;
+    --brand-c: #F43F5E;
+    --brand-d: #FB923C;
+    color-scheme: dark;
+  }
 
-    --brand-a: #06B6D4;
-    --brand-b: #3B82F6;
+  /* ── Manual light — wins over system preference ── */
+  :root[data-theme="light"] {
+    --background: #FAF9FF;
+    --foreground: #0F0A1E;
+    --card: #FFFFFF;
+    --card-foreground: #0F0A1E;
+    --popover: #F5F3FF;
+    --popover-foreground: #0F0A1E;
+    --primary: #7C3AED;
+    --primary-foreground: #FFFFFF;
+    --secondary: #C026D3;
+    --secondary-foreground: #FFFFFF;
+    --muted: #FAF5FF;
+    --muted-foreground: #6B4D8A;
+    --destructive: #DC2626;
+    --destructive-foreground: #FFFFFF;
+    --border: #EDE9FE;
+    --ring: #7C3AED;
+    --success: #16A34A;
+    --danger: #DC2626;
+    --warning: #D97706;
+    --info: #E11D48;
+    --surface-elevated: #F5F3FF;
+    --bg-panel: #FAF5FF;
+    --bg-input: #FFFFFF;
+    --shimmer-a: rgba(0,0,0,0.03);
+    --shimmer-b: rgba(0,0,0,0.07);
+    --chart-grid: #EDE9FE;
+    --chart-text: #6B4D8A;
+    --chart-axis: #EDE9FE;
+    --chart-compare-a: #7C3AED;
+    --chart-compare-b: #D97706;
+    --brand-a: #6D28D9;
+    --brand-b: #A21CAF;
+    --brand-c: #E11D48;
+    --brand-d: #D97706;
+    color-scheme: light;
   }
 
   * { @apply border-[var(--border)]; }
@@ -92,13 +218,10 @@
     color: var(--foreground);
   }
 
-  /* Force dark class on html for legacy compat */
-  html { color-scheme: dark; }
-
   /* Prose table enhancements */
   .prose table { border-collapse: collapse; width: 100%; }
   .prose th, .prose td { border: 1px solid var(--border); }
-  .prose tbody tr:nth-child(even) { background: rgba(16, 23, 48, 0.3); }
+  .prose tbody tr:nth-child(even) { background: rgba(22, 14, 40, 0.3); }
 
   /* Smooth scrollbar */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -109,16 +232,16 @@
 
 /* ─── Utility classes ─── */
 
-/* Primary gradient — cyan → blue "signal" */
+/* Primary gradient — Aurora Fire: violet → fuchsia → rose → amber */
 .gradient-text {
-  background: linear-gradient(90deg, var(--brand-a), var(--brand-b));
+  background: linear-gradient(90deg, var(--brand-a), var(--brand-b), var(--brand-c), var(--brand-d));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .gradient-bg {
-  background: linear-gradient(90deg, var(--brand-a), var(--brand-b));
+  background: linear-gradient(90deg, var(--brand-a), var(--brand-b), var(--brand-c), var(--brand-d));
 }
 
 .gradient-border {
@@ -132,40 +255,49 @@
   inset: -1px;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(90deg, var(--brand-a), var(--brand-b));
+  background: linear-gradient(90deg, var(--brand-a), var(--brand-b), var(--brand-c), var(--brand-d));
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
 }
 
-/* Soft glow on buttons */
-.glow-blue {
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3), 0 0 40px rgba(59, 130, 246, 0.1);
+/* Soft glow — aurora fire */
+.glow-violet {
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.3), 0 0 40px rgba(124, 58, 237, 0.1);
 }
 
-.glow-cyan {
-  box-shadow: 0 0 20px rgba(6, 182, 212, 0.3), 0 0 40px rgba(6, 182, 212, 0.1);
+.glow-fuchsia {
+  box-shadow: 0 0 20px rgba(217, 70, 239, 0.3), 0 0 40px rgba(217, 70, 239, 0.1);
 }
+
+/* Legacy aliases — kept for backward compat with existing TSX */
+.glow-blue { box-shadow: 0 0 20px rgba(124, 58, 237, 0.3), 0 0 40px rgba(124, 58, 237, 0.1); }
+.glow-cyan  { box-shadow: 0 0 20px rgba(244, 63, 94, 0.3),  0 0 40px rgba(244, 63, 94, 0.1); }
 
 .glow-gradient {
-  box-shadow: 0 0 20px rgba(6, 182, 212, 0.25), 0 0 40px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.2), 0 0 40px rgba(217, 70, 239, 0.14), 0 0 60px rgba(251, 146, 60, 0.06);
 }
 
 /* Grid background for hero */
 .grid-bg {
   background-image:
-    linear-gradient(rgba(30, 42, 69, 0.3) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(30, 42, 69, 0.3) 1px, transparent 1px);
+    linear-gradient(rgba(42, 24, 69, 0.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(42, 24, 69, 0.4) 1px, transparent 1px);
   background-size: 60px 60px;
 }
 
+/* ─── Wallpaper hero background ─── */
+.hero-wallpaper {
+  background-image: url('/wallpaper.svg');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+}
+
 /* ─── Signal-lines hero background ─── */
-/* Ghosted equity curves drifting behind the hero — reinforces the trading
-   research vibe without competing with the terminal preview signature.
-   Encoded as an inline SVG data URI so it renders without an extra request. */
 .signal-lines {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 400'><defs><linearGradient id='sl' x1='0' y1='0' x2='1' y2='0'><stop offset='0' stop-color='%2306B6D4' stop-opacity='0'/><stop offset='0.35' stop-color='%2306B6D4' stop-opacity='0.35'/><stop offset='0.65' stop-color='%233B82F6' stop-opacity='0.35'/><stop offset='1' stop-color='%233B82F6' stop-opacity='0'/></linearGradient></defs><g fill='none' stroke='url(%23sl)' stroke-width='1'><path d='M0,320 L60,300 L120,310 L180,270 L240,280 L300,240 L360,255 L420,210 L480,225 L540,180 L600,195 L660,155 L720,170 L800,135'/><path d='M0,360 L60,350 L120,355 L180,335 L240,345 L300,320 L360,330 L420,305 L480,315 L540,290 L600,300 L660,275 L720,285 L800,260' stroke-opacity='0.5'/><path d='M0,240 L60,220 L120,235 L180,190 L240,205 L300,160 L360,180 L420,135 L480,155 L540,110 L600,130 L660,90 L720,105 L800,70' stroke-opacity='0.7'/></g></svg>");
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 400'><defs><linearGradient id='sl' x1='0' y1='0' x2='1' y2='0'><stop offset='0' stop-color='%237C3AED' stop-opacity='0'/><stop offset='0.35' stop-color='%23D946EF' stop-opacity='0.35'/><stop offset='0.65' stop-color='%23F43F5E' stop-opacity='0.35'/><stop offset='1' stop-color='%23FB923C' stop-opacity='0'/></linearGradient></defs><g fill='none' stroke='url(%23sl)' stroke-width='1'><path d='M0,320 L60,300 L120,310 L180,270 L240,280 L300,240 L360,255 L420,210 L480,225 L540,180 L600,195 L660,155 L720,170 L800,135'/><path d='M0,360 L60,350 L120,355 L180,335 L240,345 L300,320 L360,330 L420,305 L480,315 L540,290 L600,300 L660,275 L720,285 L800,260' stroke-opacity='0.5'/><path d='M0,240 L60,220 L120,235 L180,190 L240,205 L300,160 L360,180 L420,135 L480,155 L540,110 L600,130 L660,90 L720,105 L800,70' stroke-opacity='0.7'/></g></svg>");
   background-repeat: no-repeat;
   background-position: bottom center;
   background-size: 100% 60%;
@@ -214,9 +346,9 @@
 .shimmer {
   background: linear-gradient(
     90deg,
-    rgba(255,255,255,0.03) 25%,
-    rgba(255,255,255,0.07) 50%,
-    rgba(255,255,255,0.03) 75%
+    var(--shimmer-a) 25%,
+    var(--shimmer-b) 50%,
+    var(--shimmer-a) 75%
   );
   background-size: 200% auto;
   animation: shimmer 1.6s linear infinite;
@@ -302,10 +434,137 @@
 }
 .hm-report th { background: var(--surface-elevated); font-weight: 600; }
 
-/* ─── Reduced-motion respect (Fix 1) ────────────────────────────────────
-   Users who opt into reduced motion get instant, non-animated versions of
-   every ambient / decorative animation. Keep functional feedback (spinners
-   on load state) since they communicate progress, not decoration. */
+/* ─── Ticker strip — infinite horizontal marquee ─── */
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.ticker-wrap {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+.ticker-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.5rem;
+  animation: ticker-scroll 32s linear infinite;
+  will-change: transform;
+}
+
+/* ─── Chat bubble entrance animations ─── */
+@keyframes bubble-right {
+  from { opacity: 0; transform: translateX(8px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes bubble-left {
+  from { opacity: 0; transform: translateX(-8px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+.bubble-user {
+  border-radius: 0.875rem 0.875rem 0.25rem 0.875rem;
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
+  animation: bubble-right 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.bubble-ai {
+  border-radius: 0.875rem 0.875rem 0.875rem 0.25rem;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  animation: bubble-left 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ─── Typing indicator — 3-dot bounce ─── */
+@keyframes dot-bounce {
+  0%, 60%, 100% { transform: scale(0.55); opacity: 0.35; }
+  30%           { transform: scale(1);    opacity: 1;    }
+}
+.typing-dot {
+  display: inline-block;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--brand-b);
+  animation: dot-bounce 1.1s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.18s; }
+.typing-dot:nth-child(3) { animation-delay: 0.36s; }
+
+/* ─── SVG checkmark stroke draw (completion moment) ─── */
+@keyframes stroke-draw {
+  to { stroke-dashoffset: 0; }
+}
+.stroke-draw {
+  animation: stroke-draw 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
+}
+
+/* ─── Spin ring — running state orbital ─── */
+@keyframes spin-ring {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.spin-ring {
+  animation: spin-ring 0.9s linear infinite;
+  transform-origin: center;
+}
+
+/* ─── Glass surface ─── */
+.glass {
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+}
+
+/* ─── Scroll-triggered section reveals (CSS animation-timeline) ─── */
+@keyframes reveal-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: none; }
+}
+@supports (animation-timeline: view()) {
+  .reveal-on-scroll {
+    opacity: 0;
+    animation: reveal-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 40%;
+  }
+}
+
+/* ─── Metric count-in entrance ─── */
+@keyframes count-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: none; }
+}
+.count-in {
+  animation: count-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ─── Light mode overrides ─── */
+@media (prefers-color-scheme: light) {
+  .grid-bg {
+    background-image:
+      linear-gradient(rgba(124, 58, 237, 0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124, 58, 237, 0.07) 1px, transparent 1px);
+  }
+  .glow-gradient {
+    box-shadow: 0 0 14px rgba(124,58,237,0.2), 0 0 28px rgba(217,70,239,0.1);
+  }
+  .glow-blue, .glow-violet { box-shadow: 0 0 14px rgba(124,58,237,0.2); }
+  .glow-cyan, .glow-fuchsia { box-shadow: 0 0 14px rgba(217,70,239,0.2); }
+  .glow-success { box-shadow: 0 0 12px rgba(22,163,74,0.25); }
+}
+:root[data-theme="light"] .grid-bg {
+  background-image:
+    linear-gradient(rgba(124, 58, 237, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124, 58, 237, 0.07) 1px, transparent 1px);
+}
+:root[data-theme="light"] .glow-gradient {
+  box-shadow: 0 0 14px rgba(124,58,237,0.2), 0 0 28px rgba(217,70,239,0.1);
+}
+:root[data-theme="light"] .glow-blue,
+:root[data-theme="light"] .glow-violet { box-shadow: 0 0 14px rgba(124,58,237,0.2); }
+:root[data-theme="light"] .glow-cyan,
+:root[data-theme="light"] .glow-fuchsia { box-shadow: 0 0 14px rgba(217,70,239,0.2); }
+:root[data-theme="light"] .glow-success { box-shadow: 0 0 12px rgba(22,163,74,0.25); }
+
+/* ─── Reduced-motion respect ─── */
 @media (prefers-reduced-motion: reduce) {
   .msg-enter,
   .fade-up-in,
@@ -315,12 +574,20 @@
   .cursor-blink,
   .sparkline-draw,
   .glow-pulse::before,
+  .ticker-inner,
+  .bubble-user,
+  .bubble-ai,
+  .typing-dot,
+  .stroke-draw,
+  .spin-ring,
+  .reveal-on-scroll,
+  .count-in,
   .chat-scroll-container [data-streaming="true"] * {
     animation: none !important;
     transition: none !important;
   }
   .sparkline-draw { stroke-dashoffset: 0; }
-  .shimmer {
-    background: rgba(255,255,255,0.04);
-  }
+  .stroke-draw    { stroke-dashoffset: 0; }
+  .reveal-on-scroll { opacity: 1; }
+  .shimmer { background: var(--shimmer-b); }
 }

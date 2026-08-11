@@ -7,6 +7,9 @@ import { AuthGuard, GuestGuard } from "@/components/auth/AuthGuard";
 // --- Public / SaaS pages ---
 const Landing = lazy(() => import("@/pages/Landing").then((m) => ({ default: m.Landing })));
 const Pricing = lazy(() => import("@/pages/Pricing").then((m) => ({ default: m.Pricing })));
+const Docs    = lazy(() => import("@/pages/Docs").then((m) => ({ default: m.Docs })));
+const Terms   = lazy(() => import("@/pages/Terms").then((m) => ({ default: m.Terms })));
+const Privacy = lazy(() => import("@/pages/Privacy").then((m) => ({ default: m.Privacy })));
 const Login = lazy(() => import("@/pages/Login").then((m) => ({ default: m.Login })));
 const Signup = lazy(() => import("@/pages/Signup").then((m) => ({ default: m.Signup })));
 const Dashboard = lazy(() => import("@/pages/Dashboard").then((m) => ({ default: m.Dashboard })));
@@ -64,8 +67,11 @@ export const router = createBrowserRouter([
   {
     element: <PublicLayout />,
     children: [
-      { path: "/", element: wrap(Landing) },
-      { path: "/pricing", element: wrap(Pricing) },
+      { path: "/",        element: wrap(Landing)  },
+      { path: "/pricing", element: wrap(Pricing)  },
+      { path: "/docs",    element: wrap(Docs)     },
+      { path: "/terms",   element: wrap(Terms)    },
+      { path: "/privacy", element: wrap(Privacy)  },
     ],
   },
 

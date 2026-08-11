@@ -1,6 +1,37 @@
 import { Link } from "react-router";
 import { ArrowRight, Bot, BarChart3, Shield, Zap } from "lucide-react";
 
+/* ─── Market ticker data ─── */
+const TICKER_ITEMS = [
+  { sym: "AAPL",  val: "+2.14%", pos: true  },
+  { sym: "BTC",   val: "-0.82%", pos: false },
+  { sym: "TSLA",  val: "+4.31%", pos: true  },
+  { sym: "ETH",   val: "+1.24%", pos: true  },
+  { sym: "SPY",   val: "+0.56%", pos: true  },
+  { sym: "SOL",   val: "-1.13%", pos: false },
+  { sym: "NVDA",  val: "+3.47%", pos: true  },
+  { sym: "GLD",   val: "+0.24%", pos: true  },
+  { sym: "QQQ",   val: "+1.85%", pos: true  },
+  { sym: "MSFT",  val: "-0.31%", pos: false },
+];
+
+function TickerStrip() {
+  const items = [...TICKER_ITEMS, ...TICKER_ITEMS]; // duplicate for seamless loop
+  return (
+    <div className="ticker-wrap border-y border-border/50 bg-[var(--bg-panel)] py-2.5">
+      <div className="ticker-inner">
+        {items.map(({ sym, val, pos }, i) => (
+          <span key={i} className="flex items-center gap-1.5 whitespace-nowrap">
+            <span className="font-mono text-xs font-semibold text-foreground/70">{sym}</span>
+            <span className={`font-mono text-[11px] font-medium ${pos ? "text-success" : "text-danger"}`}>{val}</span>
+            <span className="mx-1 h-3 w-px bg-border/60" />
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const FEATURES = [
   {
     icon: Bot,
@@ -46,16 +77,17 @@ function EquityPreview() {
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="none">
       <defs>
         <linearGradient id="lp-line" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#06B6D4" />
-          <stop offset="100%" stopColor="#3B82F6" />
+          <stop offset="0%" stopColor="#F43F5E" />
+          <stop offset="100%" stopColor="#D946EF" />
         </linearGradient>
         <linearGradient id="lp-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#06B6D4" stopOpacity="0.18" />
-          <stop offset="100%" stopColor="#3B82F6" stopOpacity="0" />
+          <stop offset="0%" stopColor="#F43F5E" stopOpacity="0.18" />
+          <stop offset="100%" stopColor="#D946EF" stopOpacity="0" />
         </linearGradient>
       </defs>
       <path d={area} fill="url(#lp-fill)" />
-      <path d={path} fill="none" stroke="url(#lp-line)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={path} fill="none" stroke="url(#lp-line)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+        className="sparkline-draw" style={{ '--sl-len': '500' } as React.CSSProperties} />
     </svg>
   );
 }
@@ -63,7 +95,7 @@ function EquityPreview() {
 /** Terminal-style product preview panel */
 function TerminalPreview() {
   return (
-    <div className="relative rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
+    <div className="relative rounded-2xl border border-border bg-card shadow-2xl shadow-primary/10 overflow-hidden glass">
       {/* Window chrome */}
       <div className="flex items-center gap-1.5 border-b border-border bg-[var(--bg-panel)] px-4 py-2.5">
         <div className="h-2.5 w-2.5 rounded-full bg-danger/60" />
@@ -119,16 +151,19 @@ function TerminalPreview() {
           </div>
         </div>
 
-        {/* Bottom ticker strip */}
-        <div className="mt-3 flex items-center gap-3 border-t border-border/40 pt-3">
-          {["AAPL +2.1%", "BTC -0.8%", "TSLA +4.3%", "ETH +1.2%"].map((t) => {
-            const pos = t.includes("+");
-            return (
-              <span key={t} className={`font-mono text-[10px] ${pos ? "text-success" : "text-danger"}`}>
-                {t}
+        {/* Bottom ticker — animated marquee */}
+        <div className="mt-3 border-t border-border/40 pt-2.5 overflow-hidden"
+          style={{ WebkitMaskImage: 'linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent)',
+                   maskImage: 'linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent)' }}>
+          <div className="ticker-inner" style={{ animationDuration: '18s' }}>
+            {[...TICKER_ITEMS, ...TICKER_ITEMS].map(({ sym, val, pos }, i) => (
+              <span key={i} className="flex shrink-0 items-center gap-1 whitespace-nowrap">
+                <span className="font-mono text-[10px] font-semibold text-foreground/60">{sym}</span>
+                <span className={`font-mono text-[10px] ${pos ? "text-success" : "text-danger"}`}>{val}</span>
+                <span className="mx-1 h-2 w-px bg-border/50" />
               </span>
-            );
-          })}
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -204,6 +239,9 @@ export function Landing() {
         </div>
       </section>
 
+      {/* ─── Live market ticker ─── */}
+      <TickerStrip />
+
       {/* ─── How it works ─── */}
       <section className="border-t border-border/50 py-20">
         <div className="mx-auto max-w-5xl px-4 sm:px-6">
@@ -231,7 +269,7 @@ export function Landing() {
       </section>
 
       {/* ─── Features bento ─── */}
-      <section className="border-t border-border/50 py-20">
+      <section className="border-t border-border/50 py-20 reveal-on-scroll">
         <div className="mx-auto max-w-5xl px-4 sm:px-6">
           <h2 className="mb-8 text-2xl font-bold tracking-tight sm:text-3xl">Built for serious research</h2>
 
@@ -269,7 +307,7 @@ export function Landing() {
       </section>
 
       {/* ─── CTA ─── */}
-      <section className="border-t border-border/50 py-20">
+      <section className="border-t border-border/50 py-20 reveal-on-scroll">
         <div className="mx-auto max-w-2xl px-4 text-center sm:px-6">
           <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Ready to start researching?</h2>
           <p className="mt-4 text-muted-foreground">

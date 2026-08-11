@@ -166,25 +166,9 @@ These are the **tools** Claude uses to enforce the ONE design — they never cha
 ### Brand
 
 - **Name**: H~Mltd
-- **Logo**: "H~Mltd" text, blue→violet gradient with soft glow
-- **Theme**: Dark navy ONLY. No light mode. No exceptions.
-
-### Colors
-
-| Token | Hex | Usage |
-|-------|-----|-------|
-| `bg-base` | `#05060F` | Page background |
-| `bg-card` | `#0B1020` | Card/surface |
-| `bg-elevated` | `#101730` | Elevated, hover |
-| `border` | `#1E2A45` | All borders |
-| `primary-blue` | `#3B82F6` | Actions, links |
-| `primary-violet` | `#8B5CF6` | Accent, badges |
-| `gradient` | `#7C3AED → #3B82F6` | Brand gradient |
-| `success` | `#22C55E` | Profit/positive ONLY |
-| `danger` | `#EF4444` | Loss/destructive ONLY |
-| `text-primary` | `#F8FAFC` | Primary text |
-| `text-muted` | `#94A3B8` | Secondary text |
-
+- **Logo**: "H~Mltd" text
+- **Theme**: Dark navy and light mode.
+#
 ### Typography
 
 - UI: **Inter**
@@ -202,10 +186,7 @@ These are the **tools** Claude uses to enforce the ONE design — they never cha
 
 ### Don't-Even-Think-About-It Rules
 
-- ❌ No light mode
-- ❌ No alternative color palettes
 - ❌ No green/teal as brand colors
-- ❌ No redesign of the logo or branding
 - ❌ No new CSS framework (Tailwind is it)
 - ❌ No changing font pairings
 - ❌ Only ONE design. Claude must never offer "option A vs option B" for visuals.
