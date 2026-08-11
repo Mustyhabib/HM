@@ -19,19 +19,64 @@ log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
+class Attachment:
+    """A file the user attached to a run (Premium tier only).
+
+    ``path`` is the object path inside the ``agent-uploads`` bucket. The worker
+    downloads to ``HOME/inputs/<name>`` before the subprocess starts, so the
+    engine sees only local files — never a Supabase Storage URL.
+    """
+
+    name: str
+    path: str
+    size: int
+    kind: str
+
+
+@dataclass(frozen=True)
 class ClaimedRun:
     id: str
     user_id: str
     prompt: str
     max_iter: int
+    # New in 2026-08-11 migration — default so any older RPC row still parses.
+    kind: str = "single"
+    attachments: tuple[Attachment, ...] = ()
+    preset_name: str | None = None
+    user_vars: dict | None = None
 
     @classmethod
     def from_row(cls, row: dict) -> "ClaimedRun":
+        # Defensively coerce attachments — the DB stores an array, but a stale
+        # single-run row could have {} or NULL. Older workers never wrote this.
+        raw_atts = row.get("run_attachments") or []
+        if isinstance(raw_atts, str):
+            # Some Postgres clients hand JSONB back as string
+            import json as _json
+
+            try:
+                raw_atts = _json.loads(raw_atts)
+            except _json.JSONDecodeError:
+                raw_atts = []
+        atts = tuple(
+            Attachment(
+                name=str(a.get("name", "")),
+                path=str(a.get("path", "")),
+                size=int(a.get("size", 0)),
+                kind=str(a.get("kind", "")),
+            )
+            for a in (raw_atts if isinstance(raw_atts, list) else [])
+            if isinstance(a, dict) and a.get("path")
+        )
         return cls(
             id=row["run_id"],
             user_id=row["run_user_id"],
             prompt=row["run_prompt"],
             max_iter=row["run_max_iter"],
+            kind=str(row.get("run_kind") or "single"),
+            attachments=atts,
+            preset_name=row.get("run_preset_name") or None,
+            user_vars=row.get("run_user_vars") or None,
         )
 
 
@@ -83,6 +128,16 @@ class RunQueue:
             {"p_run_id": run_id, "p_worker_id": self._config.worker_id},
         ).execute()
         return bool(response.data)
+
+    def download_attachment(self, storage_path: str) -> bytes:
+        """Download an ``agent-uploads`` object by path.
+
+        Uses the service-role client so private-bucket access works. Callers
+        must be prepared for the download to raise on any network/auth failure —
+        the runner treats that as ``SystemError_`` and refunds the run.
+        """
+        # supabase-py returns bytes directly for storage downloads
+        return self._client.storage.from_("agent-uploads").download(storage_path)
 
     def fail(
         self,

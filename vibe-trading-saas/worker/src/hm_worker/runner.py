@@ -25,7 +25,22 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Protocol
 
-from .db import ClaimedRun
+from .db import Attachment, ClaimedRun
+
+# Optional injection point for the storage downloader — set by main.py when the
+# worker boots. Kept as a module-level callable so the Runner protocol stays
+# unchanged and StubRunner/tests don't need a real client. Signature: (path) -> bytes.
+_attachment_downloader: Callable[[str], bytes] | None = None
+
+
+def set_attachment_downloader(fn: Callable[[str], bytes] | None) -> None:
+    """Register the function used to fetch attachments from Supabase Storage.
+
+    Called by main.py once the RunQueue exists. Passing ``None`` in tests
+    disables downloads (attachments-bearing runs will raise SystemError_).
+    """
+    global _attachment_downloader
+    _attachment_downloader = fn
 
 log = logging.getLogger(__name__)
 
@@ -187,18 +202,24 @@ class TradiRunner:
         stdout_path = run_dir / "stdout.log"
         stderr_path = run_dir / "stderr.log"
 
-        argv = [
-            *self._command,
-            "run",
-            "-p",
-            run.prompt,
-            "--json",
-            "--no-rich",
-            "--max-iter",
-            str(run.max_iter),
-        ]
+        # 1. Mount any Premium attachments into HOME/inputs/ before the engine boots.
+        #    Failure to download is treated as SystemError_ (refunded) — the user
+        #    should not be charged when we couldn't stage their inputs.
+        try:
+            self._mount_attachments(run, run_dir)
+        except SystemError_:
+            raise
+        except Exception as exc:  # noqa: BLE001 — coerce to refundable failure
+            raise SystemError_(f"Failed to stage attachments: {exc}") from exc
 
-        log.info("tradi run %s: HOME=%s max_iter=%s", run.id, run_dir, run.max_iter)
+        # 2. Build argv per run kind. Swarm dispatch reuses Tradi's
+        #    ``--swarm-run PRESET '{vars_json}'`` legacy CLI (see agent/cli/_legacy.py).
+        argv = self._argv_for(run)
+
+        log.info(
+            "tradi run %s: kind=%s HOME=%s max_iter=%s attachments=%d",
+            run.id, run.kind, run_dir, run.max_iter, len(run.attachments),
+        )
         try:
             with open(stdout_path, "w") as out, open(stderr_path, "w") as err:
                 proc = subprocess.Popen(
@@ -211,7 +232,8 @@ class TradiRunner:
                 )
                 self._supervise(proc, run, heartbeat, stop)
             result = self._interpret(
-                proc.returncode, stdout_path.read_text(errors="replace"), stderr_path
+                proc.returncode, stdout_path.read_text(errors="replace"), stderr_path,
+                is_swarm=run.kind == "swarm",
             )
             # Read artifacts into memory before the workspace is cleaned up.
             result.artifacts = self._collect_artifacts(run_dir)
@@ -221,6 +243,54 @@ class TradiRunner:
                 shutil.rmtree(run_dir, ignore_errors=True)
 
     # -- internals ---------------------------------------------------------
+
+    def _argv_for(self, run: ClaimedRun) -> list[str]:
+        """Pick the right Tradi invocation for the run kind."""
+        if run.kind == "swarm":
+            if not run.preset_name:
+                raise SystemError_("swarm run missing preset_name")
+            vars_json = json.dumps(run.user_vars or {}, ensure_ascii=False)
+            # Legacy CLI: `vibe-trading --swarm-run PRESET '{vars}'`.
+            # No --json envelope (yet) — we scrape success from exit code + swarm dir.
+            return [*self._command, "--swarm-run", run.preset_name, vars_json]
+        return [
+            *self._command,
+            "run",
+            "-p",
+            run.prompt,
+            "--json",
+            "--no-rich",
+            "--max-iter",
+            str(run.max_iter),
+        ]
+
+    def _mount_attachments(self, run: ClaimedRun, run_dir: Path) -> None:
+        """Download every attachment into ``run_dir/inputs/{name}``.
+
+        Files are staged BEFORE the engine subprocess starts. The engine sees
+        only local paths under its isolated HOME — Supabase URLs are never
+        propagated. Missing downloader is treated as a bug and raises.
+        """
+        if not run.attachments:
+            return
+        if _attachment_downloader is None:
+            raise SystemError_(
+                "attachment downloader not registered — main.py must call "
+                "set_attachment_downloader() before starting the runner"
+            )
+        inputs_dir = run_dir / "inputs"
+        inputs_dir.mkdir(parents=True, exist_ok=True)
+        for att in run.attachments:
+            # Safe filename — do NOT allow the client-supplied name to escape.
+            safe_name = Path(att.name).name.replace("/", "_") or "attachment.bin"
+            dest = inputs_dir / safe_name
+            data = _attachment_downloader(att.path)
+            if not isinstance(data, (bytes, bytearray)):
+                raise SystemError_(
+                    f"attachment downloader returned {type(data).__name__}, expected bytes"
+                )
+            dest.write_bytes(bytes(data))
+            log.info("run %s: mounted attachment %s (%d bytes)", run.id, safe_name, len(data))
 
     def _build_env(self, run_dir: Path) -> dict[str, str]:
         # Inherit the worker's environment (PATH, the LLM provider key, locale),
@@ -334,7 +404,25 @@ class TradiRunner:
             return "code"
         return "json"
 
-    def _interpret(self, returncode: int, stdout_text: str, stderr_path: Path) -> RunResult:
+    def _interpret(
+        self,
+        returncode: int,
+        stdout_text: str,
+        stderr_path: Path,
+        *,
+        is_swarm: bool = False,
+    ) -> RunResult:
+        # Swarm runs don't currently emit --json envelopes. Fall back to
+        # exit-code interpretation and let _collect_artifacts pull the swarm
+        # store's per-agent outputs from HOME/swarm/<run_id>/.
+        if is_swarm:
+            stderr_tail = self._tail(stderr_path)
+            if returncode == EXIT_SUCCESS:
+                return RunResult(output=f"[swarm] exit=0 ({len(stdout_text.splitlines())} log lines)")
+            if returncode == EXIT_USAGE_ERROR:
+                raise SystemError_(f"swarm preset rejected (exit 2): {stderr_tail}")
+            raise SystemError_(f"swarm run failed (exit {returncode}): {stderr_tail}")
+
         payload = self._parse_json_envelope(stdout_text)
         status = (payload or {}).get("status")
 
