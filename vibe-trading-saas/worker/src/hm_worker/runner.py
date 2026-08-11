@@ -26,11 +26,16 @@ from pathlib import Path
 from typing import Callable, Protocol
 
 from .db import Attachment, ClaimedRun
+from .progress import TraceTailer
 
 # Optional injection point for the storage downloader — set by main.py when the
 # worker boots. Kept as a module-level callable so the Runner protocol stays
 # unchanged and StubRunner/tests don't need a real client. Signature: (path) -> bytes.
 _attachment_downloader: Callable[[str], bytes] | None = None
+
+# Optional injection point for progress push. Signature:
+#   (run_id: str, message: str, iteration: int | None) -> None
+_progress_push: Callable[[str, str, int | None], None] | None = None
 
 
 def set_attachment_downloader(fn: Callable[[str], bytes] | None) -> None:
@@ -41,6 +46,15 @@ def set_attachment_downloader(fn: Callable[[str], bytes] | None) -> None:
     """
     global _attachment_downloader
     _attachment_downloader = fn
+
+
+def set_progress_push(fn: Callable[[str, str, int | None], None] | None) -> None:
+    """Register the progress pusher (usually queue.progress bound to run_id).
+
+    None (default) disables trace tailing — useful in tests.
+    """
+    global _progress_push
+    _progress_push = fn
 
 log = logging.getLogger(__name__)
 
@@ -220,6 +234,19 @@ class TradiRunner:
             "tradi run %s: kind=%s HOME=%s max_iter=%s attachments=%d",
             run.id, run.kind, run_dir, run.max_iter, len(run.attachments),
         )
+
+        # Start the trace tailer in a background thread — pushes progress lines
+        # to the DB as the engine writes them. Never fatal if the pusher is
+        # missing (tests, stub runs).
+        tailer: TraceTailer | None = None
+        if _progress_push is not None:
+            def _bound(message: str, iteration: int | None) -> None:
+                assert _progress_push is not None  # narrowed above
+                _progress_push(run.id, message, iteration)
+
+            tailer = TraceTailer(run_dir=run_dir, push=_bound)
+            tailer.start()
+
         try:
             with open(stdout_path, "w") as out, open(stderr_path, "w") as err:
                 proc = subprocess.Popen(
@@ -239,6 +266,8 @@ class TradiRunner:
             result.artifacts = self._collect_artifacts(run_dir)
             return result
         finally:
+            if tailer is not None:
+                tailer.stop()
             if self._cleanup:
                 shutil.rmtree(run_dir, ignore_errors=True)
 

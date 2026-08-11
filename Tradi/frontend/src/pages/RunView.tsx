@@ -6,14 +6,19 @@ import {
   Clock,
   Download,
   FileText,
+  Layers,
   Loader2,
+  Radio,
   X,
   XCircle,
 } from "lucide-react";
 import {
+  getActiveRuns,
   getRun,
   getRunArtifacts,
   signedArtifactUrl,
+  subscribeToArtifacts,
+  subscribeToRun,
   type AgentRun,
   type RunArtifact,
 } from "@/lib/runs";
@@ -189,6 +194,16 @@ function ActiveState({ run }: { run: AgentRun }) {
         </div>
       </div>
 
+      {/* Progress line — worker streams this from trace.jsonl */}
+      {run.status === "running" && run.progress_message && (
+        <ProgressLine
+          message={run.progress_message}
+          iter={run.progress_iter}
+          maxIter={run.max_iter}
+          updatedAt={run.progress_at}
+        />
+      )}
+
       {/* Shimmer placeholder lines */}
       <div className="space-y-2.5">
         <div className="shimmer h-3 w-full rounded" />
@@ -197,6 +212,263 @@ function ActiveState({ run }: { run: AgentRun }) {
         <div className="shimmer h-3 w-3/4 rounded" />
       </div>
     </div>
+  );
+}
+
+/**
+ * Live progress line — the newest message the worker has streamed, plus a
+ * subtle "N seconds ago" freshness cue and an optional iteration counter.
+ * Message swaps use a short fade so consecutive updates don't jitter.
+ */
+function ProgressLine({
+  message,
+  iter,
+  maxIter,
+  updatedAt,
+}: {
+  message: string;
+  iter: number | null;
+  maxIter: number;
+  updatedAt: string | null;
+}) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const ageSec = updatedAt
+    ? Math.max(0, Math.floor((now - new Date(updatedAt).getTime()) / 1000))
+    : null;
+  // Key on message so each new one triggers the fade-in
+  return (
+    <div
+      key={message}
+      className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 animate-in fade-in duration-300"
+    >
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="typing-dot" />
+        <span className="truncate text-xs text-foreground">{message}</span>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        {iter !== null && iter > 0 && (
+          <span className="rounded-full border border-border bg-elevated px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+            {iter}/{maxIter}
+          </span>
+        )}
+        {ageSec !== null && (
+          <span className="font-mono text-[10px] text-muted-foreground" title="Last progress update">
+            {ageSec < 3 ? "just now" : `${ageSec}s ago`}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Header trio: one shared component so hover-reveal behaviour is consistent. */
+function IconChip({
+  label,
+  icon: Icon,
+  active,
+  tone = "default",
+  onClick,
+  as = "button",
+  to,
+}: {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  active?: boolean;
+  tone?: "default" | "primary" | "success" | "danger" | "warning";
+  onClick?: () => void;
+  as?: "button" | "link";
+  to?: string;
+}) {
+  const toneClass =
+    tone === "primary" ? "border-primary/30 bg-primary/10 text-primary hover:border-primary/50 hover:bg-primary/15"
+    : tone === "success" ? "border-success/30 bg-success/10 text-success glow-success"
+    : tone === "danger"  ? "border-danger/30 bg-danger/10 text-danger"
+    : tone === "warning" ? "border-secondary/30 bg-secondary/15 text-secondary"
+    : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground";
+
+  const base = cn(
+    "group relative inline-flex h-8 items-center gap-1.5 rounded-full border px-2 text-xs font-medium transition-all duration-200",
+    active ? "px-2.5" : "hover:pl-2.5",
+    toneClass,
+  );
+
+  const content = (
+    <>
+      <Icon className={cn("h-3.5 w-3.5 shrink-0", active && tone === "warning" && "animate-spin")} />
+      {/* Label reveals on hover — width transitions from 0 to full */}
+      <span
+        className={cn(
+          "overflow-hidden whitespace-nowrap transition-all duration-200",
+          active ? "max-w-[100px] opacity-100" : "max-w-0 opacity-0 group-hover:max-w-[100px] group-hover:opacity-100 group-focus:max-w-[100px] group-focus:opacity-100",
+        )}
+      >
+        {label}
+      </span>
+    </>
+  );
+
+  if (as === "link" && to) {
+    return (
+      <Link to={to} className={base} aria-label={label} title={label}>
+        {content}
+      </Link>
+    );
+  }
+  return (
+    <button type="button" onClick={onClick} className={base} aria-label={label} title={label}>
+      {content}
+    </button>
+  );
+}
+
+/** Format elapsed seconds relative to a created_at ISO string */
+function elapsedFrom(iso: string): string {
+  const s = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+  return fmtElapsed(s);
+}
+
+/** Status → icon-chip config for the trio. */
+function statusChip(status: string): {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  tone: "default" | "primary" | "success" | "danger" | "warning";
+} {
+  switch (status) {
+    case "queued":    return { label: "Queued",     icon: Clock,        tone: "primary" };
+    case "running":   return { label: "Running",    icon: Loader2,      tone: "warning" };
+    case "completed": return { label: "Completed",  icon: CheckCircle2, tone: "success" };
+    case "failed":    return { label: "Failed",     icon: XCircle,      tone: "danger" };
+    case "timeout":   return { label: "Timed out",  icon: XCircle,      tone: "danger" };
+    case "cancelled": return { label: "Cancelled",  icon: XCircle,      tone: "default" };
+    default:          return { label: status,       icon: Clock,        tone: "default" };
+  }
+}
+
+/** Icon-only trio in the RunView header — Status · Queue · Exit. */
+function HeaderTrio({ runId, status }: { runId: string; status: string }) {
+  const [queueOpen, setQueueOpen] = useState(false);
+  const s = statusChip(status);
+  return (
+    <div className="relative flex shrink-0 items-center gap-1.5">
+      {/* Status pill — always shows its label; tone matches state */}
+      <IconChip label={s.label} icon={s.icon} tone={s.tone} active />
+
+      {/* Queue viewer — toggle popover */}
+      <IconChip
+        label="Queue"
+        icon={Layers}
+        onClick={() => setQueueOpen((o) => !o)}
+        active={queueOpen}
+        tone={queueOpen ? "primary" : "default"}
+      />
+
+      {/* Exit */}
+      <IconChip label="Exit" icon={X} as="link" to="/agent" />
+
+      {queueOpen && <QueuePopover currentRunId={runId} onClose={() => setQueueOpen(false)} />}
+    </div>
+  );
+}
+
+/** Queue popover — anchored dropdown showing the user's active runs. */
+function QueuePopover({
+  currentRunId,
+  onClose,
+}: {
+  currentRunId: string;
+  onClose: () => void;
+}) {
+  const [runs, setRuns] = useState<AgentRun[] | null>(null);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    let cancelled = false;
+    getActiveRuns()
+      .then((r) => { if (!cancelled) setRuns(r); })
+      .catch(() => { if (!cancelled) setRuns([]); });
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, []);
+
+  // Silence unused-var warning while still forcing a rerender each second
+  void now;
+
+  return (
+    <>
+      {/* Backdrop — click closes */}
+      <div className="fixed inset-0 z-40" onClick={onClose} aria-hidden />
+      <div
+        role="dialog"
+        aria-label="Active queue"
+        className="absolute right-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border bg-card shadow-xl"
+      >
+        <div className="flex items-center justify-between border-b border-border/60 bg-elevated/40 px-3 py-2.5">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+            <Layers className="h-3.5 w-3.5 text-primary" />
+            Your queue
+          </div>
+          <span className="text-[10px] font-mono text-muted-foreground">
+            {runs === null ? "…" : `${runs.length} active`}
+          </span>
+        </div>
+
+        <div className="max-h-80 overflow-y-auto">
+          {runs === null ? (
+            <div className="flex items-center justify-center gap-2 p-6 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" /> Loading queue…
+            </div>
+          ) : runs.length === 0 ? (
+            <div className="p-6 text-center text-xs text-muted-foreground">
+              No other queued or running jobs.
+            </div>
+          ) : (
+            <ul className="divide-y divide-border">
+              {runs.map((r) => {
+                const isCurrent = r.id === currentRunId;
+                return (
+                  <li key={r.id}>
+                    <Link
+                      to={`/run/${r.id}`}
+                      onClick={onClose}
+                      className={cn(
+                        "block px-3 py-2.5 transition hover:bg-elevated/50",
+                        isCurrent && "bg-primary/5",
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          {r.status === "queued" ? (
+                            <Clock className="h-3 w-3 shrink-0 text-primary" />
+                          ) : (
+                            <Loader2 className="h-3 w-3 shrink-0 animate-spin text-secondary" />
+                          )}
+                          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                            {r.status}
+                          </span>
+                          {isCurrent && (
+                            <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
+                              current
+                            </span>
+                          )}
+                        </div>
+                        <span className="font-mono text-[10px] text-muted-foreground">
+                          {elapsedFrom(r.created_at)}
+                        </span>
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-xs text-foreground">{r.prompt}</p>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -227,6 +499,7 @@ export function RunView() {
   const [answer, setAnswer] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [liveConnected, setLiveConnected] = useState(false);
   const loadedArtifacts = useRef(false);
 
   const loadArtifacts = useCallback(async (id: string) => {
@@ -248,33 +521,72 @@ export function RunView() {
     }
   }, []);
 
+  /**
+   * Real-time subscription strategy:
+   * - Fetch the run once on mount to render the initial state
+   * - Subscribe to UPDATE on agent_runs (status → running/completed/failed)
+   * - Subscribe to INSERT on agent_artifacts (worker uploads land instantly)
+   * - Keep a slow (10s) fallback poll in case realtime disconnects
+   */
   useEffect(() => {
     if (!runId) return;
     let cancelled = false;
-    let timer: ReturnType<typeof setTimeout>;
+    let fallbackTimer: ReturnType<typeof setTimeout>;
 
-    async function tick() {
-      try {
-        const r = await getRun(runId!);
+    // 1. Initial fetch
+    getRun(runId)
+      .then((r) => {
         if (cancelled) return;
         setRun(r);
         setLoading(false);
-        if (r && !ACTIVE.has(r.status)) {
-          if (r.status === "completed") await loadArtifacts(runId!);
-          return; // terminal — stop polling
-        }
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Failed to load run");
-          setLoading(false);
-        }
-      }
-      if (!cancelled) timer = setTimeout(tick, 2500);
+        if (r?.status === "completed") loadArtifacts(runId);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : "Failed to load run");
+        setLoading(false);
+      });
+
+    // 2. Live subscription — status transitions
+    const unsubRun = subscribeToRun(runId, (updated) => {
+      if (cancelled) return;
+      setRun(updated);
+      setLiveConnected(true);
+      if (updated.status === "completed") loadArtifacts(runId);
+    });
+
+    // 3. Live subscription — artifacts as they land
+    const unsubArts = subscribeToArtifacts(runId, (art) => {
+      if (cancelled) return;
+      setArtifacts((prev) => (prev.some((a) => a.id === art.id) ? prev : [...prev, art]));
+    });
+
+    // 4. Fallback poll — slow, only fires if we haven't reached a terminal state
+    function fallback() {
+      if (cancelled) return;
+      getRun(runId!)
+        .then((r) => {
+          if (cancelled) return;
+          setRun((prev) => {
+            // Don't overwrite fresher realtime data
+            if (prev && new Date(prev.completed_at ?? prev.created_at) >= new Date(r?.created_at ?? 0)) {
+              return prev;
+            }
+            return r;
+          });
+          if (r && ACTIVE.has(r.status)) fallbackTimer = setTimeout(fallback, 10_000);
+        })
+        .catch(() => {
+          fallbackTimer = setTimeout(fallback, 10_000);
+        });
     }
-    tick();
+    fallbackTimer = setTimeout(fallback, 10_000);
+
     return () => {
       cancelled = true;
-      clearTimeout(timer);
+      clearTimeout(fallbackTimer);
+      unsubRun();
+      unsubArts();
     };
   }, [runId, loadArtifacts]);
 
@@ -307,21 +619,22 @@ export function RunView() {
           {/* ─── Header ─── */}
           <div className="mb-6 flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Agent Run
+              <div className="mb-1 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                <span>Agent Run</span>
+                {liveConnected && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full border border-success/30 bg-success/8 px-1.5 py-0.5 text-[9px] font-medium text-success"
+                    title="Real-time updates connected"
+                  >
+                    <Radio className="h-2.5 w-2.5" /> Live
+                  </span>
+                )}
               </div>
               <p className="text-base leading-relaxed text-foreground">{run.prompt}</p>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <StatusBadge status={run.status} />
-              <Link
-                to="/agent"
-                title="Back to the prompt"
-                className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
-              >
-                <X className="h-3.5 w-3.5" /> Exit
-              </Link>
-            </div>
+
+            {/* Icon trio — Status · Queue · Exit. Labels reveal on hover/focus/touch. */}
+            <HeaderTrio runId={runId!} status={run.status} />
           </div>
 
           {/* ─── Status timeline ─── */}
