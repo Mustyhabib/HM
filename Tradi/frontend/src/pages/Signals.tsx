@@ -249,17 +249,17 @@ function SignalCard({ signal }: { signal: Signal }) {
 
       {/* Price levels */}
       <div className="mt-4 grid grid-cols-3 gap-3">
-        <div className="rounded-lg bg-[#05060F] p-3">
+        <div className="rounded-lg bg-background p-3">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Entry</div>
           <div className="mt-0.5 text-sm font-mono font-medium">${signal.entry.toFixed(2)}</div>
         </div>
-        <div className="rounded-lg bg-[#05060F] p-3">
+        <div className="rounded-lg bg-background p-3">
           <div className="text-[10px] text-success uppercase tracking-wider">Target</div>
           <div className="mt-0.5 text-sm font-mono font-medium text-success">
             ${signal.target.toFixed(2)}
           </div>
         </div>
-        <div className="rounded-lg bg-[#05060F] p-3">
+        <div className="rounded-lg bg-background p-3">
           <div className="text-[10px] text-danger uppercase tracking-wider">Stop</div>
           <div className="mt-0.5 text-sm font-mono font-medium text-danger">
             ${signal.stop.toFixed(2)}
@@ -341,7 +341,7 @@ export function Signals() {
             AI-generated trading signals from your strategies
           </p>
         </div>
-        <button className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm transition hover:bg-[#101730]">
+        <button className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm transition hover:bg-elevated">
           <Bell className="h-4 w-4" />
           Alerts
         </button>

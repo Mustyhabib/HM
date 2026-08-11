@@ -65,7 +65,7 @@ function FieldRow({
         defaultValue={value}
         disabled={disabled}
         className={cn(
-          "flex-1 rounded-lg border border-border bg-[#05060F] px-3 py-2 text-sm text-foreground outline-none transition",
+          "flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition",
           "focus:border-primary focus:ring-2 focus:ring-primary/20",
           "disabled:cursor-not-allowed disabled:opacity-50",
         )}
@@ -165,7 +165,7 @@ export function SaasSettings() {
               "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition whitespace-nowrap",
               tab === id
                 ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:text-foreground hover:bg-[#101730]",
+                : "text-muted-foreground hover:text-foreground hover:bg-elevated",
             )}
           >
             <Icon className="h-4 w-4" />
@@ -248,7 +248,7 @@ export function SaasSettings() {
                     </div>
                   </div>
                 </div>
-                <button className="rounded-lg border border-border px-4 py-2 text-sm font-medium transition hover:bg-[#101730]">
+                <button className="rounded-lg border border-border px-4 py-2 text-sm font-medium transition hover:bg-elevated">
                   Change Plan
                 </button>
               </div>
@@ -260,7 +260,7 @@ export function SaasSettings() {
                   <span className="text-muted-foreground">Agent runs used</span>
                   <span className="font-mono font-medium">3 / 7</span>
                 </div>
-                <div className="h-2 rounded-full bg-[#101730]">
+                <div className="h-2 rounded-full bg-elevated">
                   <div
                     className="h-full rounded-full gradient-bg transition-all"
                     style={{ width: "42.8%" }}
@@ -275,7 +275,7 @@ export function SaasSettings() {
             <Section title="Payment Method">
               <div className="flex items-center justify-between rounded-lg border border-border p-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-14 items-center justify-center rounded-md bg-[#101730] text-xs font-bold text-muted-foreground">
+                  <div className="flex h-10 w-14 items-center justify-center rounded-md bg-elevated text-xs font-bold text-muted-foreground">
                     VISA
                   </div>
                   <div>
@@ -410,7 +410,7 @@ export function SaasSettings() {
                   onChange={setTwoFactor}
                 />
                 {twoFactor && (
-                  <div className="ml-7 rounded-lg border border-border bg-[#05060F] p-4">
+                  <div className="ml-7 rounded-lg border border-border bg-background p-4">
                     <p className="text-sm text-muted-foreground">
                       Scan the QR code with your authenticator app to complete setup.
                     </p>
@@ -472,7 +472,7 @@ export function SaasSettings() {
               title="API Access"
               description="Generate API keys for programmatic access to your H~Mltd account"
             >
-              <div className="rounded-lg border border-border bg-[#05060F] p-4">
+              <div className="rounded-lg border border-border bg-background p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-sm font-medium">Production Key</div>
@@ -482,7 +482,7 @@ export function SaasSettings() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button className="rounded-md border border-border px-3 py-1.5 text-xs transition hover:bg-[#101730]">
+                    <button className="rounded-md border border-border px-3 py-1.5 text-xs transition hover:bg-elevated">
                       Copy
                     </button>
                     <button className="rounded-md border border-destructive/50 px-3 py-1.5 text-xs text-destructive transition hover:bg-destructive/10">
@@ -492,7 +492,7 @@ export function SaasSettings() {
                 </div>
               </div>
 
-              <div className="mt-4 rounded-lg border border-border bg-[#05060F] p-4">
+              <div className="mt-4 rounded-lg border border-border bg-background p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-sm font-medium">Test Key</div>
@@ -502,7 +502,7 @@ export function SaasSettings() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button className="rounded-md border border-border px-3 py-1.5 text-xs transition hover:bg-[#101730]">
+                    <button className="rounded-md border border-border px-3 py-1.5 text-xs transition hover:bg-elevated">
                       Copy
                     </button>
                     <button className="rounded-md border border-destructive/50 px-3 py-1.5 text-xs text-destructive transition hover:bg-destructive/10">
@@ -525,7 +525,7 @@ export function SaasSettings() {
             </Section>
 
             <Section title="API Documentation">
-              <button className="flex w-full items-center justify-between rounded-lg border border-border p-4 text-left transition hover:bg-[#101730]">
+              <button className="flex w-full items-center justify-between rounded-lg border border-border p-4 text-left transition hover:bg-elevated">
                 <div>
                   <div className="text-sm font-medium">View API Reference</div>
                   <div className="text-xs text-muted-foreground">

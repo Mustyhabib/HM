@@ -156,7 +156,7 @@ export function Profile() {
             </div>
 
             <div className="mt-3 flex items-center justify-center gap-2 sm:justify-start">
-              <span className="flex items-center gap-1.5 rounded-lg border border-border bg-[#05060F] px-3 py-1.5 font-mono text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 font-mono text-xs text-muted-foreground">
                 {userId}
                 <button onClick={handleCopyId} className="text-muted-foreground hover:text-foreground transition">
                   {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
@@ -169,7 +169,7 @@ export function Profile() {
           <div className="flex gap-2 shrink-0">
             <Link
               to="/settings"
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm transition hover:bg-[#101730]"
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm transition hover:bg-elevated"
             >
               <Settings className="h-4 w-4" />
               Settings
@@ -209,7 +209,7 @@ export function Profile() {
               <span className="text-sm text-muted-foreground">Runs this period</span>
               <span className="text-sm font-mono font-medium">3 / 7</span>
             </div>
-            <div className="h-2 rounded-full bg-[#101730]">
+            <div className="h-2 rounded-full bg-elevated">
               <div className="h-full rounded-full gradient-bg" style={{ width: "42.8%" }} />
             </div>
             <div className="flex items-center justify-between">
@@ -226,7 +226,7 @@ export function Profile() {
             </Link>
             <Link
               to="/usage"
-              className="flex-1 rounded-lg border border-border px-3 py-2 text-center text-sm transition hover:bg-[#101730]"
+              className="flex-1 rounded-lg border border-border px-3 py-2 text-center text-sm transition hover:bg-elevated"
             >
               View Usage
             </Link>
@@ -257,7 +257,7 @@ export function Profile() {
                 <div
                   className={cn(
                     "flex h-8 w-8 items-center justify-center rounded-lg text-sm",
-                    badge.earned ? "gradient-bg text-white" : "bg-[#101730] text-muted-foreground",
+                    badge.earned ? "gradient-bg text-white" : "bg-elevated text-muted-foreground",
                   )}
                 >
                   {badge.earned ? "★" : "☆"}

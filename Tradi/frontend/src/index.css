@@ -3,213 +3,212 @@
 @tailwind utilities;
 
 @layer base {
-  /* ─── H~Mltd — Aurora spectrum, dark-default ─── */
+  /* ─── H~Mltd — Aurora Fire: violet → fuchsia → rose → amber ─── */
   :root {
-    --background: #05060F;
+    --background: #070410;
     --foreground: #F8FAFC;
-    --card: #0B1020;
+    --card: #0F0920;
     --card-foreground: #F8FAFC;
-    --popover: #101730;
+    --popover: #160E28;
     --popover-foreground: #F8FAFC;
-    --primary: #818CF8;            /* indigo — midpoint of the spectrum */
+    --primary: #D946EF;            /* fuchsia — signature accent */
     --primary-foreground: #FFFFFF;
-    --secondary: #C084FC;          /* fuchsia-violet — warm end */
-    --secondary-foreground: #05060F;
-    --muted: #101730;
-    --muted-foreground: #94A3B8;
+    --secondary: #7C3AED;          /* deep violet */
+    --secondary-foreground: #F8FAFC;
+    --muted: #160E28;
+    --muted-foreground: #A78BCA;
     --destructive: #EF4444;
     --destructive-foreground: #FFFFFF;
-    --border: #1E2A45;
-    --ring: #818CF8;
+    --border: #2A1845;
+    --ring: #D946EF;
     --radius: 0.75rem;
 
     /* Semantic */
     --success: #22C55E;
     --danger: #EF4444;
-    --warning: #F59E0B;
-    --info: #22D3EE;
+    --warning: #FB923C;
+    --info: #F43F5E;
 
     /* Surfaces */
-    --surface-elevated: #101730;
-    --bg-panel: #080D1A;
-    --bg-input: #05060F;
+    --surface-elevated: #160E28;
+    --bg-panel: #0A0815;
+    --bg-input: #070410;
 
     /* Shimmer tokens — theme-aware */
     --shimmer-a: rgba(255,255,255,0.03);
     --shimmer-b: rgba(255,255,255,0.07);
 
     /* Chart tokens */
-    --chart-grid: #1E2A45;
-    --chart-text: #94A3B8;
-    --chart-axis: #1E2A45;
-    --chart-compare-a: #818CF8;
-    --chart-compare-b: #22D3EE;
+    --chart-grid: #2A1845;
+    --chart-text: #A78BCA;
+    --chart-axis: #2A1845;
+    --chart-compare-a: #D946EF;
+    --chart-compare-b: #FB923C;
 
-    /* Aurora spectrum gradient — 4 stops: violet → indigo → blue → cyan */
-    --brand-a: #C084FC;   /* fuchsia-violet */
-    --brand-b: #818CF8;   /* indigo */
-    --brand-c: #60A5FA;   /* blue */
-    --brand-d: #22D3EE;   /* cyan */
+    /* Aurora fire gradient — 4 stops: violet → fuchsia → rose → amber */
+    --brand-a: #7C3AED;   /* deep violet */
+    --brand-b: #D946EF;   /* fuchsia */
+    --brand-c: #F43F5E;   /* rose */
+    --brand-d: #FB923C;   /* amber */
 
     color-scheme: dark;
   }
 
   /* .dark — keeps Tailwind's darkMode:"class" variants working */
   .dark {
-    --background: #05060F;
+    --background: #070410;
     --foreground: #F8FAFC;
-    --card: #0B1020;
+    --card: #0F0920;
     --card-foreground: #F8FAFC;
-    --popover: #101730;
+    --popover: #160E28;
     --popover-foreground: #F8FAFC;
-    --primary: #818CF8;
+    --primary: #D946EF;
     --primary-foreground: #FFFFFF;
-    --secondary: #C084FC;
-    --secondary-foreground: #05060F;
-    --muted: #101730;
-    --muted-foreground: #94A3B8;
+    --secondary: #7C3AED;
+    --secondary-foreground: #F8FAFC;
+    --muted: #160E28;
+    --muted-foreground: #A78BCA;
     --destructive: #EF4444;
     --destructive-foreground: #FFFFFF;
-    --border: #1E2A45;
-    --ring: #818CF8;
+    --border: #2A1845;
+    --ring: #D946EF;
     --success: #22C55E;
     --danger: #EF4444;
-    --warning: #F59E0B;
-    --info: #22D3EE;
-    --surface-elevated: #101730;
-    --bg-panel: #080D1A;
-    --bg-input: #05060F;
+    --warning: #FB923C;
+    --info: #F43F5E;
+    --surface-elevated: #160E28;
+    --bg-panel: #0A0815;
+    --bg-input: #070410;
     --shimmer-a: rgba(255,255,255,0.03);
     --shimmer-b: rgba(255,255,255,0.07);
-    --chart-grid: #1E2A45;
-    --chart-text: #94A3B8;
-    --chart-axis: #1E2A45;
-    --chart-compare-a: #818CF8;
-    --chart-compare-b: #22D3EE;
-    --brand-a: #C084FC;
-    --brand-b: #818CF8;
-    --brand-c: #60A5FA;
-    --brand-d: #22D3EE;
+    --chart-grid: #2A1845;
+    --chart-text: #A78BCA;
+    --chart-axis: #2A1845;
+    --chart-compare-a: #D946EF;
+    --chart-compare-b: #FB923C;
+    --brand-a: #7C3AED;
+    --brand-b: #D946EF;
+    --brand-c: #F43F5E;
+    --brand-d: #FB923C;
     color-scheme: dark;
   }
 
   /* ── Light mode via system preference ── */
   @media (prefers-color-scheme: light) {
     :root {
-      --background: #F8F9FF;
-      --foreground: #0F172A;
+      --background: #FAF9FF;
+      --foreground: #0F0A1E;
       --card: #FFFFFF;
-      --card-foreground: #0F172A;
-      --popover: #EEF2FF;
-      --popover-foreground: #0F172A;
-      --primary: #6366F1;
+      --card-foreground: #0F0A1E;
+      --popover: #F5F3FF;
+      --popover-foreground: #0F0A1E;
+      --primary: #7C3AED;
       --primary-foreground: #FFFFFF;
-      --secondary: #8B5CF6;
+      --secondary: #C026D3;
       --secondary-foreground: #FFFFFF;
-      --muted: #EEF2FF;
-      --muted-foreground: #64748B;
+      --muted: #FAF5FF;
+      --muted-foreground: #6B4D8A;
       --destructive: #DC2626;
       --destructive-foreground: #FFFFFF;
-      --border: #E0E7FF;
-      --ring: #6366F1;
+      --border: #EDE9FE;
+      --ring: #7C3AED;
       --success: #16A34A;
       --danger: #DC2626;
       --warning: #D97706;
-      --info: #06B6D4;
-      --surface-elevated: #EEF2FF;
-      --bg-panel: #F1F5F9;
+      --info: #E11D48;
+      --surface-elevated: #F5F3FF;
+      --bg-panel: #FAF5FF;
       --bg-input: #FFFFFF;
       --shimmer-a: rgba(0,0,0,0.03);
       --shimmer-b: rgba(0,0,0,0.07);
-      --chart-grid: #E0E7FF;
-      --chart-text: #64748B;
-      --chart-axis: #E0E7FF;
-      --chart-compare-a: #6366F1;
-      --chart-compare-b: #06B6D4;
-      /* Aurora stays vibrant on white — slightly richer for contrast */
-      --brand-a: #A855F7;
-      --brand-b: #6366F1;
-      --brand-c: #3B82F6;
-      --brand-d: #06B6D4;
+      --chart-grid: #EDE9FE;
+      --chart-text: #6B4D8A;
+      --chart-axis: #EDE9FE;
+      --chart-compare-a: #7C3AED;
+      --chart-compare-b: #D97706;
+      --brand-a: #6D28D9;
+      --brand-b: #A21CAF;
+      --brand-c: #E11D48;
+      --brand-d: #D97706;
       color-scheme: light;
     }
   }
 
   /* ── Manual dark — wins over system preference ── */
   :root[data-theme="dark"] {
-    --background: #05060F;
+    --background: #070410;
     --foreground: #F8FAFC;
-    --card: #0B1020;
+    --card: #0F0920;
     --card-foreground: #F8FAFC;
-    --popover: #101730;
+    --popover: #160E28;
     --popover-foreground: #F8FAFC;
-    --primary: #818CF8;
+    --primary: #D946EF;
     --primary-foreground: #FFFFFF;
-    --secondary: #C084FC;
-    --secondary-foreground: #05060F;
-    --muted: #101730;
-    --muted-foreground: #94A3B8;
+    --secondary: #7C3AED;
+    --secondary-foreground: #F8FAFC;
+    --muted: #160E28;
+    --muted-foreground: #A78BCA;
     --destructive: #EF4444;
     --destructive-foreground: #FFFFFF;
-    --border: #1E2A45;
-    --ring: #818CF8;
+    --border: #2A1845;
+    --ring: #D946EF;
     --success: #22C55E;
     --danger: #EF4444;
-    --warning: #F59E0B;
-    --info: #22D3EE;
-    --surface-elevated: #101730;
-    --bg-panel: #080D1A;
-    --bg-input: #05060F;
+    --warning: #FB923C;
+    --info: #F43F5E;
+    --surface-elevated: #160E28;
+    --bg-panel: #0A0815;
+    --bg-input: #070410;
     --shimmer-a: rgba(255,255,255,0.03);
     --shimmer-b: rgba(255,255,255,0.07);
-    --chart-grid: #1E2A45;
-    --chart-text: #94A3B8;
-    --chart-axis: #1E2A45;
-    --chart-compare-a: #818CF8;
-    --chart-compare-b: #22D3EE;
-    --brand-a: #C084FC;
-    --brand-b: #818CF8;
-    --brand-c: #60A5FA;
-    --brand-d: #22D3EE;
+    --chart-grid: #2A1845;
+    --chart-text: #A78BCA;
+    --chart-axis: #2A1845;
+    --chart-compare-a: #D946EF;
+    --chart-compare-b: #FB923C;
+    --brand-a: #7C3AED;
+    --brand-b: #D946EF;
+    --brand-c: #F43F5E;
+    --brand-d: #FB923C;
     color-scheme: dark;
   }
 
   /* ── Manual light — wins over system preference ── */
   :root[data-theme="light"] {
-    --background: #F8F9FF;
-    --foreground: #0F172A;
+    --background: #FAF9FF;
+    --foreground: #0F0A1E;
     --card: #FFFFFF;
-    --card-foreground: #0F172A;
-    --popover: #EEF2FF;
-    --popover-foreground: #0F172A;
-    --primary: #6366F1;
+    --card-foreground: #0F0A1E;
+    --popover: #F5F3FF;
+    --popover-foreground: #0F0A1E;
+    --primary: #7C3AED;
     --primary-foreground: #FFFFFF;
-    --secondary: #8B5CF6;
+    --secondary: #C026D3;
     --secondary-foreground: #FFFFFF;
-    --muted: #EEF2FF;
-    --muted-foreground: #64748B;
+    --muted: #FAF5FF;
+    --muted-foreground: #6B4D8A;
     --destructive: #DC2626;
     --destructive-foreground: #FFFFFF;
-    --border: #E0E7FF;
-    --ring: #6366F1;
+    --border: #EDE9FE;
+    --ring: #7C3AED;
     --success: #16A34A;
     --danger: #DC2626;
     --warning: #D97706;
-    --info: #06B6D4;
-    --surface-elevated: #EEF2FF;
-    --bg-panel: #F1F5F9;
+    --info: #E11D48;
+    --surface-elevated: #F5F3FF;
+    --bg-panel: #FAF5FF;
     --bg-input: #FFFFFF;
     --shimmer-a: rgba(0,0,0,0.03);
     --shimmer-b: rgba(0,0,0,0.07);
-    --chart-grid: #E0E7FF;
-    --chart-text: #64748B;
-    --chart-axis: #E0E7FF;
-    --chart-compare-a: #6366F1;
-    --chart-compare-b: #06B6D4;
-    --brand-a: #A855F7;
-    --brand-b: #6366F1;
-    --brand-c: #3B82F6;
-    --brand-d: #06B6D4;
+    --chart-grid: #EDE9FE;
+    --chart-text: #6B4D8A;
+    --chart-axis: #EDE9FE;
+    --chart-compare-a: #7C3AED;
+    --chart-compare-b: #D97706;
+    --brand-a: #6D28D9;
+    --brand-b: #A21CAF;
+    --brand-c: #E11D48;
+    --brand-d: #D97706;
     color-scheme: light;
   }
 
@@ -222,7 +221,7 @@
   /* Prose table enhancements */
   .prose table { border-collapse: collapse; width: 100%; }
   .prose th, .prose td { border: 1px solid var(--border); }
-  .prose tbody tr:nth-child(even) { background: rgba(16, 23, 48, 0.3); }
+  .prose tbody tr:nth-child(even) { background: rgba(22, 14, 40, 0.3); }
 
   /* Smooth scrollbar */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -233,7 +232,7 @@
 
 /* ─── Utility classes ─── */
 
-/* Primary gradient — 4-stop aurora spectrum: violet → indigo → blue → cyan */
+/* Primary gradient — Aurora Fire: violet → fuchsia → rose → amber */
 .gradient-text {
   background: linear-gradient(90deg, var(--brand-a), var(--brand-b), var(--brand-c), var(--brand-d));
   -webkit-background-clip: text;
@@ -263,30 +262,42 @@
   pointer-events: none;
 }
 
-/* Soft glow — multi-colour aurora */
-.glow-blue {
-  box-shadow: 0 0 20px rgba(129, 140, 248, 0.3), 0 0 40px rgba(129, 140, 248, 0.1);
+/* Soft glow — aurora fire */
+.glow-violet {
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.3), 0 0 40px rgba(124, 58, 237, 0.1);
 }
 
-.glow-cyan {
-  box-shadow: 0 0 20px rgba(34, 211, 238, 0.3), 0 0 40px rgba(34, 211, 238, 0.1);
+.glow-fuchsia {
+  box-shadow: 0 0 20px rgba(217, 70, 239, 0.3), 0 0 40px rgba(217, 70, 239, 0.1);
 }
+
+/* Legacy aliases — kept for backward compat with existing TSX */
+.glow-blue { box-shadow: 0 0 20px rgba(124, 58, 237, 0.3), 0 0 40px rgba(124, 58, 237, 0.1); }
+.glow-cyan  { box-shadow: 0 0 20px rgba(244, 63, 94, 0.3),  0 0 40px rgba(244, 63, 94, 0.1); }
 
 .glow-gradient {
-  box-shadow: 0 0 20px rgba(192, 132, 252, 0.2), 0 0 40px rgba(129, 140, 248, 0.12), 0 0 60px rgba(34, 211, 238, 0.06);
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.2), 0 0 40px rgba(217, 70, 239, 0.14), 0 0 60px rgba(251, 146, 60, 0.06);
 }
 
 /* Grid background for hero */
 .grid-bg {
   background-image:
-    linear-gradient(rgba(30, 42, 69, 0.3) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(30, 42, 69, 0.3) 1px, transparent 1px);
+    linear-gradient(rgba(42, 24, 69, 0.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(42, 24, 69, 0.4) 1px, transparent 1px);
   background-size: 60px 60px;
+}
+
+/* ─── Wallpaper hero background ─── */
+.hero-wallpaper {
+  background-image: url('/wallpaper.svg');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
 }
 
 /* ─── Signal-lines hero background ─── */
 .signal-lines {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 400'><defs><linearGradient id='sl' x1='0' y1='0' x2='1' y2='0'><stop offset='0' stop-color='%23C084FC' stop-opacity='0'/><stop offset='0.35' stop-color='%23818CF8' stop-opacity='0.35'/><stop offset='0.65' stop-color='%2360A5FA' stop-opacity='0.35'/><stop offset='1' stop-color='%2322D3EE' stop-opacity='0'/></linearGradient></defs><g fill='none' stroke='url(%23sl)' stroke-width='1'><path d='M0,320 L60,300 L120,310 L180,270 L240,280 L300,240 L360,255 L420,210 L480,225 L540,180 L600,195 L660,155 L720,170 L800,135'/><path d='M0,360 L60,350 L120,355 L180,335 L240,345 L300,320 L360,330 L420,305 L480,315 L540,290 L600,300 L660,275 L720,285 L800,260' stroke-opacity='0.5'/><path d='M0,240 L60,220 L120,235 L180,190 L240,205 L300,160 L360,180 L420,135 L480,155 L540,110 L600,130 L660,90 L720,105 L800,70' stroke-opacity='0.7'/></g></svg>");
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 400'><defs><linearGradient id='sl' x1='0' y1='0' x2='1' y2='0'><stop offset='0' stop-color='%237C3AED' stop-opacity='0'/><stop offset='0.35' stop-color='%23D946EF' stop-opacity='0.35'/><stop offset='0.65' stop-color='%23F43F5E' stop-opacity='0.35'/><stop offset='1' stop-color='%23FB923C' stop-opacity='0'/></linearGradient></defs><g fill='none' stroke='url(%23sl)' stroke-width='1'><path d='M0,320 L60,300 L120,310 L180,270 L240,280 L300,240 L360,255 L420,210 L480,225 L540,180 L600,195 L660,155 L720,170 L800,135'/><path d='M0,360 L60,350 L120,355 L180,335 L240,345 L300,320 L360,330 L420,305 L480,315 L540,290 L600,300 L660,275 L720,285 L800,260' stroke-opacity='0.5'/><path d='M0,240 L60,220 L120,235 L180,190 L240,205 L300,160 L360,180 L420,135 L480,155 L540,110 L600,130 L660,90 L720,105 L800,70' stroke-opacity='0.7'/></g></svg>");
   background-repeat: no-repeat;
   background-position: bottom center;
   background-size: 100% 60%;
@@ -452,14 +463,12 @@
 }
 .bubble-user {
   border-radius: 0.875rem 0.875rem 0.25rem 0.875rem;
-  /* color-mix adapts to --primary in both dark and light mode */
   background: color-mix(in srgb, var(--primary) 8%, transparent);
   border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
   animation: bubble-right 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .bubble-ai {
   border-radius: 0.875rem 0.875rem 0.875rem 0.25rem;
-  /* --muted is dark navy in dark mode, indigo-50 in light mode */
   background: var(--muted);
   border: 1px solid var(--border);
   animation: bubble-left 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -527,40 +536,35 @@
   animation: count-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* ─── Light mode overrides ─────────────────────────────────────────────
-   These adjust elements that can't rely on CSS variables alone — e.g.
-   those with hardcoded rgba values in their definitions above. */
-
-/* Grid-bg: lighter lines on the white-ish background */
+/* ─── Light mode overrides ─── */
 @media (prefers-color-scheme: light) {
   .grid-bg {
     background-image:
-      linear-gradient(rgba(99, 102, 241, 0.08) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(99, 102, 241, 0.08) 1px, transparent 1px);
+      linear-gradient(rgba(124, 58, 237, 0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124, 58, 237, 0.07) 1px, transparent 1px);
   }
-  /* Softer glows on white */
   .glow-gradient {
-    box-shadow: 0 0 14px rgba(99,102,241,0.2), 0 0 28px rgba(6,182,212,0.1);
+    box-shadow: 0 0 14px rgba(124,58,237,0.2), 0 0 28px rgba(217,70,239,0.1);
   }
-  .glow-blue { box-shadow: 0 0 14px rgba(99,102,241,0.2); }
-  .glow-cyan { box-shadow: 0 0 14px rgba(6,182,212,0.2); }
+  .glow-blue, .glow-violet { box-shadow: 0 0 14px rgba(124,58,237,0.2); }
+  .glow-cyan, .glow-fuchsia { box-shadow: 0 0 14px rgba(217,70,239,0.2); }
   .glow-success { box-shadow: 0 0 12px rgba(22,163,74,0.25); }
 }
 :root[data-theme="light"] .grid-bg {
   background-image:
-    linear-gradient(rgba(99, 102, 241, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(99, 102, 241, 0.08) 1px, transparent 1px);
+    linear-gradient(rgba(124, 58, 237, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124, 58, 237, 0.07) 1px, transparent 1px);
 }
 :root[data-theme="light"] .glow-gradient {
-  box-shadow: 0 0 14px rgba(99,102,241,0.2), 0 0 28px rgba(6,182,212,0.1);
+  box-shadow: 0 0 14px rgba(124,58,237,0.2), 0 0 28px rgba(217,70,239,0.1);
 }
-:root[data-theme="light"] .glow-blue { box-shadow: 0 0 14px rgba(99,102,241,0.2); }
-:root[data-theme="light"] .glow-cyan { box-shadow: 0 0 14px rgba(6,182,212,0.2); }
+:root[data-theme="light"] .glow-blue,
+:root[data-theme="light"] .glow-violet { box-shadow: 0 0 14px rgba(124,58,237,0.2); }
+:root[data-theme="light"] .glow-cyan,
+:root[data-theme="light"] .glow-fuchsia { box-shadow: 0 0 14px rgba(217,70,239,0.2); }
 :root[data-theme="light"] .glow-success { box-shadow: 0 0 12px rgba(22,163,74,0.25); }
 
-/* ─── Reduced-motion respect ─────────────────────────────────────────────
-   Every ambient / decorative animation snaps to its final state instantly.
-   Functional spinners (Loader2) are exempt — they communicate live progress. */
+/* ─── Reduced-motion respect ─── */
 @media (prefers-reduced-motion: reduce) {
   .msg-enter,
   .fade-up-in,
@@ -585,6 +589,5 @@
   .sparkline-draw { stroke-dashoffset: 0; }
   .stroke-draw    { stroke-dashoffset: 0; }
   .reveal-on-scroll { opacity: 1; }
-  /* Use token-aware static shimmer */
   .shimmer { background: var(--shimmer-b); }
 }

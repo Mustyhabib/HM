@@ -77,12 +77,12 @@ function EquityPreview() {
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="none">
       <defs>
         <linearGradient id="lp-line" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#06B6D4" />
-          <stop offset="100%" stopColor="#3B82F6" />
+          <stop offset="0%" stopColor="#F43F5E" />
+          <stop offset="100%" stopColor="#D946EF" />
         </linearGradient>
         <linearGradient id="lp-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#06B6D4" stopOpacity="0.18" />
-          <stop offset="100%" stopColor="#3B82F6" stopOpacity="0" />
+          <stop offset="0%" stopColor="#F43F5E" stopOpacity="0.18" />
+          <stop offset="100%" stopColor="#D946EF" stopOpacity="0" />
         </linearGradient>
       </defs>
       <path d={area} fill="url(#lp-fill)" />

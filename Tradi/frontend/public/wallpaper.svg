@@ -1,0 +1,137 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>H~Mltd — Aurora Fire Wallpaper</title>
+<desc>Dark obsidian background with violet-fuchsia-rose-amber aurora trails, neural network nodes, and equity sparklines</desc>
+<defs>
+  <radialGradient id="bg" cx="50%" cy="40%" r="70%">
+    <stop offset="0%" stop-color="#0F0A18"/>
+    <stop offset="100%" stop-color="#050308"/>
+  </radialGradient>
+  <radialGradient id="bloom-v" cx="28%" cy="48%" r="45%">
+    <stop offset="0%" stop-color="#7C3AED" stop-opacity="0.18"/>
+    <stop offset="100%" stop-color="#7C3AED" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="bloom-f" cx="55%" cy="35%" r="42%">
+    <stop offset="0%" stop-color="#D946EF" stop-opacity="0.14"/>
+    <stop offset="100%" stop-color="#D946EF" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="bloom-r" cx="78%" cy="58%" r="36%">
+    <stop offset="0%" stop-color="#F43F5E" stop-opacity="0.1"/>
+    <stop offset="100%" stop-color="#F43F5E" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="bloom-a" cx="88%" cy="28%" r="30%">
+    <stop offset="0%" stop-color="#FB923C" stop-opacity="0.09"/>
+    <stop offset="100%" stop-color="#FB923C" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="tr1" x1="0%" y1="0%" x2="100%" y2="0%">
+    <stop offset="0%" stop-color="#7C3AED" stop-opacity="0"/>
+    <stop offset="28%" stop-color="#7C3AED" stop-opacity="0.55"/>
+    <stop offset="52%" stop-color="#D946EF" stop-opacity="0.6"/>
+    <stop offset="76%" stop-color="#F43F5E" stop-opacity="0.4"/>
+    <stop offset="100%" stop-color="#FB923C" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="tr2" x1="0%" y1="0%" x2="100%" y2="0%">
+    <stop offset="0%" stop-color="#D946EF" stop-opacity="0"/>
+    <stop offset="24%" stop-color="#D946EF" stop-opacity="0.4"/>
+    <stop offset="58%" stop-color="#F43F5E" stop-opacity="0.45"/>
+    <stop offset="84%" stop-color="#FB923C" stop-opacity="0.3"/>
+    <stop offset="100%" stop-color="#FB923C" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="tr3" x1="0%" y1="0%" x2="100%" y2="0%">
+    <stop offset="0%" stop-color="#7C3AED" stop-opacity="0"/>
+    <stop offset="38%" stop-color="#7C3AED" stop-opacity="0.3"/>
+    <stop offset="68%" stop-color="#D946EF" stop-opacity="0.35"/>
+    <stop offset="100%" stop-color="#F43F5E" stop-opacity="0"/>
+  </linearGradient>
+  <filter id="soft">
+    <feGaussianBlur stdDeviation="18"/>
+  </filter>
+  <filter id="glow">
+    <feGaussianBlur stdDeviation="4" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <radialGradient id="vig" cx="50%" cy="50%" r="70%">
+    <stop offset="0%" stop-color="transparent"/>
+    <stop offset="100%" stop-color="#030206" stop-opacity="0.7"/>
+  </radialGradient>
+</defs>
+
+<rect width="1920" height="1080" fill="url(#bg)"/>
+<rect width="1920" height="1080" fill="url(#bloom-v)"/>
+<rect width="1920" height="1080" fill="url(#bloom-f)"/>
+<rect width="1920" height="1080" fill="url(#bloom-r)"/>
+<rect width="1920" height="1080" fill="url(#bloom-a)"/>
+
+<g filter="url(#soft)" opacity="0.75">
+  <path fill="none" stroke="url(#tr1)" stroke-width="155" stroke-linecap="round"
+    d="M-60,590 C220,450 500,250 845,395 C1130,510 1410,340 1750,435 C1860,465 1940,440 2040,450"/>
+  <path fill="none" stroke="url(#tr2)" stroke-width="110" stroke-linecap="round"
+    d="M-60,760 C280,650 620,505 1015,592 C1355,665 1635,495 1980,578"/>
+  <path fill="none" stroke="url(#tr3)" stroke-width="90" stroke-linecap="round"
+    d="M-60,395 C340,310 650,452 1045,338 C1412,232 1750,368 2040,310"/>
+</g>
+
+<g filter="url(#glow)" opacity="0.7">
+  <path fill="none" stroke="#D946EF" stroke-width="3.4" stroke-linecap="round" opacity="0.8"
+    d="M0,578 C282,445 564,248 904,390 C1184,504 1440,332 1778,424"/>
+  <path fill="none" stroke="#F43F5E" stroke-width="2.8" stroke-linecap="round" opacity="0.65"
+    d="M85,748 C423,635 762,502 1128,584 C1440,655 1694,486 1980,565"/>
+  <path fill="none" stroke="#7C3AED" stroke-width="2.5" stroke-linecap="round" opacity="0.6"
+    d="M0,381 C395,296 720,438 1102,325 C1468,220 1764,362 1980,305"/>
+  <path fill="none" stroke="#FB923C" stroke-width="2.3" stroke-linecap="round" opacity="0.5"
+    d="M226,875 C564,805 959,734 1355,775 C1636,805 1807,734 1980,758"/>
+</g>
+
+<g opacity="0.14">
+  <polyline fill="none" stroke="#D946EF" stroke-width="3.4"
+    points="0,1003 170,954 340,977 510,916 680,935 850,890 1020,868 1190,832 1360,852 1530,813 1700,784 1870,754 1920,747"/>
+  <polyline fill="none" stroke="#F43F5E" stroke-width="2.5"
+    points="0,1045 226,1018 453,1032 679,989 906,1000 1133,968 1359,977 1586,947 1812,958 1920,948"/>
+  <polyline fill="none" stroke="#FB923C" stroke-width="2.3"
+    points="0,967 198,929 396,948 594,899 792,912 990,875 1188,848 1386,869 1584,826 1782,814 1920,805"/>
+</g>
+
+<g filter="url(#glow)">
+  <line x1="904" y1="254" x2="565" y2="480" stroke="#7C3AED" stroke-width="2" opacity="0.35"/>
+  <line x1="904" y1="254" x2="1243" y2="480" stroke="#D946EF" stroke-width="2" opacity="0.35"/>
+  <line x1="565" y1="480" x2="720" y2="692" stroke="#D946EF" stroke-width="1.8" opacity="0.28"/>
+  <line x1="565" y1="480" x2="1088" y2="692" stroke="#F43F5E" stroke-width="1.8" opacity="0.28"/>
+  <line x1="1243" y1="480" x2="720" y2="692" stroke="#F43F5E" stroke-width="1.8" opacity="0.28"/>
+  <line x1="1243" y1="480" x2="1088" y2="692" stroke="#FB923C" stroke-width="1.8" opacity="0.28"/>
+  <line x1="720" y1="692" x2="904" y2="869" stroke="#FB923C" stroke-width="1.4" opacity="0.22"/>
+  <line x1="1088" y1="692" x2="904" y2="869" stroke="#F43F5E" stroke-width="1.4" opacity="0.22"/>
+  <line x1="367" y1="382" x2="565" y2="480" stroke="#7C3AED" stroke-width="1.4" opacity="0.2"/>
+  <line x1="1441" y1="382" x2="1243" y2="480" stroke="#D946EF" stroke-width="1.4" opacity="0.2"/>
+
+  <circle cx="904" cy="254" r="14" fill="#D946EF" opacity="0.75"/>
+  <circle cx="904" cy="254" r="31" fill="#D946EF" opacity="0.06"/>
+  <circle cx="565" cy="480" r="9.9" fill="#7C3AED" opacity="0.7"/>
+  <circle cx="565" cy="480" r="22" fill="#7C3AED" opacity="0.05"/>
+  <circle cx="1243" cy="480" r="9.9" fill="#D946EF" opacity="0.7"/>
+  <circle cx="1243" cy="480" r="22" fill="#D946EF" opacity="0.05"/>
+  <circle cx="720" cy="692" r="8.5" fill="#F43F5E" opacity="0.65"/>
+  <circle cx="720" cy="692" r="20" fill="#F43F5E" opacity="0.04"/>
+  <circle cx="1088" cy="692" r="8.5" fill="#FB923C" opacity="0.65"/>
+  <circle cx="1088" cy="692" r="20" fill="#FB923C" opacity="0.04"/>
+  <circle cx="904" cy="869" r="11" fill="#F43F5E" opacity="0.6"/>
+  <circle cx="904" cy="869" r="25" fill="#F43F5E" opacity="0.04"/>
+  <circle cx="367" cy="382" r="7" fill="#7C3AED" opacity="0.5"/>
+  <circle cx="1441" cy="382" r="7" fill="#D946EF" opacity="0.5"/>
+</g>
+
+<g opacity="0.32">
+  <circle cx="170" cy="170" r="2.8" fill="#7C3AED"/>
+  <circle cx="410" cy="113" r="4.2" fill="#D946EF"/>
+  <circle cx="1411" cy="113" r="2.8" fill="#F43F5E"/>
+  <circle cx="1609" cy="198" r="4.2" fill="#FB923C"/>
+  <circle cx="1750" cy="85" r="2.8" fill="#D946EF"/>
+  <circle cx="70" cy="537" r="2.8" fill="#F43F5E"/>
+  <circle cx="1842" cy="480" r="2.8" fill="#D946EF"/>
+  <circle cx="282" cy="932" r="4.2" fill="#7C3AED"/>
+  <circle cx="1666" cy="989" r="2.8" fill="#F43F5E"/>
+  <circle cx="226" cy="70" r="2.8" fill="#FB923C"/>
+  <circle cx="1523" cy="56" r="4.2" fill="#7C3AED"/>
+  <circle cx="1892" cy="650" r="2.8" fill="#FB923C"/>
+</g>
+
+<rect width="1920" height="1080" fill="url(#vig)"/>
+</svg>
