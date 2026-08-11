@@ -46,11 +46,11 @@ function EquityPreview() {
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="none">
       <defs>
         <linearGradient id="lp-line" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#7C3AED" />
+          <stop offset="0%" stopColor="#06B6D4" />
           <stop offset="100%" stopColor="#3B82F6" />
         </linearGradient>
         <linearGradient id="lp-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#7C3AED" stopOpacity="0.18" />
+          <stop offset="0%" stopColor="#06B6D4" stopOpacity="0.18" />
           <stop offset="100%" stopColor="#3B82F6" stopOpacity="0" />
         </linearGradient>
       </defs>
@@ -65,7 +65,7 @@ function TerminalPreview() {
   return (
     <div className="relative rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
       {/* Window chrome */}
-      <div className="flex items-center gap-1.5 border-b border-border bg-[#080D1A] px-4 py-2.5">
+      <div className="flex items-center gap-1.5 border-b border-border bg-[var(--bg-panel)] px-4 py-2.5">
         <div className="h-2.5 w-2.5 rounded-full bg-danger/60" />
         <div className="h-2.5 w-2.5 rounded-full bg-warning/60" />
         <div className="h-2.5 w-2.5 rounded-full bg-success/60" />
@@ -84,22 +84,29 @@ function TerminalPreview() {
           <EquityPreview />
         </div>
 
-        {/* Metrics row */}
+        {/* Metrics row — single accent (Sharpe, the hero metric); neutral for the rest */}
         <div className="mt-3 grid grid-cols-3 gap-2">
           {[
-            { label: "Sharpe", value: "1.82", color: "text-primary", bg: "bg-primary/8 border-primary/20" },
-            { label: "Win Rate", value: "64%",  color: "text-secondary", bg: "bg-secondary/8 border-secondary/20" },
-            { label: "Return",  value: "+23.4%", color: "text-success", bg: "bg-success/8 border-success/20" },
-          ].map(({ label, value, color, bg }) => (
-            <div key={label} className={`rounded-lg border ${bg} px-3 py-2 text-center`}>
-              <div className={`font-mono text-sm font-bold ${color}`}>{value}</div>
+            { label: "Sharpe",   value: "1.82",   accent: true  },
+            { label: "Win Rate", value: "64%",    accent: false },
+            { label: "Return",   value: "+23.4%", accent: false },
+          ].map(({ label, value, accent }) => (
+            <div
+              key={label}
+              className={
+                accent
+                  ? "rounded-lg border border-primary/25 bg-primary/8 px-3 py-2 text-center"
+                  : "rounded-lg border border-border bg-elevated px-3 py-2 text-center"
+              }
+            >
+              <div className={`font-mono text-sm font-bold ${accent ? "gradient-text" : "text-foreground"}`}>{value}</div>
               <div className="mt-0.5 text-[10px] text-muted-foreground">{label}</div>
             </div>
           ))}
         </div>
 
         {/* AI output snippet */}
-        <div className="mt-3 rounded-lg border border-border/50 bg-[#080D1A] px-3 py-3">
+        <div className="mt-3 rounded-lg border border-border/50 bg-[var(--bg-panel)] px-3 py-3">
           <div className="font-mono text-[11px] leading-relaxed text-muted-foreground">
             <span className="text-primary">▶</span>
             {" "}The 10/21 EMA crossover shows consistent alpha in trending regimes.
@@ -134,9 +141,11 @@ export function Landing() {
 
       {/* ─── Hero ─── */}
       <section className="relative overflow-hidden grid-bg">
-        {/* Ambient orbs */}
-        <div className="pointer-events-none absolute -top-24 left-1/4 h-96 w-96 rounded-full bg-violet-600/6 blur-3xl float-y" />
-        <div className="pointer-events-none absolute top-32 right-1/5 h-64 w-64 rounded-full bg-blue-600/6 blur-3xl float-y-slow" />
+        {/* Ambient orbs — cyan/blue signal palette */}
+        <div className="pointer-events-none absolute -top-24 left-1/4 h-96 w-96 rounded-full bg-cyan-500/8 blur-3xl float-y" />
+        <div className="pointer-events-none absolute top-32 right-1/5 h-64 w-64 rounded-full bg-blue-600/8 blur-3xl float-y-slow" />
+        {/* Ghosted equity curves drifting across the bottom — domain motif */}
+        <div className="pointer-events-none absolute inset-0 signal-lines opacity-40" />
 
         <div className="mx-auto flex min-h-[calc(100svh-3.5rem)] max-w-6xl flex-col items-center justify-center gap-14 px-4 py-20 sm:px-6 lg:flex-row lg:items-center lg:gap-16 lg:py-0">
 

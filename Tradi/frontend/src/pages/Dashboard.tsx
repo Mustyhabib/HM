@@ -97,7 +97,7 @@ function EquityCurve() {
     <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-full" preserveAspectRatio="none">
       <defs>
         <linearGradient id="eq-gradient" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#7C3AED" />
+          <stop offset="0%" stopColor="#06B6D4" />
           <stop offset="100%" stopColor="#3B82F6" />
         </linearGradient>
         <linearGradient id="eq-fill" x1="0" y1="0" x2="0" y2="1">
@@ -136,7 +136,7 @@ function PineScriptPanel() {
   return (
     <div className="flex h-full flex-col rounded-xl border border-border bg-card overflow-hidden">
       {/* Window chrome */}
-      <div className="flex items-center justify-between border-b border-border bg-[#080D1A] px-4 py-2.5">
+      <div className="flex items-center justify-between border-b border-border bg-[var(--bg-panel)] px-4 py-2.5">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5">
             <div className="h-2.5 w-2.5 rounded-full bg-danger/60" />
@@ -159,7 +159,7 @@ function PineScriptPanel() {
             {copied ? "Copied" : "Copy"}
           </button>
           <button className="rounded-md gradient-bg glow-gradient px-2.5 py-1 text-[11px] font-medium text-white transition hover:opacity-90">
-            Run
+            Run Backtest
           </button>
         </div>
       </div>
@@ -183,7 +183,7 @@ function PineScriptPanel() {
       </div>
 
       {/* Status bar */}
-      <div className="flex items-center justify-between border-t border-border bg-[#080D1A] px-4 py-1.5 text-[10px] font-mono text-muted-foreground">
+      <div className="flex items-center justify-between border-t border-border bg-[var(--bg-panel)] px-4 py-1.5 text-[10px] font-mono text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <span className="h-1.5 w-1.5 rounded-full bg-success" />
           No errors

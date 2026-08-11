@@ -134,10 +134,7 @@ export function Pricing() {
             <ul className="mt-6 flex-1 space-y-2.5 border-t border-border/60 pt-5">
               {SHARED_FEATURES.map((feature) => (
                 <li key={feature} className="flex items-start gap-2 text-sm">
-                  <Check className={cn(
-                    "mt-0.5 h-4 w-4 shrink-0",
-                    plan.popular ? "text-primary" : "text-success",
-                  )} />
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                   <span className="text-muted-foreground">{feature}</span>
                 </li>
               ))}

@@ -28,11 +28,12 @@ export function Login() {
   return (
     <div className="grid min-h-[calc(100vh-3.5rem)] grid-cols-1 lg:grid-cols-[1.05fr_1fr]">
       {/* ─── Left brand panel (desktop only) ─── */}
-      <aside className="relative hidden overflow-hidden border-r border-border bg-[#080D1A] lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16">
-        {/* Ambient gradient wash */}
-        <div className="pointer-events-none absolute -top-20 -left-20 h-96 w-96 rounded-full bg-violet-600/10 blur-3xl float-y" />
+      <aside className="relative hidden overflow-hidden border-r border-border bg-[var(--bg-panel)] lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16">
+        {/* Ambient gradient wash — cyan/blue signal palette */}
+        <div className="pointer-events-none absolute -top-20 -left-20 h-96 w-96 rounded-full bg-cyan-500/10 blur-3xl float-y" />
         <div className="pointer-events-none absolute bottom-0 right-0 h-96 w-96 rounded-full bg-blue-600/8 blur-3xl float-y-slow" />
         <div className="pointer-events-none absolute inset-0 grid-bg opacity-40" />
+        <div className="pointer-events-none absolute inset-0 signal-lines opacity-25" />
 
         <div className="relative">
           <Link to="/" className="inline-flex items-baseline gap-1 text-2xl font-bold gradient-text glow-gradient">
@@ -99,7 +100,7 @@ export function Login() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
-                  className="w-full rounded-lg border border-border bg-[#05060F] px-3 py-2.5 pl-10 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary/60 focus:ring-2 focus:ring-primary/15"
+                  className="w-full rounded-lg border border-border bg-[var(--bg-input)] px-3 py-2.5 pl-10 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary/60 focus:ring-2 focus:ring-primary/15"
                 />
               </div>
             </div>
@@ -126,7 +127,7 @@ export function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full rounded-lg border border-border bg-[#05060F] px-3 py-2.5 pl-10 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary/60 focus:ring-2 focus:ring-primary/15"
+                  className="w-full rounded-lg border border-border bg-[var(--bg-input)] px-3 py-2.5 pl-10 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary/60 focus:ring-2 focus:ring-primary/15"
                 />
               </div>
             </div>
