@@ -17,6 +17,7 @@ import {
   type AgentRun,
   type RunArtifact,
 } from "@/lib/runs";
+import { cn } from "@/lib/utils";
 
 const ACTIVE = new Set(["queued", "running"]);
 
@@ -132,6 +133,69 @@ function StatusTimeline({ status }: { status: string }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** Format elapsed seconds — "3s", "42s", "1m 18s", "12m 04s" */
+function fmtElapsed(sec: number): string {
+  if (sec < 60) return `${sec}s`;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}m ${s.toString().padStart(2, "0")}s`;
+}
+
+/** Waiting/running card — shows live elapsed time + honest status copy. */
+function ActiveState({ run }: { run: AgentRun }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const createdMs = new Date(run.created_at).getTime();
+  const elapsedSec = Math.max(0, Math.floor((now - createdMs) / 1000));
+  const isQueued = run.status === "queued";
+  const isStalled = isQueued && elapsedSec > 30;
+
+  return (
+    <div className="rounded-xl border border-primary/20 bg-card p-6 glass">
+      <div className="mb-5 flex items-center gap-3">
+        <SpinRing />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1 font-medium text-foreground text-sm">
+            {isQueued ? "Waiting for a worker to pick up your run" : "Agent is thinking"}
+            {run.status === "running" && <TypingDots />}
+          </div>
+          <div className="mt-0.5 text-xs text-muted-foreground">
+            {isQueued
+              ? isStalled
+                ? "Longer than usual — the queue may be busy. Your credit is safe; it will refund on failure."
+                : "Usually takes a few seconds. You can safely leave this page — we'll keep processing."
+              : "Researching, analyzing, and drafting your report…"}
+          </div>
+        </div>
+        {/* Live elapsed pill */}
+        <div
+          className={cn(
+            "shrink-0 rounded-full border px-2.5 py-1 font-mono text-[11px] font-medium",
+            isStalled
+              ? "border-warning/40 bg-warning/10 text-warning"
+              : "border-border bg-elevated text-muted-foreground",
+          )}
+          title="Time since the run was queued"
+        >
+          {fmtElapsed(elapsedSec)}
+        </div>
+      </div>
+
+      {/* Shimmer placeholder lines */}
+      <div className="space-y-2.5">
+        <div className="shimmer h-3 w-full rounded" />
+        <div className="shimmer h-3 w-11/12 rounded" />
+        <div className="shimmer h-3 w-4/5 rounded" />
+        <div className="shimmer h-3 w-3/4 rounded" />
+      </div>
     </div>
   );
 }
@@ -267,31 +331,7 @@ export function RunView() {
 
           {/* ─── Active state: spin ring + typing dots + shimmer ─── */}
           {ACTIVE.has(run.status) && (
-            <div className="rounded-xl border border-primary/20 bg-card p-6 glass">
-              <div className="mb-5 flex items-center gap-3">
-                {/* Orbital spin ring replacing static icon */}
-                <SpinRing />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1 font-medium text-foreground text-sm">
-                    {run.status === "queued" ? "Waiting for a worker" : "Agent is thinking"}
-                    {run.status === "running" && <TypingDots />}
-                  </div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">
-                    {run.status === "queued"
-                      ? "Your run is next in line — this usually takes a few seconds."
-                      : "Researching, analyzing, and drafting your report…"}
-                  </div>
-                </div>
-              </div>
-
-              {/* Shimmer placeholder lines */}
-              <div className="space-y-2.5">
-                <div className="shimmer h-3 w-full rounded" />
-                <div className="shimmer h-3 w-11/12 rounded" />
-                <div className="shimmer h-3 w-4/5 rounded" />
-                <div className="shimmer h-3 w-3/4 rounded" />
-              </div>
-            </div>
+            <ActiveState run={run} />
           )}
 
           {/* ─── Failed / timeout state ─── */}

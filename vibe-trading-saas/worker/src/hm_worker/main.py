@@ -11,7 +11,15 @@ import threading
 from .artifacts import ArtifactStore
 from .config import Config, ConfigError, load_config
 from .db import ClaimedRun, RunQueue
-from .runner import ClaimLost, Runner, RunError, StubRunner, SystemError_, TradiRunner
+from .runner import (
+    ClaimLost,
+    Runner,
+    RunError,
+    StubRunner,
+    SystemError_,
+    TradiRunner,
+    set_attachment_downloader,
+)
 
 log = logging.getLogger("hm_worker")
 
@@ -133,6 +141,10 @@ def main() -> int:
 
     queue = RunQueue(config)
     artifacts = ArtifactStore(queue.client) if config.execute_tradi else None
+    # Register the storage downloader so TradiRunner can stage Premium
+    # attachments into HOME/inputs/ before spawning the engine. StubRunner
+    # never calls this, so tests that skip Tradi don't need Storage.
+    set_attachment_downloader(queue.download_attachment)
     run_forever(config, queue, runner, stop, artifacts)
     return 0
 

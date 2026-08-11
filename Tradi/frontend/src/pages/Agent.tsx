@@ -9,10 +9,21 @@ import {
   BarChart3,
   Search,
   Layers,
+  Paperclip,
+  X as CloseIcon,
+  FileSpreadsheet,
+  FileJson,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { startRun, getActiveUsage, type UsageSnapshot } from "@/lib/runs";
+import {
+  startRun,
+  getActiveUsage,
+  uploadAttachment,
+  type UsageSnapshot,
+  type RunAttachment,
+} from "@/lib/runs";
 
 /**
  * The Agent workspace is the single research entry point. A prompt is queued as
@@ -85,16 +96,28 @@ function AgentBrainSVG() {
   );
 }
 
+/** File-kind → icon */
+function AttachIcon({ kind }: { kind: RunAttachment["kind"] }) {
+  if (kind === "json") return <FileJson className="h-3.5 w-3.5 text-primary" />;
+  return <FileSpreadsheet className="h-3.5 w-3.5 text-primary" />;
+}
+
 export function Agent() {
   const navigate = useNavigate();
   const [input, setInput] = useState("");
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [attachments, setAttachments] = useState<RunAttachment[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const [usage, setUsage] = useState<UsageSnapshot | null>(null);
   const [usageLoaded, setUsageLoaded] = useState(false);
   const [usageError, setUsageError] = useState(false);
+  const isPremium = usage?.tier === "premium";
+  const isPro = usage?.tier === "pro" || usage?.tier === "premium";
 
   useEffect(() => {
     let cancelled = false;
@@ -121,6 +144,36 @@ export function Agent() {
     usageLoaded && !usageError && usage !== null && usage.remaining <= 0;
   const blocked = noPlan || outOfQuota;
 
+  /** Upload one or more research data files (Premium only). */
+  const handleFiles = useCallback(async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    if (!isPremium) {
+      toast.error("File attachments are a Premium feature");
+      return;
+    }
+    setUploading(true);
+    const uploaded: RunAttachment[] = [];
+    for (const file of Array.from(files)) {
+      try {
+        const att = await uploadAttachment(file);
+        uploaded.push(att);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Upload failed";
+        toast.error(`${file.name}: ${msg}`);
+      }
+    }
+    if (uploaded.length) {
+      setAttachments((prev) => [...prev, ...uploaded]);
+      toast.success(`${uploaded.length} file${uploaded.length > 1 ? "s" : ""} attached`);
+    }
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, [isPremium]);
+
+  const removeAttachment = useCallback((path: string) => {
+    setAttachments((prev) => prev.filter((a) => a.path !== path));
+  }, []);
+
   const submit = useCallback(
     async (raw: string) => {
       const prompt = raw.trim();
@@ -128,7 +181,7 @@ export function Agent() {
       setStarting(true);
       setError(null);
       try {
-        const runId = await startRun(prompt);
+        const runId = await startRun(prompt, { attachments });
         // Refetch usage to show the consumed use immediately (and keep it fresh
         // for when the user returns from RunView). Fail open — if the read fails,
         // the stale display is better than hard-blocking the navigation.
@@ -146,7 +199,7 @@ export function Agent() {
         setStarting(false);
       }
     },
-    [navigate, starting, blocked],
+    [navigate, starting, blocked, attachments],
   );
 
   const fillExample = useCallback((example: string) => {
@@ -210,6 +263,32 @@ export function Agent() {
           }}
           className="rounded-2xl bg-card p-2"
         >
+          {/* Attachment chips (Premium only, above the textarea) */}
+          {attachments.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 px-2 pt-1.5 pb-1">
+              {attachments.map((a) => (
+                <span
+                  key={a.path}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/8 px-2.5 py-1 text-[11px]"
+                >
+                  <AttachIcon kind={a.kind} />
+                  <span className="max-w-[160px] truncate font-mono text-foreground">{a.name}</span>
+                  <span className="text-muted-foreground">
+                    {(a.size / 1024).toFixed(0)} KB
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeAttachment(a.path)}
+                    aria-label={`Remove ${a.name}`}
+                    className="ml-0.5 rounded-full text-muted-foreground transition hover:text-danger"
+                  >
+                    <CloseIcon className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
           <div className="flex items-end gap-2">
             <textarea
               ref={textareaRef}
@@ -240,19 +319,63 @@ export function Agent() {
               aria-label="Trading research prompt"
               className="max-h-52 min-h-[56px] flex-1 resize-none overflow-y-auto bg-transparent px-3 py-3 text-sm outline-none disabled:opacity-60"
             />
-            <button
-              type="submit"
-              disabled={starting || blocked || !input.trim()}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl gradient-bg glow-gradient text-white transition hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-              aria-label="Start run"
-              title="Start run"
-            >
-              {starting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-            </button>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {/* Attach — Premium only, tooltip explains for others */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,.xlsx,.json,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/json"
+                multiple
+                onChange={(e) => handleFiles(e.target.files)}
+                className="hidden"
+                aria-label="Attach research data files"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isPremium) {
+                    toast.error("File attachments are a Premium feature");
+                    return;
+                  }
+                  fileInputRef.current?.click();
+                }}
+                disabled={starting || blocked || uploading}
+                className={cn(
+                  "flex h-11 w-11 items-center justify-center rounded-xl border transition",
+                  isPremium
+                    ? "border-border text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/8"
+                    : "border-border/60 text-muted-foreground/50 hover:border-primary/30 hover:text-primary/70 cursor-help",
+                  "disabled:opacity-40 disabled:cursor-not-allowed",
+                )}
+                aria-label={isPremium ? "Attach data files (CSV, XLSX, JSON)" : "Premium feature — attach data files"}
+                title={
+                  isPremium
+                    ? "Attach research data (CSV, XLSX, JSON — 50 MB max)"
+                    : "File attachments require the Premium plan"
+                }
+              >
+                {uploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Paperclip className="h-4 w-4" />
+                )}
+              </button>
+
+              {/* Send */}
+              <button
+                type="submit"
+                disabled={starting || blocked || !input.trim()}
+                className="flex h-11 w-11 items-center justify-center rounded-xl gradient-bg glow-gradient text-white transition hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                aria-label="Start run"
+                title="Start run"
+              >
+                {starting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -285,8 +408,43 @@ export function Agent() {
         )}
       </div>
 
+      {/* ─── Teams CTA — Pro & Premium ─── */}
+      <div className="mt-8">
+        <Link
+          to="/teams"
+          className={cn(
+            "group flex items-center justify-between gap-4 rounded-xl border p-4 transition",
+            isPro
+              ? "border-primary/25 bg-gradient-to-r from-primary/8 via-secondary/5 to-transparent hover:border-primary/45 hover:from-primary/12"
+              : "border-border bg-card/60 hover:border-primary/30",
+          )}
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-primary/10">
+              <Users className="h-4 w-4 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                Run with a research team
+                {!isPro && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/8 px-1.5 py-0.5 text-[10px] font-medium text-warning">
+                    <Crown className="h-2.5 w-2.5" /> Pro+
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                30 specialist teams — equity research, macro, crypto, quant, sentiment
+              </p>
+            </div>
+          </div>
+          <span className="hidden shrink-0 items-center gap-1 text-xs font-medium text-primary transition group-hover:translate-x-0.5 sm:inline-flex">
+            Browse teams →
+          </span>
+        </Link>
+      </div>
+
       {/* ─── Example prompts — shown as mini conversations ─── */}
-      <div className="mt-10">
+      <div className="mt-8">
         <div className="mb-3 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 text-primary" /> Or try a starting point
         </div>
