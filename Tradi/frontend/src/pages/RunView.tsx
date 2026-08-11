@@ -7,6 +7,7 @@ import {
   Download,
   FileText,
   Loader2,
+  X,
   XCircle,
 } from "lucide-react";
 import {
@@ -140,7 +141,16 @@ export function RunView() {
               <h1 className="text-lg font-bold">Agent run</h1>
               <p className="mt-1 text-sm text-muted-foreground">{run.prompt}</p>
             </div>
-            <StatusBadge status={run.status} />
+            <div className="flex shrink-0 items-center gap-2">
+              <StatusBadge status={run.status} />
+              <Link
+                to="/agent"
+                title="Back to the prompt"
+                className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" /> Exit
+              </Link>
+            </div>
           </div>
 
           {ACTIVE.has(run.status) && (
