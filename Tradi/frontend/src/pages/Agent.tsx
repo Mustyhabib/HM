@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { Send, Loader2, Sparkles, Crown } from "lucide-react";
+import {
+  Send,
+  Loader2,
+  Sparkles,
+  Crown,
+  TrendingUp,
+  BarChart3,
+  Search,
+  Layers,
+} from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { startRun, getActiveUsage, type UsageSnapshot } from "@/lib/runs";
@@ -17,10 +26,30 @@ import { startRun, getActiveUsage, type UsageSnapshot } from "@/lib/runs";
  */
 
 const EXAMPLES = [
-  "Backtest a 10/21 EMA crossover on AAPL over the last 2 years and report Sharpe, win rate, and max drawdown.",
-  "Compare momentum vs mean-reversion on BTC/USDT for 2024 and tell me which regime each favored.",
-  "Screen for oversold names: RSI(14) below 30 with rising 50-day volume, and rank the top 10.",
-  "Build and evaluate a simple pairs-trading strategy on KO and PEP, then summarize the edge.",
+  {
+    icon: TrendingUp,
+    label: "Backtest a strategy",
+    prompt:
+      "Backtest a 10/21 EMA crossover on AAPL over the last 2 years and report Sharpe, win rate, and max drawdown.",
+  },
+  {
+    icon: BarChart3,
+    label: "Compare regimes",
+    prompt:
+      "Compare momentum vs mean-reversion on BTC/USDT for 2024 and tell me which regime each favored.",
+  },
+  {
+    icon: Search,
+    label: "Screen for setups",
+    prompt:
+      "Screen for oversold names: RSI(14) below 30 with rising 50-day volume, and rank the top 10.",
+  },
+  {
+    icon: Layers,
+    label: "Pairs trading edge",
+    prompt:
+      "Build and evaluate a simple pairs-trading strategy on KO and PEP, then summarize the edge.",
+  },
 ];
 
 export function Agent() {
@@ -78,8 +107,6 @@ export function Agent() {
         }
         navigate(`/run/${runId}`);
       } catch (e) {
-        // friendlyStartError() already maps quota_exceeded / no-plan /
-        // not-authenticated into user-facing copy inside startRun.
         const message = e instanceof Error ? e.message : "Failed to start run";
         setError(message);
         toast.error(message);
@@ -101,29 +128,32 @@ export function Agent() {
   }, []);
 
   return (
-    <div className="mx-auto flex min-h-full max-w-3xl flex-col justify-center px-6 py-10">
-      {/* Header */}
-      <div className="mb-6 text-center">
-        <h1 className="text-2xl font-bold">
-          <span className="gradient-text">H~Mltd</span> Agent
+    <div className="mx-auto flex min-h-full max-w-3xl flex-col justify-center px-6 py-12">
+      {/* ─── Header ─── */}
+      <div className="mb-8 text-center msg-enter">
+        <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/8 px-3 py-1 text-[11px] font-medium text-primary">
+          <Sparkles className="h-3 w-3" />
+          Research Studio
+        </div>
+        <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
+          What would you like to <span className="gradient-text">research?</span>
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Ask a trading research question. Each run consumes one use from your
-          plan.
+        <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">
+          Ask any trading question. One run per prompt.
         </p>
       </div>
 
-      {/* Quota-exhausted / no-plan banner */}
+      {/* ─── Quota banner ─── */}
       {blocked && (
-        <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-danger/30 bg-danger/5 p-3">
-          <p className="text-xs text-foreground">
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-danger/30 bg-danger/5 p-3.5">
+          <p className="text-xs leading-relaxed text-foreground">
             {noPlan
-              ? "You don't have an active plan. Subscribe to start running the agent."
-              : `You've used all ${usage?.uses_allowed} runs in your plan this period — it resets at your next billing date.`}
+              ? "You don't have an active plan yet. Subscribe to start running the agent."
+              : `You've used all ${usage?.uses_allowed} runs this period — resets at your next billing date.`}
           </p>
           <Link
             to="/pricing"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg gradient-bg glow-gradient px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg gradient-bg glow-gradient px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
           >
             <Crown className="h-3.5 w-3.5" />
             {noPlan ? "See plans" : "Upgrade"}
@@ -131,7 +161,7 @@ export function Agent() {
         </div>
       )}
 
-      {/* Prompt box — glowing gradient border (brand) */}
+      {/* ─── Prompt box ─── */}
       <div className="gradient-border glow-pulse rounded-2xl">
         <form
           onSubmit={(e) => {
@@ -165,15 +195,15 @@ export function Agent() {
               placeholder={
                 blocked
                   ? "No runs left — upgrade to continue"
-                  : "Ask H~Mltd a trading research question…"
+                  : "e.g. Backtest a 10/21 EMA crossover on AAPL over the last 2 years…"
               }
               aria-label="Trading research prompt"
-              className="max-h-40 min-h-[52px] flex-1 resize-none overflow-y-auto bg-transparent px-3 py-3 text-sm outline-none disabled:opacity-60"
+              className="max-h-52 min-h-[56px] flex-1 resize-none overflow-y-auto bg-transparent px-3 py-3 text-sm outline-none disabled:opacity-60"
             />
             <button
               type="submit"
               disabled={starting || blocked || !input.trim()}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl gradient-bg glow-gradient text-white transition hover:opacity-90 disabled:opacity-50"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl gradient-bg glow-gradient text-white transition hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
               aria-label="Start run"
               title="Start run"
             >
@@ -189,43 +219,55 @@ export function Agent() {
 
       {error && <p className="mt-2 px-1 text-xs text-danger">{error}</p>}
 
-      {/* Hint + remaining-quota pill */}
-      <div className="mt-2 flex items-center justify-between gap-2 px-1">
+      {/* ─── Hint + quota pill ─── */}
+      <div className="mt-3 flex items-center justify-between gap-2 px-1">
         <p className="text-[11px] text-muted-foreground">
-          Press Enter to run · Shift+Enter for a new line
+          <kbd className="rounded border border-border bg-elevated px-1 font-mono text-[10px]">Enter</kbd> to run · <kbd className="rounded border border-border bg-elevated px-1 font-mono text-[10px]">Shift+Enter</kbd> for new line
         </p>
         {usageLoaded && !usageError && usage !== null && (
           <span
             className={cn(
-              "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium",
+              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-mono font-medium",
               usage.remaining <= 0
-                ? "border-danger/40 text-danger"
+                ? "border-danger/40 bg-danger/8 text-danger"
                 : usage.remaining <= 1
-                  ? "border-amber-500/40 text-amber-500"
-                  : "border-border text-muted-foreground",
+                  ? "border-warning/40 bg-warning/8 text-warning"
+                  : "border-border bg-elevated text-muted-foreground",
             )}
             title="Runs remaining in your current billing period"
           >
-            {usage.remaining} of {usage.uses_allowed} runs left
+            <span className={cn(
+              "h-1.5 w-1.5 rounded-full",
+              usage.remaining <= 0 ? "bg-danger" : usage.remaining <= 1 ? "bg-warning" : "bg-success animate-pulse",
+            )} />
+            {usage.remaining} / {usage.uses_allowed} runs left
           </span>
         )}
       </div>
 
-      {/* Examples */}
-      <div className="mt-8">
-        <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-          <Sparkles className="h-3.5 w-3.5 text-primary" /> Try one of these
+      {/* ─── Example prompts ─── */}
+      <div className="mt-10">
+        <div className="mb-3 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+          <Sparkles className="h-3.5 w-3.5 text-primary" /> Or try a starting point
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
-          {EXAMPLES.map((ex) => (
+          {EXAMPLES.map(({ icon: Icon, label, prompt }) => (
             <button
-              key={ex}
+              key={label}
               type="button"
-              onClick={() => fillExample(ex)}
+              onClick={() => fillExample(prompt)}
               disabled={starting || blocked}
-              className="rounded-xl border border-border bg-card p-3 text-left text-xs leading-relaxed text-muted-foreground transition hover:border-primary/40 hover:text-foreground disabled:opacity-50"
+              className="group flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-left transition hover:border-primary/40 hover:bg-elevated/50 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {ex}
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-elevated border border-border transition group-hover:border-primary/30 group-hover:bg-primary/10">
+                <Icon className="h-4 w-4 text-primary" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-semibold text-foreground">{label}</div>
+                <div className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                  {prompt}
+                </div>
+              </div>
             </button>
           ))}
         </div>
