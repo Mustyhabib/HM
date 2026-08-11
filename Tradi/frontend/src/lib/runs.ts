@@ -31,9 +31,27 @@ export interface UsageSnapshot {
   uses_consumed: number;
   remaining: number;
   period_end: string;
+  /** Plan tier — derived from uses_allowed. Starter=3, Pro=7, Premium=15. */
+  tier: "starter" | "pro" | "premium" | "unknown";
+}
+
+export interface RunAttachment {
+  name: string;
+  path: string;
+  size: number;
+  kind: "csv" | "xlsx" | "json";
 }
 
 const ARTIFACT_BUCKET = "agent-artifacts";
+const UPLOADS_BUCKET = "agent-uploads";
+
+/** Plan-tier gate derived from monthly allowance. Kept as one place. */
+export function tierFromAllowance(uses_allowed: number): UsageSnapshot["tier"] {
+  if (uses_allowed >= 15) return "premium";
+  if (uses_allowed >= 7)  return "pro";
+  if (uses_allowed >= 3)  return "starter";
+  return "unknown";
+}
 
 /** Map the RPC's raise-exception messages to friendly UI copy. */
 function friendlyStartError(message: string): string {
@@ -50,11 +68,15 @@ function friendlyStartError(message: string): string {
  * (SECURITY DEFINER) derives the user from auth.uid() and consumes a use in
  * the same transaction — the client never writes agent_runs directly.
  */
-export async function startRun(prompt: string, maxIter = 10): Promise<string> {
+export async function startRun(
+  prompt: string,
+  opts: { maxIter?: number; attachments?: RunAttachment[] } = {},
+): Promise<string> {
   const { data, error } = await supabase.rpc("start_agent_run", {
     p_prompt: prompt,
-    p_max_iter: maxIter,
+    p_max_iter: opts.maxIter ?? 10,
     p_idempotency_key: crypto.randomUUID(),
+    p_attachments: opts.attachments ?? [],
   });
   if (error) throw new Error(friendlyStartError(error.message));
   return data as string;
@@ -84,6 +106,44 @@ export async function getActiveUsage(): Promise<UsageSnapshot | null> {
     uses_consumed: data.uses_consumed,
     remaining,
     period_end: data.period_end,
+    tier: tierFromAllowance(data.uses_allowed),
+  };
+}
+
+/**
+ * Upload a research attachment to Supabase Storage. Path is scoped to the
+ * caller via RLS: `{auth.uid()}/{yyyy-mm-dd}/{uuid}-{filename}`. The 50 MB
+ * limit is enforced client-side AND server-side (bucket policy).
+ *
+ * @throws Error on validation, network, or auth failure.
+ */
+export async function uploadAttachment(file: File): Promise<RunAttachment> {
+  const MAX = 50 * 1024 * 1024;
+  if (file.size > MAX) throw new Error(`File too large — 50 MB max (got ${(file.size / 1024 / 1024).toFixed(1)} MB)`);
+
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  const allowed = ["csv", "xlsx", "json"] as const;
+  if (!(allowed as readonly string[]).includes(ext))
+    throw new Error(`Unsupported file type: .${ext}. Allowed: CSV, XLSX, JSON`);
+
+  const { data: userData, error: userErr } = await supabase.auth.getUser();
+  if (userErr || !userData?.user) throw new Error("Not authenticated");
+  const uid = userData.user.id;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const safeName = file.name.replace(/[^\w.-]/g, "_").slice(0, 120);
+  const path = `${uid}/${today}/${crypto.randomUUID()}-${safeName}`;
+
+  const { error } = await supabase.storage
+    .from(UPLOADS_BUCKET)
+    .upload(path, file, { contentType: file.type || "application/octet-stream", upsert: false });
+  if (error) throw new Error(error.message);
+
+  return {
+    name: file.name,
+    path,
+    size: file.size,
+    kind: ext as RunAttachment["kind"],
   };
 }
 
