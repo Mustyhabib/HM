@@ -167,6 +167,74 @@ export async function getRunArtifacts(runId: string): Promise<RunArtifact[]> {
   return (data as RunArtifact[]) ?? [];
 }
 
+/**
+ * List the caller's currently active (queued or running) runs — ordered by
+ * newest first. Powers the sidebar queue viewer on the RunView page.
+ * RLS-scoped: the user only ever sees their own rows.
+ */
+export async function getActiveRuns(): Promise<AgentRun[]> {
+  const { data, error } = await supabase
+    .from("agent_runs")
+    .select("id,prompt,status,max_iter,error_message,refunded,created_at,completed_at")
+    .in("status", ["queued", "running"])
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (error) throw new Error(error.message);
+  return (data as AgentRun[]) ?? [];
+}
+
+/**
+ * Subscribe to real-time updates for a single agent run. The callback fires
+ * on every UPDATE (status transitions, error_message, refunded, completed_at).
+ * Returns an unsubscribe function.
+ *
+ * Realtime is enabled on the agent_runs table (migration
+ * `enable_realtime_agent_runs`). RLS still applies — the WS server only
+ * publishes rows the current user's JWT can SELECT.
+ */
+export function subscribeToRun(
+  runId: string,
+  onUpdate: (run: AgentRun) => void,
+): () => void {
+  const channel = supabase
+    .channel(`run:${runId}`)
+    .on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "agent_runs", filter: `id=eq.${runId}` },
+      (payload) => {
+        if (payload.new) onUpdate(payload.new as AgentRun);
+      },
+    )
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+/**
+ * Subscribe to real-time artifact inserts for a given run. Fires when the
+ * worker uploads a report/CSV/pine/trace file and inserts the row.
+ * Returns an unsubscribe function.
+ */
+export function subscribeToArtifacts(
+  runId: string,
+  onInsert: (artifact: RunArtifact) => void,
+): () => void {
+  const channel = supabase
+    .channel(`artifacts:${runId}`)
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "agent_artifacts", filter: `agent_run_id=eq.${runId}` },
+      (payload) => {
+        if (payload.new) onInsert(payload.new as RunArtifact);
+      },
+    )
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
 /** Short-lived signed URL for a private artifact object (RLS-scoped to owner). */
 export async function signedArtifactUrl(
   storagePath: string,
