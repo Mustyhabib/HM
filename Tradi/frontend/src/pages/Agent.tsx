@@ -67,8 +67,10 @@ function AgentBrainSVG() {
     <svg viewBox="0 0 48 38" fill="none" className="h-9 w-9" aria-hidden>
       <defs>
         <linearGradient id="ag-g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#06B6D4" />
-          <stop offset="100%" stopColor="#3B82F6" />
+          <stop offset="0%" stopColor="#C084FC" />
+          <stop offset="33%" stopColor="#818CF8" />
+          <stop offset="66%" stopColor="#60A5FA" />
+          <stop offset="100%" stopColor="#22D3EE" />
         </linearGradient>
       </defs>
       {edges.map(([x1,y1,x2,y2],i) => (

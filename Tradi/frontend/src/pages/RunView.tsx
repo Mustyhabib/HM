@@ -26,8 +26,9 @@ function SpinRing() {
     <svg viewBox="0 0 36 36" className="h-9 w-9 spin-ring" fill="none" aria-hidden>
       <defs>
         <linearGradient id="ring-g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#06B6D4" />
-          <stop offset="100%" stopColor="#3B82F6" />
+          <stop offset="0%" stopColor="#C084FC" />
+          <stop offset="50%" stopColor="#818CF8" />
+          <stop offset="100%" stopColor="#22D3EE" />
         </linearGradient>
       </defs>
       <circle cx="18" cy="18" r="14" stroke="var(--border)" strokeWidth="2" />

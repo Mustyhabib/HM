@@ -1,23 +1,30 @@
 (() => {
   const root = document.documentElement;
-  let savedTheme = null;
+  let saved = null;
 
   try {
-    savedTheme = window.localStorage.getItem("qa-theme");
+    saved = window.localStorage.getItem("hm-theme");
   } catch {
-    // Storage can be unavailable in restricted iframes and WebViews.
+    // Storage unavailable in restricted iframes / WebViews.
   }
 
   let prefersDark = false;
-  if (savedTheme !== "dark" && savedTheme !== "light" && typeof window.matchMedia === "function") {
+  if (saved !== "dark" && saved !== "light" && typeof window.matchMedia === "function") {
     try {
       prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     } catch {
-      // Fall back to light when the media-query API is present but unusable.
+      // Fall back to dark when matchMedia is unavailable.
+      prefersDark = true;
     }
   }
 
-  const dark = savedTheme === "dark" || (savedTheme !== "light" && prefersDark);
+  const dark = saved === "dark" || (saved !== "light" && prefersDark);
+  const theme = dark ? "dark" : "light";
+
+  // data-theme drives CSS custom-property overrides (our token system).
+  root.setAttribute("data-theme", theme);
+  // colorScheme drives the browser's native UI (scrollbars, form controls).
+  root.style.colorScheme = theme;
+  // .dark drives Tailwind's darkMode:"class" variants.
   root.classList.toggle("dark", dark);
-  root.style.colorScheme = dark ? "dark" : "light";
 })();

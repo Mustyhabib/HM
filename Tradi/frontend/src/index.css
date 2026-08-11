@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 @layer base {
-  /* ─── H~M Dark Navy — single theme for all pages ─── */
+  /* ─── H~Mltd — Aurora spectrum, dark-default ─── */
   :root {
     --background: #05060F;
     --foreground: #F8FAFC;
@@ -11,44 +11,50 @@
     --card-foreground: #F8FAFC;
     --popover: #101730;
     --popover-foreground: #F8FAFC;
-    --primary: #3B82F6;
+    --primary: #818CF8;            /* indigo — midpoint of the spectrum */
     --primary-foreground: #FFFFFF;
-    --secondary: #22D3EE;
+    --secondary: #C084FC;          /* fuchsia-violet — warm end */
     --secondary-foreground: #05060F;
     --muted: #101730;
     --muted-foreground: #94A3B8;
     --destructive: #EF4444;
     --destructive-foreground: #FFFFFF;
     --border: #1E2A45;
-    --ring: #3B82F6;
+    --ring: #818CF8;
     --radius: 0.75rem;
 
     /* Semantic */
     --success: #22C55E;
     --danger: #EF4444;
     --warning: #F59E0B;
-    --info: #06B6D4;
+    --info: #22D3EE;
 
     /* Surfaces */
     --surface-elevated: #101730;
     --bg-panel: #080D1A;
     --bg-input: #05060F;
 
+    /* Shimmer tokens — theme-aware */
+    --shimmer-a: rgba(255,255,255,0.03);
+    --shimmer-b: rgba(255,255,255,0.07);
+
     /* Chart tokens */
     --chart-grid: #1E2A45;
     --chart-text: #94A3B8;
     --chart-axis: #1E2A45;
-    --chart-compare-a: #3B82F6;
+    --chart-compare-a: #818CF8;
     --chart-compare-b: #22D3EE;
 
-    /* Brand gradient stops (cyan → blue "signal") */
-    --brand-a: #06B6D4;
-    --brand-b: #3B82F6;
+    /* Aurora spectrum gradient — 4 stops: violet → indigo → blue → cyan */
+    --brand-a: #C084FC;   /* fuchsia-violet */
+    --brand-b: #818CF8;   /* indigo */
+    --brand-c: #60A5FA;   /* blue */
+    --brand-d: #22D3EE;   /* cyan */
 
     color-scheme: dark;
   }
 
-  /* Legacy .dark class — same values, no toggle needed */
+  /* .dark — keeps Tailwind's darkMode:"class" variants working */
   .dark {
     --background: #05060F;
     --foreground: #F8FAFC;
@@ -56,34 +62,155 @@
     --card-foreground: #F8FAFC;
     --popover: #101730;
     --popover-foreground: #F8FAFC;
-    --primary: #3B82F6;
+    --primary: #818CF8;
     --primary-foreground: #FFFFFF;
-    --secondary: #22D3EE;
+    --secondary: #C084FC;
     --secondary-foreground: #05060F;
     --muted: #101730;
     --muted-foreground: #94A3B8;
     --destructive: #EF4444;
     --destructive-foreground: #FFFFFF;
     --border: #1E2A45;
-    --ring: #3B82F6;
-
+    --ring: #818CF8;
     --success: #22C55E;
     --danger: #EF4444;
     --warning: #F59E0B;
-    --info: #06B6D4;
-
+    --info: #22D3EE;
     --surface-elevated: #101730;
     --bg-panel: #080D1A;
     --bg-input: #05060F;
-
+    --shimmer-a: rgba(255,255,255,0.03);
+    --shimmer-b: rgba(255,255,255,0.07);
     --chart-grid: #1E2A45;
     --chart-text: #94A3B8;
     --chart-axis: #1E2A45;
-    --chart-compare-a: #3B82F6;
+    --chart-compare-a: #818CF8;
     --chart-compare-b: #22D3EE;
+    --brand-a: #C084FC;
+    --brand-b: #818CF8;
+    --brand-c: #60A5FA;
+    --brand-d: #22D3EE;
+    color-scheme: dark;
+  }
 
-    --brand-a: #06B6D4;
-    --brand-b: #3B82F6;
+  /* ── Light mode via system preference ── */
+  @media (prefers-color-scheme: light) {
+    :root {
+      --background: #F8F9FF;
+      --foreground: #0F172A;
+      --card: #FFFFFF;
+      --card-foreground: #0F172A;
+      --popover: #EEF2FF;
+      --popover-foreground: #0F172A;
+      --primary: #6366F1;
+      --primary-foreground: #FFFFFF;
+      --secondary: #8B5CF6;
+      --secondary-foreground: #FFFFFF;
+      --muted: #EEF2FF;
+      --muted-foreground: #64748B;
+      --destructive: #DC2626;
+      --destructive-foreground: #FFFFFF;
+      --border: #E0E7FF;
+      --ring: #6366F1;
+      --success: #16A34A;
+      --danger: #DC2626;
+      --warning: #D97706;
+      --info: #06B6D4;
+      --surface-elevated: #EEF2FF;
+      --bg-panel: #F1F5F9;
+      --bg-input: #FFFFFF;
+      --shimmer-a: rgba(0,0,0,0.03);
+      --shimmer-b: rgba(0,0,0,0.07);
+      --chart-grid: #E0E7FF;
+      --chart-text: #64748B;
+      --chart-axis: #E0E7FF;
+      --chart-compare-a: #6366F1;
+      --chart-compare-b: #06B6D4;
+      /* Aurora stays vibrant on white — slightly richer for contrast */
+      --brand-a: #A855F7;
+      --brand-b: #6366F1;
+      --brand-c: #3B82F6;
+      --brand-d: #06B6D4;
+      color-scheme: light;
+    }
+  }
+
+  /* ── Manual dark — wins over system preference ── */
+  :root[data-theme="dark"] {
+    --background: #05060F;
+    --foreground: #F8FAFC;
+    --card: #0B1020;
+    --card-foreground: #F8FAFC;
+    --popover: #101730;
+    --popover-foreground: #F8FAFC;
+    --primary: #818CF8;
+    --primary-foreground: #FFFFFF;
+    --secondary: #C084FC;
+    --secondary-foreground: #05060F;
+    --muted: #101730;
+    --muted-foreground: #94A3B8;
+    --destructive: #EF4444;
+    --destructive-foreground: #FFFFFF;
+    --border: #1E2A45;
+    --ring: #818CF8;
+    --success: #22C55E;
+    --danger: #EF4444;
+    --warning: #F59E0B;
+    --info: #22D3EE;
+    --surface-elevated: #101730;
+    --bg-panel: #080D1A;
+    --bg-input: #05060F;
+    --shimmer-a: rgba(255,255,255,0.03);
+    --shimmer-b: rgba(255,255,255,0.07);
+    --chart-grid: #1E2A45;
+    --chart-text: #94A3B8;
+    --chart-axis: #1E2A45;
+    --chart-compare-a: #818CF8;
+    --chart-compare-b: #22D3EE;
+    --brand-a: #C084FC;
+    --brand-b: #818CF8;
+    --brand-c: #60A5FA;
+    --brand-d: #22D3EE;
+    color-scheme: dark;
+  }
+
+  /* ── Manual light — wins over system preference ── */
+  :root[data-theme="light"] {
+    --background: #F8F9FF;
+    --foreground: #0F172A;
+    --card: #FFFFFF;
+    --card-foreground: #0F172A;
+    --popover: #EEF2FF;
+    --popover-foreground: #0F172A;
+    --primary: #6366F1;
+    --primary-foreground: #FFFFFF;
+    --secondary: #8B5CF6;
+    --secondary-foreground: #FFFFFF;
+    --muted: #EEF2FF;
+    --muted-foreground: #64748B;
+    --destructive: #DC2626;
+    --destructive-foreground: #FFFFFF;
+    --border: #E0E7FF;
+    --ring: #6366F1;
+    --success: #16A34A;
+    --danger: #DC2626;
+    --warning: #D97706;
+    --info: #06B6D4;
+    --surface-elevated: #EEF2FF;
+    --bg-panel: #F1F5F9;
+    --bg-input: #FFFFFF;
+    --shimmer-a: rgba(0,0,0,0.03);
+    --shimmer-b: rgba(0,0,0,0.07);
+    --chart-grid: #E0E7FF;
+    --chart-text: #64748B;
+    --chart-axis: #E0E7FF;
+    --chart-compare-a: #6366F1;
+    --chart-compare-b: #06B6D4;
+    --brand-a: #A855F7;
+    --brand-b: #6366F1;
+    --brand-c: #3B82F6;
+    --brand-d: #06B6D4;
+    color-scheme: light;
   }
 
   * { @apply border-[var(--border)]; }
@@ -91,9 +218,6 @@
     background-color: var(--background);
     color: var(--foreground);
   }
-
-  /* Force dark class on html for legacy compat */
-  html { color-scheme: dark; }
 
   /* Prose table enhancements */
   .prose table { border-collapse: collapse; width: 100%; }
@@ -109,16 +233,16 @@
 
 /* ─── Utility classes ─── */
 
-/* Primary gradient — cyan → blue "signal" */
+/* Primary gradient — 4-stop aurora spectrum: violet → indigo → blue → cyan */
 .gradient-text {
-  background: linear-gradient(90deg, var(--brand-a), var(--brand-b));
+  background: linear-gradient(90deg, var(--brand-a), var(--brand-b), var(--brand-c), var(--brand-d));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .gradient-bg {
-  background: linear-gradient(90deg, var(--brand-a), var(--brand-b));
+  background: linear-gradient(90deg, var(--brand-a), var(--brand-b), var(--brand-c), var(--brand-d));
 }
 
 .gradient-border {
@@ -132,24 +256,24 @@
   inset: -1px;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(90deg, var(--brand-a), var(--brand-b));
+  background: linear-gradient(90deg, var(--brand-a), var(--brand-b), var(--brand-c), var(--brand-d));
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
 }
 
-/* Soft glow on buttons */
+/* Soft glow — multi-colour aurora */
 .glow-blue {
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3), 0 0 40px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 20px rgba(129, 140, 248, 0.3), 0 0 40px rgba(129, 140, 248, 0.1);
 }
 
 .glow-cyan {
-  box-shadow: 0 0 20px rgba(6, 182, 212, 0.3), 0 0 40px rgba(6, 182, 212, 0.1);
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.3), 0 0 40px rgba(34, 211, 238, 0.1);
 }
 
 .glow-gradient {
-  box-shadow: 0 0 20px rgba(6, 182, 212, 0.25), 0 0 40px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 20px rgba(192, 132, 252, 0.2), 0 0 40px rgba(129, 140, 248, 0.12), 0 0 60px rgba(34, 211, 238, 0.06);
 }
 
 /* Grid background for hero */
@@ -161,11 +285,8 @@
 }
 
 /* ─── Signal-lines hero background ─── */
-/* Ghosted equity curves drifting behind the hero — reinforces the trading
-   research vibe without competing with the terminal preview signature.
-   Encoded as an inline SVG data URI so it renders without an extra request. */
 .signal-lines {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 400'><defs><linearGradient id='sl' x1='0' y1='0' x2='1' y2='0'><stop offset='0' stop-color='%2306B6D4' stop-opacity='0'/><stop offset='0.35' stop-color='%2306B6D4' stop-opacity='0.35'/><stop offset='0.65' stop-color='%233B82F6' stop-opacity='0.35'/><stop offset='1' stop-color='%233B82F6' stop-opacity='0'/></linearGradient></defs><g fill='none' stroke='url(%23sl)' stroke-width='1'><path d='M0,320 L60,300 L120,310 L180,270 L240,280 L300,240 L360,255 L420,210 L480,225 L540,180 L600,195 L660,155 L720,170 L800,135'/><path d='M0,360 L60,350 L120,355 L180,335 L240,345 L300,320 L360,330 L420,305 L480,315 L540,290 L600,300 L660,275 L720,285 L800,260' stroke-opacity='0.5'/><path d='M0,240 L60,220 L120,235 L180,190 L240,205 L300,160 L360,180 L420,135 L480,155 L540,110 L600,130 L660,90 L720,105 L800,70' stroke-opacity='0.7'/></g></svg>");
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 400'><defs><linearGradient id='sl' x1='0' y1='0' x2='1' y2='0'><stop offset='0' stop-color='%23C084FC' stop-opacity='0'/><stop offset='0.35' stop-color='%23818CF8' stop-opacity='0.35'/><stop offset='0.65' stop-color='%2360A5FA' stop-opacity='0.35'/><stop offset='1' stop-color='%2322D3EE' stop-opacity='0'/></linearGradient></defs><g fill='none' stroke='url(%23sl)' stroke-width='1'><path d='M0,320 L60,300 L120,310 L180,270 L240,280 L300,240 L360,255 L420,210 L480,225 L540,180 L600,195 L660,155 L720,170 L800,135'/><path d='M0,360 L60,350 L120,355 L180,335 L240,345 L300,320 L360,330 L420,305 L480,315 L540,290 L600,300 L660,275 L720,285 L800,260' stroke-opacity='0.5'/><path d='M0,240 L60,220 L120,235 L180,190 L240,205 L300,160 L360,180 L420,135 L480,155 L540,110 L600,130 L660,90 L720,105 L800,70' stroke-opacity='0.7'/></g></svg>");
   background-repeat: no-repeat;
   background-position: bottom center;
   background-size: 100% 60%;
@@ -214,9 +335,9 @@
 .shimmer {
   background: linear-gradient(
     90deg,
-    rgba(255,255,255,0.03) 25%,
-    rgba(255,255,255,0.07) 50%,
-    rgba(255,255,255,0.03) 75%
+    var(--shimmer-a) 25%,
+    var(--shimmer-b) 50%,
+    var(--shimmer-a) 75%
   );
   background-size: 200% auto;
   animation: shimmer 1.6s linear infinite;
@@ -331,13 +452,15 @@
 }
 .bubble-user {
   border-radius: 0.875rem 0.875rem 0.25rem 0.875rem;
-  background: rgba(59, 130, 246, 0.07);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  /* color-mix adapts to --primary in both dark and light mode */
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
   animation: bubble-right 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .bubble-ai {
   border-radius: 0.875rem 0.875rem 0.875rem 0.25rem;
-  background: rgba(16, 23, 48, 0.9);
+  /* --muted is dark navy in dark mode, indigo-50 in light mode */
+  background: var(--muted);
   border: 1px solid var(--border);
   animation: bubble-left 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -404,6 +527,37 @@
   animation: count-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* ─── Light mode overrides ─────────────────────────────────────────────
+   These adjust elements that can't rely on CSS variables alone — e.g.
+   those with hardcoded rgba values in their definitions above. */
+
+/* Grid-bg: lighter lines on the white-ish background */
+@media (prefers-color-scheme: light) {
+  .grid-bg {
+    background-image:
+      linear-gradient(rgba(99, 102, 241, 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99, 102, 241, 0.08) 1px, transparent 1px);
+  }
+  /* Softer glows on white */
+  .glow-gradient {
+    box-shadow: 0 0 14px rgba(99,102,241,0.2), 0 0 28px rgba(6,182,212,0.1);
+  }
+  .glow-blue { box-shadow: 0 0 14px rgba(99,102,241,0.2); }
+  .glow-cyan { box-shadow: 0 0 14px rgba(6,182,212,0.2); }
+  .glow-success { box-shadow: 0 0 12px rgba(22,163,74,0.25); }
+}
+:root[data-theme="light"] .grid-bg {
+  background-image:
+    linear-gradient(rgba(99, 102, 241, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99, 102, 241, 0.08) 1px, transparent 1px);
+}
+:root[data-theme="light"] .glow-gradient {
+  box-shadow: 0 0 14px rgba(99,102,241,0.2), 0 0 28px rgba(6,182,212,0.1);
+}
+:root[data-theme="light"] .glow-blue { box-shadow: 0 0 14px rgba(99,102,241,0.2); }
+:root[data-theme="light"] .glow-cyan { box-shadow: 0 0 14px rgba(6,182,212,0.2); }
+:root[data-theme="light"] .glow-success { box-shadow: 0 0 12px rgba(22,163,74,0.25); }
+
 /* ─── Reduced-motion respect ─────────────────────────────────────────────
    Every ambient / decorative animation snaps to its final state instantly.
    Functional spinners (Loader2) are exempt — they communicate live progress. */
@@ -431,5 +585,6 @@
   .sparkline-draw { stroke-dashoffset: 0; }
   .stroke-draw    { stroke-dashoffset: 0; }
   .reveal-on-scroll { opacity: 1; }
-  .shimmer { background: rgba(255,255,255,0.04); }
+  /* Use token-aware static shimmer */
+  .shimmer { background: var(--shimmer-b); }
 }

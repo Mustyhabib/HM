@@ -11,10 +11,13 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Crown,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/common/BrandMark";
 import { safeGet, safeSet } from "@/lib/storage";
+import { useTheme } from "@/lib/theme";
 
 const NAV_ITEMS = [
   { to: "/dashboard", icon: Home, label: "Home" },
@@ -27,6 +30,7 @@ const NAV_ITEMS = [
 
 export function Layout() {
   const { pathname } = useLocation();
+  const { theme, toggle: toggleTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(
     () => safeGet("hm-sidebar") === "collapsed",
   );
@@ -87,7 +91,7 @@ export function Layout() {
                       : "gap-3 px-3 py-2.5",
                     active
                       ? "bg-primary/10 text-primary font-medium"
-                      : "text-muted-foreground hover:bg-[#101730] hover:text-foreground",
+                      : "text-muted-foreground hover:bg-elevated hover:text-foreground",
                   )}
                 >
                   <Icon className="h-[18px] w-[18px] shrink-0" />
@@ -110,7 +114,7 @@ export function Layout() {
             to="/profile"
             title={collapsed ? "Profile" : undefined}
             className={cn(
-              "flex items-center rounded-lg text-sm text-muted-foreground transition-colors hover:bg-[#101730] hover:text-foreground",
+              "flex items-center rounded-lg text-sm text-muted-foreground transition-colors hover:bg-elevated hover:text-foreground",
               collapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5",
             )}
           >
@@ -126,11 +130,29 @@ export function Layout() {
             </button>
           )}
 
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            className={cn(
+              "mt-1 flex items-center rounded-lg text-muted-foreground transition-colors hover:bg-elevated hover:text-foreground",
+              collapsed ? "justify-center w-full p-2.5" : "gap-3 px-3 py-2.5 w-full",
+            )}
+            title={theme === "dark" ? "Light mode" : "Dark mode"}
+          >
+            {theme === "dark" ? (
+              <Sun className="h-[18px] w-[18px] shrink-0" />
+            ) : (
+              <Moon className="h-[18px] w-[18px] shrink-0" />
+            )}
+            {!collapsed && <span className="text-xs">{theme === "dark" ? "Light mode" : "Dark mode"}</span>}
+          </button>
+
           {/* Collapse toggle */}
           <button
             onClick={toggleCollapse}
             className={cn(
-              "mt-2 flex items-center rounded-lg text-muted-foreground transition-colors hover:text-foreground",
+              "mt-1 flex items-center rounded-lg text-muted-foreground transition-colors hover:text-foreground",
               collapsed
                 ? "justify-center w-full p-2.5"
                 : "gap-3 px-3 py-2.5 w-full",

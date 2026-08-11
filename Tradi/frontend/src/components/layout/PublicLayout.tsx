@@ -1,5 +1,7 @@
 import { Link, Outlet, useLocation } from "react-router";
+import { Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/lib/theme";
 
 const NAV_LINKS = [
   { to: "/", label: "Home" },
@@ -13,6 +15,7 @@ const AUTH_LINKS = [
 
 export function PublicLayout() {
   const { pathname } = useLocation();
+  const { theme, toggle } = useTheme();
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -51,8 +54,19 @@ export function PublicLayout() {
             </nav>
           </div>
 
-          {/* Right: auth */}
+          {/* Right: theme toggle + auth */}
           <div className="flex items-center gap-2">
+            <button
+              onClick={toggle}
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+            >
+              {theme === "dark" ? (
+                <Sun className="h-3.5 w-3.5" />
+              ) : (
+                <Moon className="h-3.5 w-3.5" />
+              )}
+            </button>
             {AUTH_LINKS.map(({ to, label, primary }) => (
               <Link
                 key={to}
