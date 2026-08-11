@@ -1,0 +1,1 @@
+../../../vibe-trading-saas/.claude/commands/architect.md
