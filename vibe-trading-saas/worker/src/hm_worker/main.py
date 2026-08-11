@@ -19,6 +19,7 @@ from .runner import (
     SystemError_,
     TradiRunner,
     set_attachment_downloader,
+    set_progress_push,
 )
 
 log = logging.getLogger("hm_worker")
@@ -145,6 +146,9 @@ def main() -> int:
     # attachments into HOME/inputs/ before spawning the engine. StubRunner
     # never calls this, so tests that skip Tradi don't need Storage.
     set_attachment_downloader(queue.download_attachment)
+    # Register the progress pusher so TraceTailer can stream trace.jsonl events
+    # into agent_runs.progress_message. StubRunner never triggers this path.
+    set_progress_push(lambda run_id, msg, itr: queue.progress(run_id, msg, itr))
     run_forever(config, queue, runner, stop, artifacts)
     return 0
 

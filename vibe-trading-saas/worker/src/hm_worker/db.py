@@ -122,6 +122,31 @@ class RunQueue:
         ).execute()
         return bool(response.data)
 
+    def progress(self, run_id: str, message: str, iteration: int | None = None) -> bool:
+        """Push a human-readable progress line to the DB.
+
+        Safe to call frequently: no quota impact, no state transitions, no-op
+        if the run is not running or the worker no longer owns the claim.
+        Message is server-side truncated to 240 chars.
+
+        Returns False on any transient failure — callers should NOT abort
+        the run just because a progress push flapped.
+        """
+        try:
+            response = self._client.rpc(
+                "update_run_progress",
+                {
+                    "p_run_id": run_id,
+                    "p_worker_id": self._config.worker_id,
+                    "p_message": message[:240],
+                    "p_iter": iteration,
+                },
+            ).execute()
+            return bool(response.data)
+        except Exception:  # noqa: BLE001
+            log.debug("progress push failed for run %s (non-fatal)", run_id, exc_info=True)
+            return False
+
     def complete(self, run_id: str) -> bool:
         response = self._client.rpc(
             "complete_agent_run",

@@ -17,6 +17,11 @@ export interface AgentRun {
   refunded: boolean;
   created_at: string;
   completed_at: string | null;
+  // Progress streaming — worker tails trace.jsonl and updates these.
+  // Null while queued or if the worker hasn't emitted anything yet.
+  progress_message: string | null;
+  progress_iter: number | null;
+  progress_at: string | null;
 }
 
 export interface RunArtifact {
@@ -150,7 +155,7 @@ export async function uploadAttachment(file: File): Promise<RunAttachment> {
 export async function getRun(runId: string): Promise<AgentRun | null> {
   const { data, error } = await supabase
     .from("agent_runs")
-    .select("id,prompt,status,max_iter,error_message,refunded,created_at,completed_at")
+    .select("id,prompt,status,max_iter,error_message,refunded,created_at,completed_at,progress_message,progress_iter,progress_at")
     .eq("id", runId)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -175,7 +180,7 @@ export async function getRunArtifacts(runId: string): Promise<RunArtifact[]> {
 export async function getActiveRuns(): Promise<AgentRun[]> {
   const { data, error } = await supabase
     .from("agent_runs")
-    .select("id,prompt,status,max_iter,error_message,refunded,created_at,completed_at")
+    .select("id,prompt,status,max_iter,error_message,refunded,created_at,completed_at,progress_message,progress_iter,progress_at")
     .in("status", ["queued", "running"])
     .order("created_at", { ascending: false })
     .limit(20);

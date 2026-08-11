@@ -194,12 +194,72 @@ function ActiveState({ run }: { run: AgentRun }) {
         </div>
       </div>
 
+      {/* Progress line — worker streams this from trace.jsonl */}
+      {run.status === "running" && run.progress_message && (
+        <ProgressLine
+          message={run.progress_message}
+          iter={run.progress_iter}
+          maxIter={run.max_iter}
+          updatedAt={run.progress_at}
+        />
+      )}
+
       {/* Shimmer placeholder lines */}
       <div className="space-y-2.5">
         <div className="shimmer h-3 w-full rounded" />
         <div className="shimmer h-3 w-11/12 rounded" />
         <div className="shimmer h-3 w-4/5 rounded" />
         <div className="shimmer h-3 w-3/4 rounded" />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Live progress line — the newest message the worker has streamed, plus a
+ * subtle "N seconds ago" freshness cue and an optional iteration counter.
+ * Message swaps use a short fade so consecutive updates don't jitter.
+ */
+function ProgressLine({
+  message,
+  iter,
+  maxIter,
+  updatedAt,
+}: {
+  message: string;
+  iter: number | null;
+  maxIter: number;
+  updatedAt: string | null;
+}) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const ageSec = updatedAt
+    ? Math.max(0, Math.floor((now - new Date(updatedAt).getTime()) / 1000))
+    : null;
+  // Key on message so each new one triggers the fade-in
+  return (
+    <div
+      key={message}
+      className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 animate-in fade-in duration-300"
+    >
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="typing-dot" />
+        <span className="truncate text-xs text-foreground">{message}</span>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        {iter !== null && iter > 0 && (
+          <span className="rounded-full border border-border bg-elevated px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+            {iter}/{maxIter}
+          </span>
+        )}
+        {ageSec !== null && (
+          <span className="font-mono text-[10px] text-muted-foreground" title="Last progress update">
+            {ageSec < 3 ? "just now" : `${ageSec}s ago`}
+          </span>
+        )}
       </div>
     </div>
   );
