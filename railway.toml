@@ -1,0 +1,21 @@
+# Railway service configuration for the hm-worker.
+# Docs: https://docs.railway.com/reference/config-as-code
+
+[build]
+# Use the Dockerfile at the repo root (monorepo build — installs Tradi + worker).
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# The hm-worker entry point from pyproject.toml; Docker CMD already sets this,
+# but being explicit here makes Railway's UI clearer.
+startCommand = "hm-worker"
+
+# Restart the service if it exits unexpectedly (network blip, OOM, etc.).
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+# Railway sends SIGTERM before SIGKILL. The worker drains in-flight claims
+# on SIGTERM, so give it enough time to finish a run cleanly.
+# Default Railway grace period is 10s — override to match run timeout headroom.
+# (Set this in Railway dashboard under Deploy → Graceful Shutdown Timeout too.)

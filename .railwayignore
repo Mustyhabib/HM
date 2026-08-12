@@ -1,0 +1,33 @@
+# Exclude files that bloat the build context sent to Railway.
+# The Dockerfile only needs: Tradi/ (engine source) + vibe-trading-saas/worker/.
+
+# Frontend — not needed by the worker image
+Tradi/frontend/
+Tradi/frontend/node_modules/
+Tradi/frontend/dist/
+Tradi/frontend/.claude/
+
+# Python caches
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.egg-info/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.venv/
+**/venv/
+
+# Local dev env files (secrets stay out of build context)
+**/.env
+**/worker/.env
+
+# Docs / planning (not needed at runtime)
+vibe-trading-saas/docs/
+.wiki/
+.claude/
+*.canvas
+guardrails_log.md
+skills-lock.json
+
+# Git
+.git/
