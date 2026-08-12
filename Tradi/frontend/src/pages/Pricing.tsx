@@ -28,7 +28,7 @@ const PLANS: Plan[] = [
   {
     id: "starter",
     name: "Starter",
-    priceNgn: 70000,
+    priceNgn: 20000,
     bundle: ["single"],
     description: "For getting started with AI trading research.",
     popular: false,
@@ -36,7 +36,7 @@ const PLANS: Plan[] = [
   {
     id: "pro",
     name: "Pro",
-    priceNgn: 120000,
+    priceNgn: 35000,
     bundle: ["single", "swarm"],
     description: "For active traders who research regularly.",
     popular: true,
@@ -44,7 +44,7 @@ const PLANS: Plan[] = [
   {
     id: "premium",
     name: "Premium",
-    priceNgn: 200000,
+    priceNgn: 75000,
     bundle: ["single", "swarm", "attachments"],
     description: "For power users who need the full research toolkit.",
     popular: false,
