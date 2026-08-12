@@ -18,6 +18,9 @@ const Signals = lazy(() => import("@/pages/Signals").then((m) => ({ default: m.S
 const Teams = lazy(() => import("@/pages/Teams").then((m) => ({ default: m.Teams })));
 const Profile = lazy(() => import("@/pages/Profile").then((m) => ({ default: m.Profile })));
 const RunView = lazy(() => import("@/pages/RunView").then((m) => ({ default: m.RunView })));
+const BillingCallback = lazy(() =>
+  import("@/pages/BillingCallback").then((m) => ({ default: m.BillingCallback })),
+);
 
 // --- Engine pages (existing) ---
 const Home = lazy(() => import("@/pages/Home").then((m) => ({ default: m.Home })));
@@ -70,9 +73,12 @@ export const router = createBrowserRouter([
     children: [
       { path: "/",        element: wrap(Landing)  },
       { path: "/pricing", element: wrap(Pricing)  },
-      { path: "/docs",    element: wrap(Docs)     },
-      { path: "/terms",   element: wrap(Terms)    },
-      { path: "/privacy", element: wrap(Privacy)  },
+      { path: "/docs",              element: wrap(Docs)            },
+      { path: "/terms",             element: wrap(Terms)           },
+      { path: "/privacy",           element: wrap(Privacy)         },
+      // Paystack redirects here after checkout — no auth required (can reach
+      // this page before the subscription webhook fires)
+      { path: "/billing/callback",  element: wrap(BillingCallback) },
     ],
   },
 

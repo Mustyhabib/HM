@@ -1,6 +1,10 @@
-import { Link } from "react-router";
-import { Check, Sparkles, ArrowRight } from "lucide-react";
+import { useState } from "react";
+import { useNavigate } from "react-router";
+import { Check, Sparkles, ArrowRight, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { initiateSubscription, type PlanId } from "@/lib/billing";
+import { useAuth } from "@/lib/auth-store";
 
 /** Feature bundle a tier unlocks — server-enforced (start_swarm_run's plan
  * gate; attachments checked client-side today, Premium-only). BYOK pivot:
@@ -70,6 +74,25 @@ function planFeatures(plan: Plan): string[] {
 }
 
 export function Pricing() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState<PlanId | null>(null);
+
+  async function handleSubscribe(planId: PlanId) {
+    if (!user) {
+      navigate("/signup");
+      return;
+    }
+    setLoading(planId);
+    const err = await initiateSubscription(planId);
+    // If err is non-null, redirect didn't happen — show the error.
+    if (err) {
+      toast.error(err);
+      setLoading(null);
+    }
+    // On success, browser redirects to Paystack; we never reach here.
+  }
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6 sm:py-24">
       {/* ─── Header ─── */}
@@ -125,18 +148,28 @@ export function Pricing() {
               </div>
             </div>
 
-            <Link
-              to="/signup"
+            <button
+              onClick={() => handleSubscribe(plan.id as PlanId)}
+              disabled={loading !== null}
               className={cn(
-                "group mt-6 inline-flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition",
+                "group mt-6 inline-flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition disabled:opacity-60 disabled:cursor-not-allowed w-full",
                 plan.popular
                   ? "gradient-bg glow-gradient text-white hover:opacity-90"
                   : "border border-border bg-card text-foreground hover:bg-elevated",
               )}
             >
-              Get {plan.name}
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </Link>
+              {loading === plan.id ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Redirecting…
+                </>
+              ) : (
+                <>
+                  {user ? `Subscribe — ${plan.name}` : `Get ${plan.name}`}
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </>
+              )}
+            </button>
 
             {/* Features */}
             <ul className="mt-6 flex-1 space-y-2.5 border-t border-border/60 pt-5">

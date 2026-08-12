@@ -1,0 +1,118 @@
+# ── H~Mltd Nginx configuration template ──────────────────────────────────────
+# PORT is substituted at container startup via envsubst.
+# Upstream: Tradi FastAPI (uvicorn) on 127.0.0.1:8899.
+# External: Railway assigns ${PORT}; Cloudflare terminates TLS.
+#
+# SSE streaming (Tradi sessions API) requires proxy_buffering off.
+# WebSocket upgrade is supported for future use.
+
+worker_processes auto;
+error_log /dev/stderr warn;
+pid /tmp/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    # Write tmp files to /tmp so non-root and Railway ephemeral FS both work
+    client_body_temp_path /tmp/nginx_client_body;
+    proxy_temp_path        /tmp/nginx_proxy;
+    fastcgi_temp_path      /tmp/nginx_fastcgi;
+    uwsgi_temp_path        /tmp/nginx_uwsgi;
+    scgi_temp_path         /tmp/nginx_scgi;
+
+    include      /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    log_format main '$remote_addr [$time_local] "$request" $status $body_bytes_sent';
+    access_log /dev/stdout main;
+
+    sendfile       on;
+    keepalive_timeout 65;
+    gzip           on;
+    gzip_types text/plain application/json text/event-stream;
+
+    # Rate limiting — 30 requests/minute per IP (mirrors DB soft limit)
+    limit_req_zone $binary_remote_addr zone=api:10m rate=30r/m;
+
+    upstream tradi_api {
+        server 127.0.0.1:8899;
+        keepalive 16;
+    }
+
+    server {
+        listen ${PORT} default_server;
+        server_name _;
+
+        # ── Security headers ───────────────────────────────────────────────
+        add_header X-Frame-Options        SAMEORIGIN            always;
+        add_header X-Content-Type-Options nosniff               always;
+        add_header X-XSS-Protection       "1; mode=block"       always;
+        add_header Referrer-Policy        "strict-origin-when-cross-origin" always;
+
+        # ── CORS ────────────────────────────────────────────────────────────
+        # Allow Vercel production + preview + local dev.
+        # Update CORS_ALLOWED_ORIGINS env var to add custom domain.
+        set $cors "";
+        if ($http_origin ~* "^https://(.*\.vercel\.app|hmltd\.com)$") {
+            set $cors $http_origin;
+        }
+        if ($http_origin = "http://localhost:5899") {
+            set $cors $http_origin;
+        }
+
+        add_header 'Access-Control-Allow-Origin'  $cors                                              always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS'                  always;
+        add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type, X-Api-Key, Accept'   always;
+        add_header 'Access-Control-Allow-Credentials' 'true'                                          always;
+        add_header 'Access-Control-Max-Age'       '86400'                                             always;
+
+        # Preflight
+        if ($request_method = OPTIONS) {
+            return 204;
+        }
+
+        # ── Health check (no rate limit, no auth) ─────────────────────────
+        location = /health {
+            proxy_pass http://tradi_api/health;
+            access_log off;
+        }
+
+        # ── Sessions & runs — SSE streaming paths ─────────────────────────
+        # These endpoints push a continuous event stream; buffering must be off.
+        location ~* ^/(sessions|runs|swarm/runs) {
+            limit_req zone=api burst=10 nodelay;
+
+            proxy_pass         http://tradi_api;
+            proxy_http_version 1.1;
+            proxy_set_header   Upgrade    $http_upgrade;
+            proxy_set_header   Connection "upgrade";
+            proxy_set_header   Host       $host;
+            proxy_set_header   X-Real-IP  $http_cf_connecting_ip;
+            proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+
+            # SSE — must disable buffering
+            proxy_buffering    off;
+            proxy_cache        off;
+            proxy_read_timeout 910s;   # > WORKER_RUN_TIMEOUT_SECONDS (900s)
+            proxy_send_timeout 910s;
+        }
+
+        # ── All other API routes ───────────────────────────────────────────
+        location / {
+            limit_req zone=api burst=20 nodelay;
+
+            proxy_pass         http://tradi_api;
+            proxy_http_version 1.1;
+            proxy_set_header   Host              $host;
+            proxy_set_header   X-Real-IP         $http_cf_connecting_ip;
+            proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+            proxy_set_header   X-Forwarded-Proto $scheme;
+
+            proxy_connect_timeout 10s;
+            proxy_read_timeout    60s;
+            proxy_send_timeout    60s;
+        }
+    }
+}

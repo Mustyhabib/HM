@@ -1,0 +1,19 @@
+# Railway service configuration — Tradi API (Nginx + FastAPI)
+# This is the SECOND service in the HM Railway project.
+# The first service (hm-worker) uses the root railway.toml.
+#
+# Docs: https://docs.railway.com/reference/config-as-code
+
+[build]
+builder = "DOCKERFILE"
+# Path is relative to the repo root (Railway checks out the whole repo)
+dockerfilePath = "infra/tradi-api/Dockerfile"
+
+[deploy]
+startCommand = "/start.sh"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+
+# Railway sends SIGTERM before SIGKILL.
+# start.sh traps both processes; 30s is enough for in-flight SSE to drain.
+# Set matching value in Railway dashboard → Deploy → Graceful Shutdown Timeout.
