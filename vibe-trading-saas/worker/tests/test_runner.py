@@ -15,12 +15,40 @@ import pytest
 from hm_worker.db import Attachment, ClaimedRun
 from hm_worker.runner import (
     ClaimLost,
+    MissingApiKey,
     RunResult,
     RunTimeout,
     SystemError_,
     TradiRunner,
+    set_api_key_fetcher,
     set_attachment_downloader,
 )
+
+# Every TradiRunner.execute() call now hard-requires a registered key fetcher
+# (BYOK pivot 2026-08-12) — the autouse fixture below wires this stub in
+# before every test and tears it down after. Individual tests can override
+# it with set_api_key_fetcher() for the missing-key / missing-fetcher paths.
+# The value is intentionally NOT a real-looking key: TradiRunner just injects
+# whatever the fetcher returns into the subprocess env, and the fake CLI only
+# echoes it into a marker file — no format validation happens here.
+STUB_KEY_VALUE = "deepseek-stub-test-only"
+
+
+@pytest.fixture(autouse=True)
+def _stub_api_key_fetcher():
+    """Autouse: register a stub key fetcher before every test, tear down after.
+
+    The BYOK pivot made a registered fetcher a hard precondition of
+    ``TradiRunner.execute()``; without this fixture every test in this
+    module would raise ``SystemError_: api key fetcher not registered``.
+    Tests that want to exercise the fetcher-missing / key-missing paths
+    call ``set_api_key_fetcher(...)`` themselves inside the test body.
+    """
+    set_api_key_fetcher(lambda uid, provider: STUB_KEY_VALUE)
+    try:
+        yield
+    finally:
+        set_api_key_fetcher(None)
 
 # A stand-in for `vibe-trading`. Receives `run -p <prompt> --json --no-rich
 # --max-iter N` and branches on the prompt. Writes a marker into HOME to prove
@@ -34,6 +62,12 @@ prompt = argv[argv.index("-p") + 1] if "-p" in argv else ""
 
 try:
     (Path(os.environ["HOME"]) / "ran.marker").write_text(prompt)
+    # BYOK pivot: TradiRunner must inject DEEPSEEK_API_KEY into the
+    # subprocess env; echo it back into a marker so the test can assert
+    # the exact value flowed through without leaking it via stdout/stderr.
+    (Path(os.environ["HOME"]) / "deepseek_key.marker").write_text(
+        os.environ.get("DEEPSEEK_API_KEY", "MISSING")
+    )
 except Exception:
     pass
 
@@ -313,3 +347,64 @@ def test_collects_artifacts_from_workspace(fake_command, tmp_path):
     assert "sessions.db" not in by_name
     assert "stdout.log" not in by_name
     assert "stderr.log" not in by_name
+
+
+# ─── BYOK: api key fetch + injection ────────────────────────────────────────
+
+def test_api_key_injected_into_subprocess_env(fake_command, tmp_path):
+    """The stub fetcher's value must land in the subprocess as DEEPSEEK_API_KEY."""
+    make_runner(fake_command, tmp_path, cleanup=False).execute(
+        make_run("SUCCEED"), lambda: True, threading.Event()
+    )
+    marker = tmp_path / "runs" / "run-x" / "deepseek_key.marker"
+    assert marker.exists()
+    assert marker.read_text() == STUB_KEY_VALUE
+
+
+def test_missing_key_fetcher_is_system_error(fake_command, tmp_path):
+    """No registered fetcher = worker misconfiguration → refundable SystemError_."""
+    # Override the autouse fixture's stub for this one test.
+    set_api_key_fetcher(None)
+    with pytest.raises(SystemError_) as exc:
+        make_runner(fake_command, tmp_path).execute(
+            make_run("SUCCEED"), lambda: True, threading.Event()
+        )
+    assert exc.value.refundable is True
+    assert "api key fetcher not registered" in str(exc.value)
+
+
+def test_missing_key_is_user_input_error(fake_command, tmp_path):
+    """Fetcher returning None = user has no key configured → MissingApiKey, not refunded."""
+    set_api_key_fetcher(lambda uid, provider: None)
+    with pytest.raises(MissingApiKey) as exc:
+        make_runner(fake_command, tmp_path).execute(
+            make_run("SUCCEED"), lambda: True, threading.Event()
+        )
+    assert exc.value.refundable is False
+    assert "no api key configured" in str(exc.value)
+
+
+def test_key_fetcher_called_before_attachment_download(fake_command, tmp_path):
+    """A missing key must short-circuit BEFORE attachments are downloaded —
+    no point spending bandwidth on a run that can never execute."""
+    downloader_calls = []
+
+    def tracking_downloader(path: str) -> bytes:
+        downloader_calls.append(path)
+        return b"unused"
+
+    set_api_key_fetcher(lambda uid, provider: None)
+    set_attachment_downloader(tracking_downloader)
+    try:
+        run = ClaimedRun(
+            id="r-order", user_id="u", prompt="SUCCEED", max_iter=5,
+            attachments=(Attachment(name="x.csv", path="u/x.csv", size=1, kind="csv"),),
+        )
+        with pytest.raises(MissingApiKey):
+            make_runner(fake_command, tmp_path).execute(
+                run, lambda: True, threading.Event(),
+            )
+    finally:
+        set_attachment_downloader(None)
+
+    assert downloader_calls == []
