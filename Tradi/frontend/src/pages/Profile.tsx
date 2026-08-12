@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   User,
   Mail,
@@ -14,10 +14,17 @@ import {
   TrendingUp,
   Target,
   Award,
+  KeyRound,
+  Loader2,
+  Trash2,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-store";
+import { saveApiKey, getApiKeyStatus, deleteApiKey, type ApiKeyStatus } from "@/lib/apikeys";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { Skeleton } from "@/components/common/Skeleton";
 
 /* ─── Mock user (will be replaced with real data once subscriptions are wired) ─── */
 const USER = {
@@ -94,6 +101,221 @@ function ActivityItem({
   );
 }
 
+/* ─── API key section (BYOK) ───────────────────────────────────────────
+ * Users bring their own DeepSeek key — stored server-side in Supabase
+ * Vault, never re-rendered as plaintext once saved. This card is the only
+ * place in the app that reads/writes it (via `lib/apikeys.ts`, which talks
+ * to SECURITY DEFINER RPCs — there is no client-facing table to query).
+ * `id="api-key"` lets `/profile#api-key` deep-link here from the Agent
+ * page's "no key configured" banner.
+ */
+function ApiKeySection() {
+  const [status, setStatus] = useState<ApiKeyStatus | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  // Bumped by the "Retry" button to re-run the effect below without
+  // duplicating its fetch/cancellation logic.
+  const [reloadCount, setReloadCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoaded(false);
+    setLoadError(null);
+    getApiKeyStatus()
+      .then((s) => {
+        if (cancelled) return;
+        setStatus(s);
+        setLoaded(true);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setLoadError(e instanceof Error ? e.message : "Failed to load key status");
+        setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadCount]);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!draft.trim() || saving) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const next = await saveApiKey("deepseek", draft);
+      setStatus(next);
+      setEditing(false);
+      // Never keep the plaintext around once it's safely stored server-side.
+      setDraft("");
+      toast.success("DeepSeek key saved");
+    } catch (saveErr) {
+      const message = saveErr instanceof Error ? saveErr.message : "Failed to save key";
+      setSaveError(message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditing(false);
+    setDraft("");
+    setSaveError(null);
+  };
+
+  const confirmDelete = async () => {
+    setDeleting(true);
+    try {
+      await deleteApiKey("deepseek");
+      setStatus(null);
+      setConfirmDeleteOpen(false);
+      toast.success("DeepSeek key removed");
+    } catch (deleteErr) {
+      const message = deleteErr instanceof Error ? deleteErr.message : "Failed to delete key";
+      toast.error(message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const showForm = loaded && !loadError && (status === null || editing);
+
+  return (
+    <section id="api-key" className="mt-6 scroll-mt-20 rounded-xl border border-border bg-card p-6">
+      <div className="flex items-center gap-2">
+        <h2 className="flex items-center gap-2 text-base font-semibold">
+          <KeyRound className="h-4 w-4 text-primary" />
+          API Key
+        </h2>
+        <span className="inline-flex items-center rounded-full border border-primary/25 bg-primary/8 px-2 py-0.5 text-[11px] font-medium text-primary">
+          DeepSeek
+        </span>
+      </div>
+      <p className="mt-1.5 text-sm text-muted-foreground">
+        H~Mltd runs on your own DeepSeek key — we never proxy or mark up model calls.
+      </p>
+
+      {!loaded && (
+        <div className="mt-4 space-y-2">
+          <Skeleton className="h-10 w-full rounded-lg" />
+        </div>
+      )}
+
+      {loaded && loadError && (
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2.5">
+          <p className="text-xs text-danger">{loadError}</p>
+          <button
+            type="button"
+            onClick={() => setReloadCount((n) => n + 1)}
+            className="shrink-0 rounded-lg border border-border px-2.5 py-1 text-xs transition hover:bg-elevated"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {loaded && !loadError && status !== null && !editing && (
+        <>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-elevated px-3 py-2.5">
+            <span className="font-mono text-sm text-foreground">sk-…{status.last4}</span>
+            <span className="text-xs text-muted-foreground">
+              Added {new Date(status.configured_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            </span>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="rounded-lg border border-border px-3 py-2 text-sm transition hover:bg-elevated"
+            >
+              Change
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmDeleteOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-danger transition hover:bg-danger/5"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
+            </button>
+          </div>
+        </>
+      )}
+
+      {showForm && (
+        <form onSubmit={submit} className="mt-4 space-y-2">
+          <label htmlFor="profile-api-key" className="text-xs font-medium text-muted-foreground">
+            DEEPSEEK API KEY
+          </label>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              id="profile-api-key"
+              type="password"
+              required
+              autoComplete="off"
+              spellCheck={false}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="sk-..."
+              className="w-full flex-1 rounded-lg border border-border bg-[var(--bg-input)] px-3 py-2.5 font-mono text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary/60 focus:ring-2 focus:ring-primary/15"
+            />
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="submit"
+                disabled={saving || !draft.trim()}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg gradient-bg glow-gradient px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Save
+              </button>
+              {status !== null && (
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  disabled={saving}
+                  className="rounded-lg border border-border px-3 py-2.5 text-sm transition hover:bg-elevated disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </div>
+          {saveError && <p className="text-xs text-danger">{saveError}</p>}
+          <p className="text-xs text-muted-foreground">
+            Get a key from{" "}
+            <a
+              href="https://platform.deepseek.com/api_keys"
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary hover:underline"
+            >
+              platform.deepseek.com/api_keys
+            </a>
+            . Only DeepSeek is supported today.
+          </p>
+        </form>
+      )}
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        title="Remove your DeepSeek key?"
+        description="Runs will be blocked until you add a key again. This does not cancel your subscription."
+        confirmLabel={deleting ? "Removing…" : "Remove key"}
+        cancelLabel="Cancel"
+        tone="destructive"
+        onConfirm={confirmDelete}
+        onCancel={() => setConfirmDeleteOpen(false)}
+      />
+    </section>
+  );
+}
+
 /* ─── Page ─── */
 export function Profile() {
   const [copied, setCopied] = useState(false);
@@ -119,6 +341,15 @@ export function Profile() {
   const daysAsMember = Math.floor(
     (Date.now() - memberDate.getTime()) / (1000 * 60 * 60 * 24),
   );
+
+  // Client-side routing doesn't scroll to a URL fragment the way a full page
+  // load does — the Agent page links here as `/profile#api-key`, so scroll
+  // to the section manually on mount.
+  useEffect(() => {
+    if (window.location.hash === "#api-key") {
+      document.getElementById("api-key")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
@@ -184,6 +415,8 @@ export function Profile() {
           </div>
         </div>
       </div>
+
+      <ApiKeySection />
 
       {/* Stats grid */}
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">

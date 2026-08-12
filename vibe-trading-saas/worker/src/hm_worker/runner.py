@@ -37,6 +37,10 @@ _attachment_downloader: Callable[[str], bytes] | None = None
 #   (run_id: str, message: str, iteration: int | None) -> None
 _progress_push: Callable[[str, str, int | None], None] | None = None
 
+# Optional injection point for the per-user API key fetch (BYOK pivot).
+# Signature: (user_id: str, provider: str) -> str | None
+_api_key_fetcher: Callable[[str, str], str | None] | None = None
+
 
 def set_attachment_downloader(fn: Callable[[str], bytes] | None) -> None:
     """Register the function used to fetch attachments from Supabase Storage.
@@ -55,6 +59,20 @@ def set_progress_push(fn: Callable[[str, str, int | None], None] | None) -> None
     """
     global _progress_push
     _progress_push = fn
+
+
+def set_api_key_fetcher(fn: Callable[[str, str], str | None] | None) -> None:
+    """Register the function used to fetch a user's decrypted API key.
+
+    Called by main.py once the RunQueue exists (BYOK pivot — every
+    ``TradiRunner`` execution needs a per-user key, unlike attachments,
+    which are optional). Passing ``None`` disables lookups: every
+    ``TradiRunner.execute()`` call will then raise ``SystemError_`` before
+    doing any other work — mirrors ``set_attachment_downloader``'s
+    test-friendly default of failing loudly rather than silently.
+    """
+    global _api_key_fetcher
+    _api_key_fetcher = fn
 
 log = logging.getLogger(__name__)
 
@@ -76,6 +94,15 @@ class RunError(Exception):
 
 class UserInputError(RunError):
     """The prompt itself was the problem. Not refunded."""
+
+
+class MissingApiKey(UserInputError):
+    """No API key configured for the requested provider (BYOK pivot).
+
+    Not refundable — the user needs to add a key on the Profile page before
+    a run can execute. This is not a system fault, so it's treated the same
+    as any other user-input error.
+    """
 
 
 class SystemError_(RunError):
@@ -175,8 +202,16 @@ class TradiRunner:
     isolated per tenant with zero engine changes (decision D1, ARCHITECTURE.md). The
     worker owns the wall-clock timeout because Tradi has no overall-run timeout.
 
+    BYOK pivot: before doing anything else, ``execute()`` resolves the run's
+    owner's DeepSeek key via the module-level ``_api_key_fetcher`` injection
+    point (same pattern as ``_attachment_downloader`` / ``_progress_push`` —
+    registered by ``main.py``, ``None`` by default so StubRunner-only tests
+    don't need Supabase). The key is injected into the subprocess env as
+    ``DEEPSEEK_API_KEY`` in ``_build_env`` and is never logged.
+
     Outcome mapping (CLAUDE.md refund rule; unknown fault -> refund, D7):
       - exit 0 + ``{"status": "success"}``  -> RunResult
+      - no key configured for the user      -> MissingApiKey (not refunded)
       - wall-clock exceeded                 -> RunTimeout (refund)
       - worker shutdown mid-run             -> SystemError_ (refund)
       - claim lost (heartbeat False)        -> ClaimLost (row left untouched)
@@ -216,7 +251,19 @@ class TradiRunner:
         stdout_path = run_dir / "stdout.log"
         stderr_path = run_dir / "stderr.log"
 
-        # 1. Mount any Premium attachments into HOME/inputs/ before the engine boots.
+        # 1. Fetch the user's DeepSeek key (BYOK pivot) before anything else —
+        #    attachments and the engine subprocess both cost real time/bandwidth,
+        #    and there is no point spending either on a run that can never
+        #    execute. A missing fetcher is a worker misconfiguration
+        #    (SystemError_, refunded); a missing/never-configured key is the
+        #    user's to fix (MissingApiKey, not refunded).
+        if _api_key_fetcher is None:
+            raise SystemError_("api key fetcher not registered")
+        api_key = _api_key_fetcher(run.user_id, "deepseek")
+        if not api_key:
+            raise MissingApiKey("no api key configured for provider 'deepseek'")
+
+        # 2. Mount any Premium attachments into HOME/inputs/ before the engine boots.
         #    Failure to download is treated as SystemError_ (refunded) — the user
         #    should not be charged when we couldn't stage their inputs.
         try:
@@ -226,7 +273,7 @@ class TradiRunner:
         except Exception as exc:  # noqa: BLE001 — coerce to refundable failure
             raise SystemError_(f"Failed to stage attachments: {exc}") from exc
 
-        # 2. Build argv per run kind. Swarm dispatch reuses Tradi's
+        # 3. Build argv per run kind. Swarm dispatch reuses Tradi's
         #    ``--swarm-run PRESET '{vars_json}'`` legacy CLI (see agent/cli/_legacy.py).
         argv = self._argv_for(run)
 
@@ -252,7 +299,7 @@ class TradiRunner:
                 proc = subprocess.Popen(
                     argv,
                     cwd=str(run_dir),
-                    env=self._build_env(run_dir),
+                    env=self._build_env(run_dir, api_key),
                     stdout=out,
                     stderr=err,
                     text=True,
@@ -321,16 +368,20 @@ class TradiRunner:
             dest.write_bytes(bytes(data))
             log.info("run %s: mounted attachment %s (%d bytes)", run.id, safe_name, len(data))
 
-    def _build_env(self, run_dir: Path) -> dict[str, str]:
-        # Inherit the worker's environment (PATH, the LLM provider key, locale),
-        # then isolate all engine state under the per-run directory. Broker /
-        # live-trading vars are never set here, so Tradi's mandate gate keeps live
-        # trading off (ARCHITECTURE.md, CLAUDE.md VIBE-TRADING INTEGRATION RULES).
+    def _build_env(self, run_dir: Path, api_key: str) -> dict[str, str]:
+        # Inherit the worker's environment (PATH, locale, ...), then isolate all
+        # engine state under the per-run directory. Broker / live-trading vars
+        # are never set here, so Tradi's mandate gate keeps live trading off
+        # (ARCHITECTURE.md, CLAUDE.md VIBE-TRADING INTEGRATION RULES).
         env = os.environ.copy()
         env.update(self._extra_env)
         env["HOME"] = str(run_dir)
         env["VIBE_TRADING_HOME"] = str(run_dir)
         env["VIBE_TRADING_ALLOWED_RUN_ROOTS"] = str(run_dir)
+        # BYOK pivot: the *user's own* key always wins, overriding anything the
+        # worker process itself might have inherited (e.g. a dev-only default in
+        # the worker's OS environment). Never logged — see execute()'s docstring.
+        env["DEEPSEEK_API_KEY"] = api_key
         return env
 
     def _supervise(

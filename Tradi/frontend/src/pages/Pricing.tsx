@@ -2,11 +2,16 @@ import { Link } from "react-router";
 import { Check, Sparkles, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+/** Feature bundle a tier unlocks — server-enforced (start_swarm_run's plan
+ * gate; attachments checked client-side today, Premium-only). BYOK pivot:
+ * tiers differentiate by capability, not by a monthly run count. */
+type FeatureBundle = "single" | "swarm" | "attachments";
+
 interface Plan {
   id: string;
   name: string;
   priceNgn: number;
-  uses: number;
+  bundle: FeatureBundle[];
   description: string;
   popular?: boolean;
 }
@@ -20,14 +25,15 @@ const PLANS: Plan[] = [
     id: "starter",
     name: "Starter",
     priceNgn: 70000,
-    uses: 3,
+    bundle: ["single"],
     description: "For getting started with AI trading research.",
+    popular: false,
   },
   {
     id: "pro",
     name: "Pro",
     priceNgn: 120000,
-    uses: 7,
+    bundle: ["single", "swarm"],
     description: "For active traders who research regularly.",
     popular: true,
   },
@@ -35,19 +41,33 @@ const PLANS: Plan[] = [
     id: "premium",
     name: "Premium",
     priceNgn: 200000,
-    uses: 15,
-    description: "For power users who need the most research runs.",
+    bundle: ["single", "swarm", "attachments"],
+    description: "For power users who need the full research toolkit.",
+    popular: false,
   },
 ];
 
-const SHARED_FEATURES = [
-  "AI-powered trading research agent",
-  "Quantitative backtesting",
-  "462 alpha factors",
-  "Cross-market data analysis",
-  "Report generation with charts",
-  "Strategy Studio dashboard",
-];
+// Canonical display order — independent of how each plan's `bundle` array
+// happens to be authored.
+const BUNDLE_ORDER: FeatureBundle[] = ["single", "swarm", "attachments"];
+
+const BUNDLE_FEATURE_LABEL: Record<FeatureBundle, string> = {
+  single: "Single-agent research runs",
+  swarm: "30 specialist research teams (swarm)",
+  attachments: "Attach CSV / XLSX / JSON research data",
+};
+
+// Shared across every tier — not a differentiator.
+const SHARED_FEATURES = ["462 alpha factors", "Report + charts", "Bring your DeepSeek key"];
+
+/** A plan's full feature list: its bundle's capabilities first, then the
+ * baseline features every tier gets. */
+function planFeatures(plan: Plan): string[] {
+  const bundleFeatures = BUNDLE_ORDER.filter((b) => plan.bundle.includes(b)).map(
+    (b) => BUNDLE_FEATURE_LABEL[b],
+  );
+  return [...bundleFeatures, ...SHARED_FEATURES];
+}
 
 export function Pricing() {
   return (
@@ -61,7 +81,8 @@ export function Pricing() {
           One tool.<br className="sm:hidden" /> <span className="gradient-text">Three ways to run it.</span>
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground sm:text-lg">
-          Pick a plan by how many agent runs you need per month. No hidden fees, no lock-in.
+          Pick a plan by the research capabilities you need. Unlimited runs on every
+          tier — bring your own DeepSeek key.
         </p>
       </div>
 
@@ -104,19 +125,6 @@ export function Pricing() {
               </div>
             </div>
 
-            {/* Runs badge */}
-            <div className="mt-5 flex items-center gap-2 rounded-lg border border-border bg-elevated px-3 py-2.5">
-              <span className={cn(
-                "font-mono text-2xl font-bold leading-none",
-                plan.popular ? "gradient-text" : "text-foreground",
-              )}>
-                {plan.uses}
-              </span>
-              <span className="text-xs leading-tight text-muted-foreground">
-                agent runs<br />per month
-              </span>
-            </div>
-
             <Link
               to="/signup"
               className={cn(
@@ -132,7 +140,7 @@ export function Pricing() {
 
             {/* Features */}
             <ul className="mt-6 flex-1 space-y-2.5 border-t border-border/60 pt-5">
-              {SHARED_FEATURES.map((feature) => (
+              {planFeatures(plan).map((feature) => (
                 <li key={feature} className="flex items-start gap-2 text-sm">
                   <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                   <span className="text-muted-foreground">{feature}</span>
@@ -146,21 +154,21 @@ export function Pricing() {
       {/* ─── FAQ / details ─── */}
       <div className="mt-20 grid gap-6 rounded-2xl border border-border bg-card p-8 sm:grid-cols-2">
         <div>
-          <h3 className="text-base font-semibold text-foreground">What counts as an agent run?</h3>
+          <h3 className="text-base font-semibold text-foreground">Why do I need my own API key?</h3>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            One "use" equals one completed agent run — when you ask the AI a research question and receive a finished report.
+            H~M runs on DeepSeek. Your key means your usage stays your usage — we don't proxy or mark up model calls. You pay DeepSeek directly for tokens.
+          </p>
+        </div>
+        <div>
+          <h3 className="text-base font-semibold text-foreground">How much will DeepSeek cost me?</h3>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            Typical research runs cost a few cents on DeepSeek v4-flash. See deepseek.com/pricing.
           </p>
         </div>
         <div>
           <h3 className="text-base font-semibold text-foreground">What if a run fails?</h3>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
             If a run fails due to a system error, the use is refunded automatically. User-input errors are not refunded.
-          </p>
-        </div>
-        <div>
-          <h3 className="text-base font-semibold text-foreground">Do unused runs roll over?</h3>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            No. Unused runs do not roll over — they reset at your next billing period.
           </p>
         </div>
         <div>

@@ -73,6 +73,31 @@ LLM endpoint/model is wrong — see below.
 - Keep exactly one active `LANGCHAIN_PROVIDER=` line, and keys flush-left (a
   leading space can make dotenv skip the variable).
 
+## BYOK — per-user DeepSeek keys
+
+Since the BYOK pivot (2026-08-12, [[architecture-decisions]] D11), the API key
+that reaches the engine subprocess is **not** a shared platform key — it's the
+individual user's own DeepSeek key, fetched from Supabase Vault right before
+`TradiRunner.execute()` spawns the subprocess (`worker_get_user_api_key` RPC,
+`service_role`-only). It's injected as `DEEPSEEK_API_KEY` in `_build_env()` and
+overrides whatever the process would otherwise have inherited — including a
+`DEEPSEEK_API_KEY` left in `Tradi/agent/.env` (that file's dotenv load uses
+`override=False`, so it never clobbers a var the subprocess already has).
+
+What this means in practice:
+
+- **`Tradi/agent/.env` still needs `DEEPSEEK_BASE_URL` and `LANGCHAIN_PROVIDER`**
+  (provider/model routing is not per-user) — but any `DEEPSEEK_API_KEY` line in
+  there is dead weight for runs executed through the worker. Keep one there only
+  for the standalone manual verification command above (`HOME=$(mktemp -d) ...`),
+  which bypasses the worker entirely and so still needs its own key.
+- A run with no key configured raises `MissingApiKey` (not refunded — the user
+  needs to add a key on the Profile page) rather than falling back to any
+  worker- or engine-level default key. There is no shared fallback key by design.
+- Never log `DEEPSEEK_API_KEY` or the value returned by
+  `RunQueue.get_user_api_key()` — both `runner.py` and `db.py` are written to
+  avoid this; keep new logging additions the same way.
+
 ## Test
 
 ```bash

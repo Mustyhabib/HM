@@ -5,6 +5,7 @@ import {
   Loader2,
   Sparkles,
   Crown,
+  KeyRound,
   TrendingUp,
   BarChart3,
   Search,
@@ -19,21 +20,25 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   startRun,
-  getActiveUsage,
+  getActiveSubscription,
   uploadAttachment,
-  type UsageSnapshot,
+  type SubscriptionStatus,
   type RunAttachment,
 } from "@/lib/runs";
+import { getApiKeyStatus, type ApiKeyStatus } from "@/lib/apikeys";
 
 /**
- * The Agent workspace is the single research entry point. A prompt is queued as
- * a metered run via the `start_agent_run` RPC (the quota check + 1-use consume
- * happen atomically server-side) and the user is taken to the run status page.
+ * The Agent workspace is the single research entry point. A prompt is queued
+ * as a run via the `start_agent_run` RPC and the user is taken to the run
+ * status page.
  *
- * The quota shown here is READ-ONLY (RLS-scoped): it surfaces the tier-based
- * allowance and proactively gates the prompt when none remain. The server RPC
- * stays the sole authority — the frontend never writes the counter, so there's
- * no double-charge.
+ * BYOK pivot (2026-08-12): runs are unlimited per subscription — there is no
+ * quota to display. The prompt box is gated on two proactive, READ-ONLY
+ * (RLS-scoped) client-side checks that mirror the server RPC's actual
+ * gates: an active/trialing subscription and a configured DeepSeek key.
+ * Both checks are display/UX only — `start_agent_run` re-derives and
+ * re-checks everything from `auth.uid()` server-side, so there's no
+ * client-trust gap (CLAUDE.md: never trust client-side checks alone).
  */
 
 const EXAMPLES = [
@@ -113,36 +118,58 @@ export function Agent() {
   const [attachments, setAttachments] = useState<RunAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
 
-  const [usage, setUsage] = useState<UsageSnapshot | null>(null);
-  const [usageLoaded, setUsageLoaded] = useState(false);
-  const [usageError, setUsageError] = useState(false);
-  const isPremium = usage?.tier === "premium";
-  const isPro = usage?.tier === "pro" || usage?.tier === "premium";
+  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
+  const [subscriptionLoaded, setSubscriptionLoaded] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState(false);
+  const isPremium = subscription?.planId === "premium";
+  const isPro = subscription?.planId === "pro" || subscription?.planId === "premium";
+
+  const [apiKey, setApiKey] = useState<ApiKeyStatus | null>(null);
+  const [apiKeyLoaded, setApiKeyLoaded] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    getActiveUsage()
-      .then((u) => {
+    getActiveSubscription()
+      .then((s) => {
         if (cancelled) return;
-        setUsage(u);
-        setUsageLoaded(true);
+        setSubscription(s);
+        setSubscriptionLoaded(true);
       })
       .catch(() => {
-        // Fail open — the server RPC still enforces quota. Don't hard-block the
-        // UI on a transient read error; the run-start will surface any problem.
+        // Fail open — the server RPC still enforces the gate. Don't hard-block
+        // the UI on a transient read error; the run-start will surface any problem.
         if (cancelled) return;
-        setUsageError(true);
-        setUsageLoaded(true);
+        setSubscriptionError(true);
+        setSubscriptionLoaded(true);
       });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const noPlan = usageLoaded && !usageError && usage === null;
-  const outOfQuota =
-    usageLoaded && !usageError && usage !== null && usage.remaining <= 0;
-  const blocked = noPlan || outOfQuota;
+  useEffect(() => {
+    let cancelled = false;
+    getApiKeyStatus()
+      .then((k) => {
+        if (cancelled) return;
+        setApiKey(k);
+        setApiKeyLoaded(true);
+      })
+      .catch(() => {
+        // Fail open — same rationale as the subscription check above.
+        if (cancelled) return;
+        setApiKeyError(true);
+        setApiKeyLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const noSubscription = subscriptionLoaded && !subscriptionError && subscription === null;
+  const noApiKey = apiKeyLoaded && !apiKeyError && apiKey === null;
+  const blocked = noSubscription || noApiKey;
 
   /** Upload one or more research data files (Premium only). */
   const handleFiles = useCallback(async (files: FileList | null) => {
@@ -181,16 +208,9 @@ export function Agent() {
       setStarting(true);
       setError(null);
       try {
+        // BYOK pivot: no quota to refetch after starting — runs are unlimited
+        // per subscription, so subscription/key status don't change here.
         const runId = await startRun(prompt, { attachments });
-        // Refetch usage to show the consumed use immediately (and keep it fresh
-        // for when the user returns from RunView). Fail open — if the read fails,
-        // the stale display is better than hard-blocking the navigation.
-        try {
-          const u = await getActiveUsage();
-          setUsage(u);
-        } catch {
-          // Silent fail — navigate with stale quota display
-        }
         navigate(`/run/${runId}`);
       } catch (e) {
         const message = e instanceof Error ? e.message : "Failed to start run";
@@ -236,21 +256,31 @@ export function Agent() {
         </p>
       </div>
 
-      {/* ─── Quota banner ─── */}
+      {/* ─── Access banner — subscription or key missing ─── */}
       {blocked && (
         <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-danger/30 bg-danger/5 p-3.5">
           <p className="text-xs leading-relaxed text-foreground">
-            {noPlan
+            {noSubscription
               ? "You don't have an active plan yet. Subscribe to start running the agent."
-              : `You've used all ${usage?.uses_allowed} runs this period — resets at your next billing date.`}
+              : "Add your DeepSeek API key on the Profile page before running."}
           </p>
-          <Link
-            to="/pricing"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg gradient-bg glow-gradient px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
-          >
-            <Crown className="h-3.5 w-3.5" />
-            {noPlan ? "See plans" : "Upgrade"}
-          </Link>
+          {noSubscription ? (
+            <Link
+              to="/pricing"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg gradient-bg glow-gradient px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
+            >
+              <Crown className="h-3.5 w-3.5" />
+              See plans
+            </Link>
+          ) : (
+            <Link
+              to="/profile#api-key"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg gradient-bg glow-gradient px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
+            >
+              <KeyRound className="h-3.5 w-3.5" />
+              Add key
+            </Link>
+          )}
         </div>
       )}
 
@@ -312,9 +342,11 @@ export function Agent() {
               }}
               disabled={starting || blocked}
               placeholder={
-                blocked
-                  ? "No runs left — upgrade to continue"
-                  : "e.g. Backtest a 10/21 EMA crossover on AAPL over the last 2 years…"
+                blocked && noSubscription
+                  ? "Subscribe to start running the agent"
+                  : blocked && noApiKey
+                    ? "Add your DeepSeek key to start running"
+                    : "e.g. Backtest a 10/21 EMA crossover on AAPL over the last 2 years…"
               }
               aria-label="Trading research prompt"
               className="max-h-52 min-h-[56px] flex-1 resize-none overflow-y-auto bg-transparent px-3 py-3 text-sm outline-none disabled:opacity-60"
@@ -382,28 +414,18 @@ export function Agent() {
 
       {error && <p className="mt-2 px-1 text-xs text-danger">{error}</p>}
 
-      {/* ─── Hint + quota pill ─── */}
+      {/* ─── Hint + status pill ─── */}
       <div className="mt-3 flex items-center justify-between gap-2 px-1">
         <p className="text-[11px] text-muted-foreground">
           <kbd className="rounded border border-border bg-elevated px-1 font-mono text-[10px]">Enter</kbd> to run · <kbd className="rounded border border-border bg-elevated px-1 font-mono text-[10px]">Shift+Enter</kbd> for new line
         </p>
-        {usageLoaded && !usageError && usage !== null && (
+        {!blocked && apiKey && (
           <span
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-mono font-medium",
-              usage.remaining <= 0
-                ? "border-danger/40 bg-danger/8 text-danger"
-                : usage.remaining <= 1
-                  ? "border-warning/40 bg-warning/8 text-warning"
-                  : "border-border bg-elevated text-muted-foreground",
-            )}
-            title="Runs remaining in your current billing period"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-elevated px-2.5 py-1 text-[11px] font-mono font-medium text-muted-foreground"
+            title="BYOK — unlimited runs on your subscription"
           >
-            <span className={cn(
-              "h-1.5 w-1.5 rounded-full",
-              usage.remaining <= 0 ? "bg-danger" : usage.remaining <= 1 ? "bg-warning" : "bg-success animate-pulse",
-            )} />
-            {usage.remaining} / {usage.uses_allowed} runs left
+            <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+            Unlimited runs
           </span>
         )}
       </div>

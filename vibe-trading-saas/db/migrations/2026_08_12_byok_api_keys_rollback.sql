@@ -1,0 +1,214 @@
+-- =====================================================================
+-- ROLLBACK for: 2026_08_12_byok_api_keys.sql
+-- Author: Auroras
+-- Status: NOT applied automatically — this whole file is a comment block.
+--         Select the statements you need, strip the leading "-- ", and
+--         paste-run them in the Supabase SQL editor.
+--
+-- Run in this exact order (reverses the forward migration's dependency
+-- chain: RPCs that reference agent_runs.provider first, then the column
+-- itself, then the BYOK subsystem last).
+--
+-- CAUTION — read before running:
+--   * Step 2 (re-add usage_period_id NOT NULL) WILL FAIL if any row was
+--     inserted while BYOK was live (those rows have usage_period_id =
+--     NULL by design). Backfill or delete those rows first, or this
+--     statement raises "column contains null values".
+--   * Step 5 deletes every remaining vault secret referenced by
+--     user_api_keys before dropping the table — this is a genuine,
+--     irreversible data loss of every user's stored key. Confirm you
+--     actually want that before running it; if you only want to disable
+--     BYOK gating (steps 1, 3, 4) while still deciding on the table, skip
+--     step 5 and leave user_api_keys + its vault secrets in place.
+--   * Steps 1/3 restore the exact pre-BYOK quota-consuming bodies of
+--     start_agent_run / start_swarm_run from
+--     2026_08_11_agent_teams_uploads.sql — verify usage_periods still has
+--     live, non-exhausted rows for your users before relying on them
+--     again (BYOK-era signups never got one).
+-- =====================================================================
+
+-- begin;
+--
+-- -- ---------------------------------------------------------------------
+-- -- 1. Restore start_agent_run to its pre-BYOK, quota-consuming body
+-- -- ---------------------------------------------------------------------
+--
+-- create or replace function public.start_agent_run(
+--   p_prompt          text,
+--   p_max_iter        integer,
+--   p_idempotency_key text,
+--   p_attachments     jsonb default '[]'::jsonb
+-- ) returns uuid
+--   language plpgsql
+--   security definer
+--   set search_path to 'public'
+-- as $$
+-- declare
+--   v_user_id uuid := auth.uid();
+--   v_period  public.usage_periods%rowtype;
+--   v_run_id  uuid;
+-- begin
+--   if v_user_id is null then
+--     raise exception 'not authenticated' using errcode = 'P0001';
+--   end if;
+--
+--   if jsonb_typeof(p_attachments) <> 'array' then
+--     raise exception 'attachments must be a JSON array' using errcode = '22023';
+--   end if;
+--
+--   select * into v_period
+--     from public.usage_periods
+--     where user_id = v_user_id and period_start <= now() and period_end > now()
+--     order by period_end desc
+--     limit 1
+--     for update;
+--
+--   if v_period.id is null then
+--     raise exception 'No active subscription or usage period found' using errcode = 'P0001';
+--   end if;
+--   if v_period.uses_consumed >= v_period.uses_allowed then
+--     raise exception 'quota_exceeded' using errcode = 'P0001';
+--   end if;
+--
+--   update public.usage_periods set uses_consumed = uses_consumed + 1 where id = v_period.id;
+--
+--   insert into public.agent_runs
+--     (user_id, usage_period_id, prompt, max_iter, idempotency_key, status,
+--      kind, attachments)
+--     values
+--     (v_user_id, v_period.id, p_prompt, p_max_iter, p_idempotency_key, 'queued',
+--      'single', p_attachments)
+--     returning id into v_run_id;
+--
+--   insert into public.usage_events (user_id, usage_period_id, agent_run_id, kind, reason)
+--     values (v_user_id, v_period.id, v_run_id, 'consume', 'run_started');
+--
+--   return v_run_id;
+-- exception
+--   when unique_violation then
+--     select id into v_run_id from public.agent_runs
+--       where user_id = v_user_id and idempotency_key = p_idempotency_key;
+--     return v_run_id;
+-- end;
+-- $$;
+--
+-- grant execute on function public.start_agent_run(text, integer, text, jsonb) to authenticated;
+--
+--
+-- -- ---------------------------------------------------------------------
+-- -- 2. Restore start_swarm_run to its pre-BYOK, quota-consuming body
+-- -- ---------------------------------------------------------------------
+--
+-- create or replace function public.start_swarm_run(
+--   p_preset_name     text,
+--   p_user_vars       jsonb,
+--   p_idempotency_key text
+-- ) returns uuid
+--   language plpgsql
+--   security definer
+--   set search_path to 'public'
+-- as $$
+-- declare
+--   v_user_id uuid := auth.uid();
+--   v_plan_id text;
+--   v_period  public.usage_periods%rowtype;
+--   v_run_id  uuid;
+-- begin
+--   if v_user_id is null then
+--     raise exception 'not authenticated' using errcode = 'P0001';
+--   end if;
+--
+--   if p_preset_name is null or length(trim(p_preset_name)) = 0 then
+--     raise exception 'preset_name required' using errcode = '22023';
+--   end if;
+--   if jsonb_typeof(p_user_vars) is distinct from 'object' then
+--     raise exception 'user_vars must be a JSON object' using errcode = '22023';
+--   end if;
+--
+--   select plan_id into v_plan_id
+--     from public.subscriptions
+--     where user_id = v_user_id and status in ('active','trialing')
+--     order by current_period_end desc
+--     limit 1;
+--
+--   if v_plan_id is null then
+--     raise exception 'No active subscription' using errcode = 'P0001';
+--   end if;
+--   if v_plan_id not in ('pro','premium') then
+--     raise exception 'plan_gate: swarm teams require Pro or Premium' using errcode = 'P0001';
+--   end if;
+--
+--   select * into v_period
+--     from public.usage_periods
+--     where user_id = v_user_id and period_start <= now() and period_end > now()
+--     order by period_end desc
+--     limit 1
+--     for update;
+--
+--   if v_period.id is null then
+--     raise exception 'No active usage period' using errcode = 'P0001';
+--   end if;
+--   if v_period.uses_consumed >= v_period.uses_allowed then
+--     raise exception 'quota_exceeded' using errcode = 'P0001';
+--   end if;
+--
+--   update public.usage_periods set uses_consumed = uses_consumed + 1 where id = v_period.id;
+--
+--   insert into public.agent_runs
+--     (user_id, usage_period_id, prompt, max_iter, idempotency_key, status,
+--      kind, preset_name, user_vars)
+--     values
+--     (v_user_id, v_period.id,
+--      format('[swarm:%s] %s', p_preset_name, coalesce(p_user_vars::text, '{}')),
+--      50,
+--      p_idempotency_key, 'queued',
+--      'swarm', p_preset_name, p_user_vars)
+--     returning id into v_run_id;
+--
+--   insert into public.usage_events (user_id, usage_period_id, agent_run_id, kind, reason)
+--     values (v_user_id, v_period.id, v_run_id, 'consume', 'swarm_started');
+--
+--   return v_run_id;
+-- exception
+--   when unique_violation then
+--     select id into v_run_id from public.agent_runs
+--       where user_id = v_user_id and idempotency_key = p_idempotency_key;
+--     return v_run_id;
+-- end;
+-- $$;
+--
+-- grant execute on function public.start_swarm_run(text, jsonb, text) to authenticated;
+--
+--
+-- -- ---------------------------------------------------------------------
+-- -- 3. agent_runs — undo provider column + NOT NULL relaxation
+-- -- ---------------------------------------------------------------------
+--
+-- -- Will fail if any row has usage_period_id IS NULL — see CAUTION above.
+-- alter table public.agent_runs
+--   alter column usage_period_id set not null;
+--
+-- drop index if exists public.agent_runs_user_created_idx;
+--
+-- alter table public.agent_runs
+--   drop column if exists provider;
+--
+--
+-- -- ---------------------------------------------------------------------
+-- -- 4. Drop the four BYOK RPCs
+-- -- ---------------------------------------------------------------------
+--
+-- drop function if exists public.worker_get_user_api_key(uuid, text);
+-- drop function if exists public.delete_user_api_key(text);
+-- drop function if exists public.get_user_api_key_status();
+-- drop function if exists public.save_user_api_key(text, text);
+--
+--
+-- -- ---------------------------------------------------------------------
+-- -- 5. Drop public.user_api_keys — DESTROYS every stored key (see CAUTION)
+-- -- ---------------------------------------------------------------------
+--
+-- delete from vault.secrets where id in (select secret_id from public.user_api_keys);
+-- drop table if exists public.user_api_keys;
+--
+-- commit;
