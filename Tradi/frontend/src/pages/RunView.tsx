@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import {
   ArrowLeft,
@@ -65,24 +65,6 @@ function CheckDraw() {
         className="stroke-draw"
       />
     </svg>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; cls: string; icon: ReactNode }> = {
-    queued:    { label: "Queued",     cls: "border-primary/30 bg-primary/10 text-primary",       icon: <Clock className="h-3.5 w-3.5" /> },
-    running:   { label: "Running",    cls: "border-secondary/30 bg-secondary/15 text-secondary", icon: <Loader2 className="h-3.5 w-3.5 animate-spin" /> },
-    completed: { label: "Completed",  cls: "border-success/30 bg-success/10 text-success glow-success", icon: <CheckCircle2 className="h-3.5 w-3.5" /> },
-    failed:    { label: "Failed",     cls: "border-danger/30 bg-danger/10 text-danger",          icon: <XCircle className="h-3.5 w-3.5" /> },
-    timeout:   { label: "Timed out",  cls: "border-danger/30 bg-danger/10 text-danger",          icon: <XCircle className="h-3.5 w-3.5" /> },
-    cancelled: { label: "Cancelled",  cls: "border-border bg-elevated text-muted-foreground",    icon: <XCircle className="h-3.5 w-3.5" /> },
-  };
-  const s = map[status] ?? map.queued;
-  return (
-    <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${s.cls}`}>
-      {s.icon}
-      {s.label}
-    </span>
   );
 }
 
