@@ -164,6 +164,30 @@ class RunQueue:
         # supabase-py returns bytes directly for storage downloads
         return self._client.storage.from_("agent-uploads").download(storage_path)
 
+    def get_user_api_key(self, user_id: str, provider: str) -> str | None:
+        """Fetch a user's decrypted API key via the ``worker_get_user_api_key`` RPC.
+
+        Uses the service-role client, which is the only role granted EXECUTE
+        on this RPC (see the ``2026_08_12_byok_api_keys`` migration). The key
+        is never logged — callers must keep it that way too.
+
+        Returns:
+            The plaintext key, or ``None`` if the user has no key configured
+            for ``provider``.
+
+        Raises:
+            Exception: any transient network/DB error propagates unmodified
+            so the caller (``TradiRunner``) treats it as a ``SystemError_``
+            and refunds the run — this mirrors ``claim``/``heartbeat``, which
+            also don't swallow errors.
+        """
+        response = self._client.rpc(
+            "worker_get_user_api_key",
+            {"p_user_id": user_id, "p_provider": provider},
+        ).execute()
+        key = response.data
+        return key if key else None
+
     def fail(
         self,
         run_id: str,

@@ -18,6 +18,7 @@ from .runner import (
     StubRunner,
     SystemError_,
     TradiRunner,
+    set_api_key_fetcher,
     set_attachment_downloader,
     set_progress_push,
 )
@@ -146,6 +147,11 @@ def main() -> int:
     # attachments into HOME/inputs/ before spawning the engine. StubRunner
     # never calls this, so tests that skip Tradi don't need Storage.
     set_attachment_downloader(queue.download_attachment)
+    # Register the API key fetcher so TradiRunner can inject DEEPSEEK_API_KEY
+    # into the subprocess env before spawning the engine (BYOK pivot).
+    # StubRunner never calls this, so tests that skip Tradi don't need a
+    # configured key.
+    set_api_key_fetcher(lambda uid, provider: queue.get_user_api_key(uid, provider))
     # Register the progress pusher so TraceTailer can stream trace.jsonl events
     # into agent_runs.progress_message. StubRunner never triggers this path.
     set_progress_push(lambda run_id, msg, itr: queue.progress(run_id, msg, itr))

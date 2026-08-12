@@ -31,6 +31,14 @@ export interface RunArtifact {
   created_at: string;
 }
 
+/**
+ * @deprecated for gating (BYOK pivot 2026-08-12) — `start_agent_run` no
+ * longer consumes a usage_periods row, so this is display-only and can be
+ * stale/absent even for an active subscriber. Kept for the Profile plan
+ * panel, which still shows historical period info. Do not use `remaining`
+ * to block the prompt box; see `no_active_subscription` / `no_api_key` in
+ * `friendlyStartError` for the actual server-enforced gates.
+ */
 export interface UsageSnapshot {
   uses_allowed: number;
   uses_consumed: number;
@@ -60,11 +68,13 @@ export function tierFromAllowance(uses_allowed: number): UsageSnapshot["tier"] {
 
 /** Map the RPC's raise-exception messages to friendly UI copy. */
 function friendlyStartError(message: string): string {
-  if (message.includes("quota_exceeded"))
-    return "You've used all your runs for this billing period. Upgrade your plan to run more.";
-  if (message.includes("usage period") || message.includes("subscription"))
-    return "No active plan found — subscribe to start running the agent.";
-  if (message.includes("not authenticated")) return "Please log in again.";
+  if (message.includes("no_active_subscription"))
+    return "Subscribe to start running the agent.";
+  if (message.includes("no_api_key"))
+    return "Add your DeepSeek API key on the Profile page before running.";
+  if (message.includes("rate_limited"))
+    return "You're running the agent too fast — wait a minute and try again.";
+  if (message.includes("not_authenticated")) return "Please log in again.";
   return message;
 }
 
@@ -112,6 +122,41 @@ export async function getActiveUsage(): Promise<UsageSnapshot | null> {
     remaining,
     period_end: data.period_end,
     tier: tierFromAllowance(data.uses_allowed),
+  };
+}
+
+export interface SubscriptionStatus {
+  planId: "starter" | "pro" | "premium";
+  status: "active" | "trialing";
+}
+
+/**
+ * Read-only check for the caller's active/trialing subscription — plan tier
+ * plus presence (RLS-scoped to `subscriptions`, `select` where `user_id =
+ * auth.uid()`). Returns `null` when there is no active/trialing row.
+ *
+ * BYOK pivot (2026-08-12): this is the Agent page's actual access-gate and
+ * Pro/Premium feature-bundle (swarm, attachments) signal — it reads the
+ * same table and the same `status IN ('active','trialing')` condition
+ * `start_agent_run` / `start_swarm_run` gate on server-side, so the
+ * proactive client-side check and the server-side authority agree. Prefer
+ * this over `getActiveUsage()` for anything gating access or features:
+ * `usage_periods` is no longer written per-subscription (see
+ * `UsageSnapshot`'s deprecation note) and would under-report every
+ * subscriber created after this migration.
+ */
+export async function getActiveSubscription(): Promise<SubscriptionStatus | null> {
+  const { data, error } = await supabase
+    .from("subscriptions")
+    .select("plan_id,status")
+    .in("status", ["active", "trialing"])
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  return {
+    planId: data.plan_id as SubscriptionStatus["planId"],
+    status: data.status as SubscriptionStatus["status"],
   };
 }
 
