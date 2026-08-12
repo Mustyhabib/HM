@@ -28,8 +28,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy only the engine source (not the frontend) to keep the layer small.
 COPY Tradi/pyproject.toml Tradi/README.md Tradi/LICENSE Tradi/NOTICE ./Tradi/
 COPY Tradi/agent/ ./Tradi/agent/
-COPY Tradi/cli/ ./Tradi/cli/
-COPY Tradi/mcp_server.py ./Tradi/
 
 # Install with DeepSeek extras (BYOK — user supplies key at runtime via env).
 # The [deepseek] extra pulls langchain-deepseek for the native adapter.
