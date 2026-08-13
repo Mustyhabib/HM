@@ -14,7 +14,7 @@
  *
  * Secrets required (set via `supabase secrets set`):
  *   PAYSTACK_SECRET_KEY — Paystack secret key (sk_live_… or sk_test_…)
- *   APP_URL             — Frontend URL, e.g. https://hmltd.com
+ *   APP_URL             — Frontend URL, e.g. https://hmtrade-business.com
  */
 
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
@@ -23,7 +23,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const PAYSTACK_SECRET = Deno.env.get("PAYSTACK_SECRET_KEY") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-const APP_URL = Deno.env.get("APP_URL") ?? "https://hmltd.com";
+const APP_URL = Deno.env.get("APP_URL") ?? "https://hmtrade-business.com";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",

@@ -1,0 +1,1 @@
+| 2026-08-12 00:20:38 UTC | BLOCKED | HOOK | Credential in file write detected | full-gate | BLOCKED | — | hook | Content appears to contain secrets/credentials being written to /home/aurora/HM/vibe-trading-saas/worker/tests/test_runner.py. |

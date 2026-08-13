@@ -9,7 +9,9 @@ module is the only place that is allowed to.
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass
+from typing import Callable
 
 from supabase import Client, create_client
 
@@ -94,6 +96,40 @@ class RunQueue:
     @property
     def client(self) -> Client:
         return self._client
+
+    def subscribe_new_runs(self, wake: threading.Event) -> None:
+        """Subscribe to Supabase Realtime for new ``queued`` inserts.
+
+        When a row is inserted into ``agent_runs`` the channel fires and
+        ``wake.set()`` is called, unblocking the poll loop instantly.  The
+        subscription runs in a background thread managed by the ``realtime-py``
+        library — the caller keeps the returned channel reference alive for the
+        lifetime of the worker.
+
+        Best-effort: if the connection drops, the fallback poll timeout in
+        ``run_forever`` still claims runs (just with higher latency). The
+        channel auto-reconnects by default.
+        """
+        channel = self._client.realtime.channel("worker-queue")
+        channel.on_postgres_changes(
+            event="INSERT",
+            schema="public",
+            table="agent_runs",
+            callback=lambda payload: wake.set(),
+        )
+        channel.subscribe()
+        self._realtime_channel = channel
+        log.info("subscribed to Realtime on agent_runs (instant wake)")
+
+    def unsubscribe(self) -> None:
+        """Tear down the Realtime channel if one exists."""
+        ch = getattr(self, "_realtime_channel", None)
+        if ch is not None:
+            try:
+                self._client.realtime.remove_channel(ch)
+            except Exception:  # noqa: BLE001
+                log.debug("realtime unsubscribe failed (non-fatal)", exc_info=True)
+            self._realtime_channel = None
 
     def claim(self) -> ClaimedRun | None:
         """Atomically take the oldest queued run, or reclaim an abandoned one.

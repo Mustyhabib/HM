@@ -74,7 +74,7 @@ def load_config() -> Config:
         service_role_key=_require("SUPABASE_SERVICE_ROLE_KEY"),
         worker_id=os.environ.get("WORKER_ID", "").strip() or _default_worker_id(),
         poll_interval_seconds=_int("WORKER_POLL_INTERVAL_SECONDS", 2),
-        idle_backoff_seconds=_int("WORKER_IDLE_BACKOFF_SECONDS", 10),
+        idle_backoff_seconds=_int("WORKER_IDLE_BACKOFF_SECONDS", 30),
         heartbeat_seconds=_int("WORKER_HEARTBEAT_SECONDS", 30),
         run_timeout_seconds=_int("WORKER_RUN_TIMEOUT_SECONDS", 900),
         stale_after_seconds=_int("WORKER_STALE_AFTER_SECONDS", stale_default),

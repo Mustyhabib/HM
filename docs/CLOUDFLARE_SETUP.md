@@ -7,8 +7,8 @@ Browser
   │ HTTPS
   ▼
 Cloudflare (DNS + CDN + WAF + SSL termination)
-  ├── hmltd.com / www.hmltd.com  →  Vercel (React SPA)
-  └── api.hmltd.com              →  Railway (Nginx + Tradi FastAPI)
+  ├── hmtrade-business.com / www.hmtrade-business.com  →  Vercel (React SPA)
+  └── api.hmtrade-business.com              →  Railway (Nginx + Tradi FastAPI)
 ```
 
 The Railway `hm-worker` has **no public endpoint** — it only connects outbound to Supabase.
@@ -18,7 +18,7 @@ The Railway `hm-worker` has **no public endpoint** — it only connects outbound
 ## Step 1 — Add your domain to Cloudflare
 
 1. Go to [dash.cloudflare.com](https://dash.cloudflare.com) → **Add a site**
-2. Enter your domain (e.g. `hmltd.com`)
+2. Enter your domain (e.g. `hmtrade-business.com`)
 3. Choose the **Free plan**
 4. Cloudflare will scan your existing DNS records — review them, then continue
 5. Update your domain registrar's nameservers to the two Cloudflare nameservers shown
@@ -33,7 +33,7 @@ In Cloudflare → DNS → Records, create these records:
 
 | Type | Name | Content | Proxy | TTL |
 |------|------|---------|-------|-----|
-| `CNAME` | `hmltd.com` (or `@`) | `cname.vercel-dns.com` | ✅ Proxied | Auto |
+| `CNAME` | `hmtrade-business.com` (or `@`) | `cname.vercel-dns.com` | ✅ Proxied | Auto |
 | `CNAME` | `www` | `cname.vercel-dns.com` | ✅ Proxied | Auto |
 | `CNAME` | `api` | `<tradi-api>.up.railway.app` | ✅ Proxied | Auto |
 
@@ -73,7 +73,7 @@ SSE endpoints (`/sessions`, `/runs`) must never be cached. Create a cache rule:
 
 1. Go to **Caching → Cache Rules → Create Rule**
 2. Name: `Bypass cache for Tradi API`
-3. Expression: `(http.host eq "api.hmltd.com")`
+3. Expression: `(http.host eq "api.hmtrade-business.com")`
 4. Cache status: **Bypass**
 5. Save
 
@@ -95,7 +95,7 @@ Go to **Security → WAF → Managed Rules**:
 ## Step 7 — Add custom domain to Vercel
 
 1. In Vercel → your project → Settings → Domains
-2. Add `hmltd.com` and `www.hmltd.com`
+2. Add `hmtrade-business.com` and `www.hmtrade-business.com`
 3. Vercel will ask you to create CNAME records — you already did this in Step 2
 4. Vercel shows "Valid Configuration" when Cloudflare is routing correctly
 
@@ -104,7 +104,7 @@ Go to **Security → WAF → Managed Rules**:
 ## Step 8 — Add custom domain to Railway (tradi-api)
 
 1. Railway → tradi-api service → Settings → Networking → Custom Domain
-2. Add `api.hmltd.com`
+2. Add `api.hmtrade-business.com`
 3. Railway provides a TXT or CNAME verification record
 4. Add that record in Cloudflare DNS (set proxy to **DNS only / grey cloud** temporarily for verification)
 5. After verification, switch back to **Proxied (orange cloud)**
@@ -115,15 +115,15 @@ Go to **Security → WAF → Managed Rules**:
 
 ```bash
 # Frontend
-curl -I https://hmltd.com
+curl -I https://hmtrade-business.com
 # Expect: 200 OK, server: cloudflare
 
 # API
-curl https://api.hmltd.com/health
+curl https://api.hmtrade-business.com/health
 # Expect: {"status": "ok"} (or similar from Tradi FastAPI)
 
 # Check real IP forwarding works (Railway logs should show Cloudflare IP)
-curl -H "CF-Connecting-IP: 1.2.3.4" https://api.hmltd.com/health
+curl -H "CF-Connecting-IP: 1.2.3.4" https://api.hmtrade-business.com/health
 ```
 
 ---
@@ -137,7 +137,7 @@ https://wqjdumforbalfmtawwpg.supabase.co/functions/v1/paystack-webhook
 
 This hits Supabase directly — **not through Cloudflare**. No changes needed here.
 
-However, if you later route Paystack webhooks through your own domain (`api.hmltd.com/webhooks/paystack`), ensure that path is **excluded from the WAF challenge** — Paystack IPs should not be challenged. Add a WAF bypass rule for the webhook path if needed.
+However, if you later route Paystack webhooks through your own domain (`api.hmtrade-business.com/webhooks/paystack`), ensure that path is **excluded from the WAF challenge** — Paystack IPs should not be challenged. Add a WAF bypass rule for the webhook path if needed.
 
 ---
 

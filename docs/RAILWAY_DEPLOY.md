@@ -77,7 +77,7 @@ API_AUTH_KEY=<generate with: openssl rand -hex 32>
 In the service's **Settings → Networking**:
 1. Click **"Generate Domain"**
 2. Note the URL, e.g. `tradi-api-production.up.railway.app`
-3. (Later) Add your custom domain `api.hmltd.com` here
+3. (Later) Add your custom domain `api.hmtrade-business.com` here
 
 ---
 
@@ -86,7 +86,7 @@ In the service's **Settings → Networking**:
 In Vercel dashboard → your project → Settings → Environment Variables, add:
 
 ```
-VITE_API_URL=https://api.hmltd.com   # or the Railway auto-domain temporarily
+VITE_API_URL=https://api.hmtrade-business.com   # or the Railway auto-domain temporarily
 ```
 
 This is what `Agent.tsx` uses for direct SSE streaming (D12).
@@ -118,7 +118,7 @@ Set secrets:
 ```bash
 supabase secrets set \
   PAYSTACK_SECRET_KEY=sk_live_XXXXXXX \
-  APP_URL=https://hmltd.com
+  APP_URL=https://hmtrade-business.com
 ```
 
 Deploy functions:
@@ -166,7 +166,7 @@ In Railway logs for `hm-worker`, you should see:
 
 ### Tradi API health check
 ```bash
-curl https://api.hmltd.com/health
+curl https://api.hmtrade-business.com/health
 # or
 curl https://tradi-api-production.up.railway.app/health
 ```
@@ -186,6 +186,6 @@ curl https://tradi-api-production.up.railway.app/health
 |--------|-----------|-------|
 | `SUPABASE_SERVICE_ROLE_KEY` | Railway (hm-worker vars) | Supabase → Settings → API |
 | `PAYSTACK_SECRET_KEY` | Supabase secrets | Paystack → Settings → API Keys |
-| `APP_URL` | Supabase secrets | `https://hmltd.com` |
+| `APP_URL` | Supabase secrets | `https://hmtrade-business.com` |
 | `VITE_API_URL` | Vercel env vars | Railway tradi-api domain |
 | `API_AUTH_KEY` | Railway (tradi-api vars) | `openssl rand -hex 32` |

@@ -33,10 +33,12 @@ def _setup_logging() -> None:
     )
 
 
-def _install_signal_handlers(stop: threading.Event) -> None:
+def _install_signal_handlers(stop: threading.Event, wake: threading.Event | None = None) -> None:
     def handle(signum, _frame):
         log.info("received %s, finishing current run then exiting", signal.Signals(signum).name)
         stop.set()
+        if wake is not None:
+            wake.set()  # unblock the idle wait immediately
 
     signal.signal(signal.SIGINT, handle)
     signal.signal(signal.SIGTERM, handle)
@@ -104,6 +106,20 @@ def run_forever(
 ) -> None:
     log.info("worker %s polling %s", config.worker_id, config.supabase_url)
 
+    # Realtime wakes the loop instantly when a new run is inserted.
+    # The fallback poll (idle_backoff_seconds, default 30s) still fires so a
+    # missed notification never means a stuck queue — just slightly higher latency.
+    wake = threading.Event()
+
+    try:
+        queue.subscribe_new_runs(wake)
+    except Exception:  # noqa: BLE001
+        log.warning(
+            "Realtime subscription failed — falling back to poll every %ss",
+            config.idle_backoff_seconds,
+            exc_info=True,
+        )
+
     consecutive_errors = 0
     while not stop.is_set():
         try:
@@ -117,7 +133,12 @@ def run_forever(
             continue
 
         if run is None:
-            stop.wait(timeout=config.idle_backoff_seconds)
+            # Wait for either: Realtime notification (instant), stop signal,
+            # or fallback timeout (idle_backoff_seconds).
+            wake.clear()
+            wake.wait(timeout=config.idle_backoff_seconds)
+            if stop.is_set():
+                break
             continue
 
         process_run(queue, runner, run, stop, artifacts)
@@ -125,6 +146,7 @@ def run_forever(
         if not stop.is_set():
             stop.wait(timeout=config.poll_interval_seconds)
 
+    queue.unsubscribe()
     log.info("worker %s stopped", config.worker_id)
 
 
