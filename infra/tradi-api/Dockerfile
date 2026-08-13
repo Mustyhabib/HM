@@ -25,8 +25,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Only engine source — not the frontend or docs.
 COPY Tradi/pyproject.toml Tradi/README.md Tradi/LICENSE Tradi/NOTICE ./Tradi/
 COPY Tradi/agent/   ./Tradi/agent/
-COPY Tradi/cli/     ./Tradi/cli/
-COPY Tradi/mcp_server.py ./Tradi/
 
 # Install with deepseek extra (BYOK — user key injected per-session via header).
 RUN pip install --no-cache-dir -e "./Tradi[deepseek]"
