@@ -315,7 +315,11 @@ In progress / next:
       (manual steps in migration footer). Frontend /admin/* is guarded
       server-side; until applied, admin RPCs don't exist and AdminGuard
       redirects non-admins harmlessly.
-  ⏳ Monitoring (Sentry, structured logs, uptime)
+  ⏳ Monitoring — CODE SHIPPED via pipeline (Sentry + structured logs + /health):
+      wiring complete, tests green. Manual steps to activate: create Sentry
+      projects (frontend + worker), set VITE_SENTRY_DSN / SENTRY_DSN (no-op
+      without them); Railway dashboard → Settings → Networking → Health Check
+      port 9100 (railway.toml carries healthcheckPath).
   ⏳ Email templates (transactional, branded sender)
   ⏳ Cloudflare domain + SSL setup
   ⏳ Worker Railway deployment (production env vars)
