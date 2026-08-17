@@ -26,13 +26,17 @@ echo "    uvicorn PID=$UVICORN_PID on 127.0.0.1:8899"
 
 # ── 2. Wait for FastAPI to be ready (up to 30 s) ─────────────────────────────
 echo "    Waiting for Tradi API readiness..."
-for i in $(seq 1 30); do
-    if curl -sf "http://127.0.0.1:8899/" > /dev/null 2>&1; then
+for i in $(seq 1 60); do
+    if curl -sf "http://127.0.0.1:8899/health" > /dev/null 2>&1; then
         echo "    Tradi API ready after ${i}s"
         break
     fi
-    if [ "$i" -eq 30 ]; then
-        echo "ERROR: Tradi API did not become ready in 30s"
+    if ! kill -0 "$UVICORN_PID" 2>/dev/null; then
+        echo "ERROR: uvicorn exited before becoming ready"
+        exit 1
+    fi
+    if [ "$i" -eq 60 ]; then
+        echo "ERROR: Tradi API did not become ready in 60s"
         kill "$UVICORN_PID" 2>/dev/null || true
         exit 1
     fi
