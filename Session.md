@@ -1,9 +1,10 @@
 Session prompt templates
 Copy and fill in the blanks at the start of every Claude Code session.
+Aligned to CLAUDE.md (source of truth) — Supabase backend, Paystack-only, BYOK, polling worker.
 
 Standard session start (use this every time)
-Read CLAUDE.md. Continue from the current phase tracker.
-Today's task: [paste the Phase N prompt from BUILD_PLAN.md here].
+Read CLAUDE.md. Continue from the sprint tracker.
+Today's task: [describe the work — reference a Phase in BUILD_PLAN.md if applicable].
 
 Debugging session
 Read CLAUDE.md.
@@ -16,10 +17,12 @@ After fix, run the relevant test and show me the output.
 Adding a feature mid-build
 Read CLAUDE.md.
 Add: [feature name]
-Fits in: [which service / route]
-Rules from CLAUDE.md that apply: [quote the relevant ones, e.g. "row isolation, quota check"]
+Fits in: [frontend component / Edge Function / worker module / SQL migration]
+Rules from CLAUDE.md that apply: [quote them, e.g. "RLS row isolation, service_role-only key
+decrypt, webhook idempotency, no live trading"]
 Do not touch any other files.
-When done, write a test for it and add a one-line note to CLAUDE.md session notes.
+When done, write a test for it (worker: pytest; frontend: vitest) and update the CLAUDE.md
+sprint tracker.
 
 Code review session
 Read CLAUDE.md.
@@ -32,48 +35,50 @@ Read CLAUDE.md.
 Refactor [filename or function name] to [goal — e.g. "reduce duplication",
 "add proper error handling", "make async"].
 Do not change behavior — all existing tests must still pass.
-After refactor, run: pytest tests/[relevant_test_file].py -v
+After refactor, run: cd vibe-trading-saas/worker && pytest -q (or the frontend vitest file).
 
-Vibe-Trading integration session
+Vibe-Trading engine integration session
 Read CLAUDE.md.
-Wrap the Vibe-Trading [StrategyAgent / BacktestRunner / LiveAgent] for
-[specific use case]. Follow the integration patterns in CLAUDE.md.
+Wrap the Vibe-Trading engine for [specific use case]. Follow the worker patterns in CLAUDE.md.
 Key constraints:
-- LLM provider is DeepSeek via BYOK — decrypt the user's llm_keys row in the
-  worker and pass it as api_key; NEVER use a platform-wide LLM key; if the user
-  has no llm_key, return 400 "add your DeepSeek API key first"
-- BacktestRunner is synchronous — run in Celery worker, not in request thread
-- LiveAgent blocks until revoked — Celery task with SIGTERM handling
-- Always check quota BEFORE calling Vibe-Trading
-- Never pass raw exchange API keys — always decrypt from encrypted_keys first
+- LLM provider is DeepSeek via BYOK — the worker decrypts the user's key via
+  worker_get_user_api_key(user_id, 'deepseek') and passes it to the subprocess; NEVER use a
+  platform-wide key; if the user has no key, start_agent_run already returned no_api_key.
+- Engine runs as a subprocess-per-run: `vibe-trading run -p "<prompt>" --json --no-rich --max-iter N`
+  with isolated HOME / VIBE_TRADING_HOME per run (never in-process — process-global singletons).
+- No Celery/Redis — the worker is a polling loop (FOR UPDATE SKIP LOCKED).
+- No live trading at MVP — do not wire broker/live-order paths.
 
-Migration session (after model change)
+Schema / migration session
 Read CLAUDE.md.
-I changed [model name]: [describe change — added column / changed type / etc].
-Generate an Alembic migration: alembic revision --autogenerate -m "[description]"
-Show me the migration SQL and confirm it's correct before applying.
-Then run: alembic upgrade head
+I changed [table name]: [describe change — added column / new table / new RPC].
+Write the SQL migration under vibe-trading-saas/db/migrations/ with a dated filename
+(YYYY_MM_DD_<name>.sql) and show it for confirmation before applying to Supabase.
+Then update the DB schema section of CLAUDE.md.
 
 Frontend session
 Read CLAUDE.md.
-Build [page name] in the Vite + React app (src/pages, react-router).
-API endpoints it calls: [list them with method + path]
-Uses these components: [list shadcn-style/Radix components]
-Auth: [yes — inject Supabase access token via src/lib/api.ts / no — public]
-Data fetching: SWR with key "[endpoint path]" (or Zustand for client state)
+Build [page name] in the React 19 + Vite app (Tradi/frontend/src/pages, react-router 8).
+Supabase calls it makes: [list supabase.from / supabase.rpc / supabase.storage calls]
+Uses these libs: [lib/runs.ts, lib/billing.ts, lib/apikeys.ts, lib/swarm.ts, ...]
+Auth: [yes — inside AuthGuard / no — public]
+Data fetching: direct Supabase client + Realtime postgres_changes (NO SWR/React Query).
+Design system: Aurora Fire tokens (index.css CSS vars), Inter + JetBrains Mono. Do not
+introduce new colors/fonts.
 Do not build any other pages. Focus only on this one.
 
 Billing / webhook session
 Read CLAUDE.md.
-Implement/adjust billing for provider: [stripe | paystack].
-Rules from CLAUDE.md that apply: verify webhook signature before parsing; store
-nothing until webhook confirms; upsert subscriptions with the correct provider;
-write audit_log on subscription lifecycle events.
-Do not touch any other files. Add/adjust the relevant webhook test.
+Implement/adjust Paystack billing in: [paystack-init | paystack-webhook Edge Function | lib/billing.ts].
+Rules from CLAUDE.md that apply: verify x-paystack-signature HMAC-SHA512 (constant-time) before
+parsing; re-verify with Paystack API before activating; store nothing until the webhook confirms;
+webhook_events.provider_event_id UNIQUE (duplicates → 200); upsert via upsert_subscription RPC
+(service_role only).
+Do not touch any other files. Add/adjust the relevant test.
 
 Supabase auth session
 Read CLAUDE.md.
 Implement/adjust Supabase Auth for: [sign up | sign in | session sync | guard].
-Rules from CLAUDE.md that apply: verify Supabase JWT; map supabase_id → users
-row; 403 when is_suspended; never store passwords locally.
-Do not touch any other files. Add/adjust the relevant auth test.    
+Rules from CLAUDE.md that apply: verify Supabase JWT; map auth.uid() → profiles row; session
+set synchronously in the Zustand store; never store passwords locally.
+Do not touch any other files. Add/adjust the relevant test.

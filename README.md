@@ -70,9 +70,9 @@ All plans include **unlimited runs** — you pay DeepSeek directly for tokens.
 
 | Plan | Price / mo | Capabilities |
 |------|-----------|--------------|
-| **Starter** | ₦70,000 (~$54) | Single-agent runs |
-| **Pro** | ₦120,000 (~$92) | + Swarm (30 multi-agent team presets) |
-| **Premium** | ₦200,000 (~$154) | + Attachment uploads (CSV / XLSX / JSON) |
+| **Starter** | ₦20,000 (~$15) | Single-agent runs |
+| **Pro** | ₦35,000 (~$27) | + Swarm (30 multi-agent team presets) |
+| **Premium** | ₦75,000 (~$58) | + Attachment uploads (CSV / XLSX / JSON) |
 
 ---
 
