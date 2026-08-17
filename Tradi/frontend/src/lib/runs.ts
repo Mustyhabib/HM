@@ -70,6 +70,10 @@ export function tierFromAllowance(uses_allowed: number): UsageSnapshot["tier"] {
 function friendlyStartError(message: string): string {
   if (message.includes("no_active_subscription"))
     return "Subscribe to start running the agent.";
+  // Admin Dashboard (Phase 7): checked after the subscription gate — a
+  // suspended account is blocked from new runs even with an active sub.
+  if (message.includes("account_suspended"))
+    return "Your account is suspended — contact support.";
   if (message.includes("no_api_key"))
     return "Add your DeepSeek API key on the Profile page before running.";
   if (message.includes("rate_limited"))

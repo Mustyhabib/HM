@@ -9,6 +9,8 @@ interface ConfirmDialogProps {
   cancelLabel: string;
   /** "destructive" for irreversible/high-risk actions (red confirm button); "primary" otherwise. */
   tone?: "primary" | "destructive";
+  /** Disable the confirm button (e.g. while a required field is empty). */
+  confirmDisabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
   /** Extra summary content rendered between the description and the action buttons. */
@@ -27,6 +29,7 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel,
   tone = "primary",
+  confirmDisabled = false,
   onConfirm,
   onCancel,
   children,
@@ -110,8 +113,9 @@ export function ConfirmDialog({
             ref={confirmRef}
             type="button"
             onClick={onConfirm}
+            disabled={confirmDisabled}
             className={[
-              "rounded-lg px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-90",
+              "rounded-lg px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40",
               tone === "destructive"
                 ? "bg-destructive text-destructive-foreground"
                 : "bg-primary text-primary-foreground",

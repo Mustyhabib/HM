@@ -310,7 +310,11 @@ Shipped (merged to main, live):
 
 In progress / next:
   🔨 Paystack billing end-to-end testing (live webhook → subscription active)
-  🔨 Admin dashboard (user management, MRR, audit logs)
+  🔨 Admin dashboard — CODE SHIPPED via pipeline (2026_08_17_admin_dashboard.sql):
+      built but INERT until migration applied + owner seeded into admin_users
+      (manual steps in migration footer). Frontend /admin/* is guarded
+      server-side; until applied, admin RPCs don't exist and AdminGuard
+      redirects non-admins harmlessly.
   ⏳ Monitoring (Sentry, structured logs, uptime)
   ⏳ Email templates (transactional, branded sender)
   ⏳ Cloudflare domain + SSL setup

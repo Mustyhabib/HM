@@ -3,6 +3,8 @@ import { createBrowserRouter } from "react-router";
 import { Layout } from "@/components/layout/Layout";
 import { PublicLayout } from "@/components/layout/PublicLayout";
 import { AuthGuard, GuestGuard } from "@/components/auth/AuthGuard";
+import { AdminGuard } from "@/components/auth/AdminGuard";
+import { AdminLayout } from "@/components/admin/AdminLayout";
 
 // --- Public / SaaS pages ---
 const Landing = lazy(() => import("@/pages/Landing").then((m) => ({ default: m.Landing })));
@@ -48,6 +50,26 @@ const Correlation = lazy(() =>
 );
 const AlphaZoo = lazy(() =>
   import("@/pages/AlphaZoo").then((m) => ({ default: m.AlphaZoo })),
+);
+
+// --- Admin pages (Phase 7) ---
+const AdminDashboard = lazy(() =>
+  import("@/pages/admin/AdminDashboard").then((m) => ({ default: m.AdminDashboard })),
+);
+const AdminUsers = lazy(() =>
+  import("@/pages/admin/AdminUsers").then((m) => ({ default: m.AdminUsers })),
+);
+const AdminUserDetail = lazy(() =>
+  import("@/pages/admin/AdminUserDetail").then((m) => ({ default: m.AdminUserDetail })),
+);
+const AdminBilling = lazy(() =>
+  import("@/pages/admin/AdminBilling").then((m) => ({ default: m.AdminBilling })),
+);
+const AdminRuns = lazy(() =>
+  import("@/pages/admin/AdminRuns").then((m) => ({ default: m.AdminRuns })),
+);
+const AdminAuditLog = lazy(() =>
+  import("@/pages/admin/AdminAuditLog").then((m) => ({ default: m.AdminAuditLog })),
 );
 
 function PageLoader() {
@@ -122,6 +144,24 @@ export const router = createBrowserRouter([
           { path: "/alpha-zoo/bench", element: wrap(AlphaZoo) },
           { path: "/alpha-zoo/compare", element: wrap(AlphaZoo) },
           { path: "/alpha-zoo/:alphaId", element: wrap(AlphaZoo) },
+        ],
+      },
+
+      // --- Admin pages (sub-guarded by is_admin(), separate dense layout) ---
+      {
+        element: <AdminGuard />,
+        children: [
+          {
+            element: <AdminLayout />,
+            children: [
+              { path: "/admin", element: wrap(AdminDashboard) },
+              { path: "/admin/users", element: wrap(AdminUsers) },
+              { path: "/admin/users/:userId", element: wrap(AdminUserDetail) },
+              { path: "/admin/billing", element: wrap(AdminBilling) },
+              { path: "/admin/runs", element: wrap(AdminRuns) },
+              { path: "/admin/audit", element: wrap(AdminAuditLog) },
+            ],
+          },
         ],
       },
     ],
