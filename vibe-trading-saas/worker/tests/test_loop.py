@@ -54,6 +54,14 @@ class FakeQueue:
             raise self._claim_error
         return self._runs.pop(0) if self._runs else None
 
+    def subscribe_new_runs(self, wake) -> None:
+        # No Realtime in tests — run_forever's fallback poll loop still works
+        # without a subscription; this only needs to exist and not raise.
+        pass
+
+    def unsubscribe(self) -> None:
+        pass
+
     def heartbeat(self, run_id: str) -> bool:
         self.heartbeats.append(run_id)
         return self.heartbeat_result

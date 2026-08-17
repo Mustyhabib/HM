@@ -1,6 +1,7 @@
 import i18n from "@/i18n";
-import { Component, type ReactNode } from "react";
+import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AlertTriangle } from "lucide-react";
+import { reportError } from "@/lib/sentry";
 
 interface Props { children: ReactNode; fallback?: ReactNode; }
 interface State { hasError: boolean; error?: Error; }
@@ -10,6 +11,13 @@ export class ErrorBoundary extends Component<Props, State> {
 
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // Never pass the error's message as `extra` — it may embed user content
+    // (e.g. a prompt echoed back in an engine error). The component stack is
+    // structural, not user-authored, so it's safe to attach.
+    reportError(error, { componentStack: errorInfo?.componentStack });
   }
 
   render() {

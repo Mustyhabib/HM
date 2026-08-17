@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Callable, Protocol
 
 from .db import Attachment, ClaimedRun
+from .logging_config import set_run_id
 from .progress import TraceTailer
 
 # Optional injection point for the storage downloader — set by main.py when the
@@ -246,6 +247,10 @@ class TradiRunner:
         heartbeat: Heartbeat,
         stop: threading.Event,
     ) -> RunResult:
+        # Tag subsequent log lines on this thread with the run id so the
+        # structured JSON logs correlate a whole claim→complete cycle.
+        # Cleared by main.process_run in its finally block.
+        set_run_id(run.id)
         run_dir = self._runs_root / str(run.id)
         run_dir.mkdir(parents=True, exist_ok=True)
         stdout_path = run_dir / "stdout.log"

@@ -19,3 +19,11 @@ restartPolicyMaxRetries = 10
 # on SIGTERM, so give it enough time to finish a run cleanly.
 # Default Railway grace period is 10s — override to match run timeout headroom.
 # (Set this in Railway dashboard under Deploy → Graceful Shutdown Timeout too.)
+
+# Phase 7 monitoring: worker now serves GET /health (health.py) on
+# WORKER_HEALTH_PORT (default 9100, .env.example). Railway's config-as-code
+# schema only supports healthcheckPath/healthcheckTimeout here — there is no
+# TOML field for the target port. Set the service's health check port to
+# 9100 under Railway dashboard -> Settings -> Networking -> Health Check.
+healthcheckPath = "/health"
+healthcheckTimeout = 30
