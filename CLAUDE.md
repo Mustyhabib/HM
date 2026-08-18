@@ -338,7 +338,11 @@ In progress / next:
       pick a transactional provider for the 3 [bracket]-placeholder templates.
   ⏳ Cloudflare domain + SSL setup
   ⏳ Worker Railway deployment (production env vars)
-  ⏳ Launch prep (legal review, support email, footer contact block)
+  ⏳ Launch prep — CODE SHIPPED via pipeline (ownership & contact footprint:
+      lib/company.ts registrant source, SiteFooter on every page, Terms §14 +
+      Privacy §12 registrant blocks, RunView operator line, admin About/System
+      screen). Remaining manual: legal review fills SUPPORT_PHONE/MAILING_ADDRESS
+      in lib/company.ts, create support@hmtrade-business.com mailbox.
 
 Not started (deferred):
   🔲 Stripe (international billing — parked, no US/UK entity)
