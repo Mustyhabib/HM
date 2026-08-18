@@ -71,6 +71,9 @@ const AdminRuns = lazy(() =>
 const AdminAuditLog = lazy(() =>
   import("@/pages/admin/AdminAuditLog").then((m) => ({ default: m.AdminAuditLog })),
 );
+const AdminAboutSystem = lazy(() =>
+  import("@/pages/admin/AdminAboutSystem").then((m) => ({ default: m.AdminAboutSystem })),
+);
 
 function PageLoader() {
   return (
@@ -160,6 +163,7 @@ export const router = createBrowserRouter([
               { path: "/admin/billing", element: wrap(AdminBilling) },
               { path: "/admin/runs", element: wrap(AdminRuns) },
               { path: "/admin/audit", element: wrap(AdminAuditLog) },
+              { path: "/admin/about", element: wrap(AdminAboutSystem) },
             ],
           },
         ],

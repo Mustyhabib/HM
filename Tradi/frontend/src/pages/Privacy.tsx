@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import { Shield } from "lucide-react";
+import { LEGAL_NAME, MAILING_ADDRESS, SUPPORT_EMAIL } from "@/lib/company";
 
 const LAST_UPDATED = "1 August 2026";
 
@@ -318,6 +319,22 @@ export function Privacy() {
             {" "}and{" "}
             <Link to="/docs" className="text-primary hover:underline">Documentation</Link>.
           </p>
+
+          {/* ─── Registrant block — required for Privacy Policy enforceability ───── */}
+          <div className="mt-5 rounded-lg border border-border bg-elevated/50 p-4">
+            <p className="mb-2 font-medium text-foreground">Registrant</p>
+            <p>{LEGAL_NAME}</p>
+            <p>
+              Contact:{" "}
+              <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">
+                {SUPPORT_EMAIL}
+              </a>
+            </p>
+            <p>Mailing address: {MAILING_ADDRESS}</p>
+            <p className="mt-2 text-xs text-muted-foreground/80">
+              Registered in Nigeria.
+            </p>
+          </div>
         </section>
 
       </div>

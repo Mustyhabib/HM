@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation } from "react-router";
 import { Sun, Moon, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/theme";
+import { SiteFooter } from "@/components/common/SiteFooter";
 
 const NAV_LINKS = [
   { to: "/",       label: "Home"    },
@@ -150,21 +151,7 @@ export function PublicLayout() {
       </main>
 
       {/* ─── Footer ──────────────────────────────────────────────────────── */}
-      <footer className="border-t border-border/60 py-8">
-        <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 sm:flex-row sm:justify-between sm:px-6">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="font-bold gradient-text">H~Mltd</span>
-            <span>
-              &copy; {new Date().getFullYear()} H~Mltd. All rights reserved.
-            </span>
-          </div>
-          <div className="flex gap-4 text-sm text-muted-foreground">
-            <Link to="/docs"    className="transition-colors hover:text-foreground">Docs</Link>
-            <Link to="/terms"   className="transition-colors hover:text-foreground">Terms</Link>
-            <Link to="/privacy" className="transition-colors hover:text-foreground">Privacy</Link>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

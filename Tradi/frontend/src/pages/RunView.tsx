@@ -23,6 +23,7 @@ import {
   type RunArtifact,
 } from "@/lib/runs";
 import { cn } from "@/lib/utils";
+import { LEGAL_NAME, SUPPORT_EMAIL } from "@/lib/company";
 
 const ACTIVE = new Set(["queued", "running"]);
 
@@ -618,6 +619,11 @@ export function RunView() {
             {/* Icon trio — Status · Queue · Exit. Labels reveal on hover/focus/touch. */}
             <HeaderTrio runId={runId!} status={run.status} />
           </div>
+
+          {/* ─── Operator line — who runs this platform (financial research product) ─── */}
+          <p className="mb-6 text-xs text-muted-foreground">
+            Operated by {LEGAL_NAME} · {SUPPORT_EMAIL}
+          </p>
 
           {/* ─── Status timeline ─── */}
           <div className="mb-6 rounded-xl border border-border bg-card p-4">

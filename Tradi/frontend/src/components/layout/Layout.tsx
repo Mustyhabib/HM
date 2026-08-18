@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/common/BrandMark";
+import { SiteFooter } from "@/components/common/SiteFooter";
 import { safeGet, safeSet } from "@/lib/storage";
 import { useTheme } from "@/lib/theme";
 
@@ -321,6 +322,8 @@ export function Layout() {
         <main className="flex-1 overflow-auto">
           <Outlet />
         </main>
+
+        <SiteFooter />
       </div>
     </div>
   );

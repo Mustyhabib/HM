@@ -7,6 +7,7 @@ import {
   ScrollText,
   LogOut,
   ShieldCheck,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-store";
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
   { to: "/admin/billing", icon: CreditCard,     label: "Billing"   },
   { to: "/admin/runs",   icon: ListChecks,      label: "Runs"      },
   { to: "/admin/audit",  icon: ScrollText,      label: "Audit Log" },
+  { to: "/admin/about",  icon: Info,            label: "About / System" },
 ];
 
 /**
