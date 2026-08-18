@@ -329,7 +329,13 @@ In progress / next:
       projects (frontend + worker), set VITE_SENTRY_DSN / SENTRY_DSN (no-op
       without them); Railway dashboard → Settings → Networking → Health Check
       port 9100 (railway.toml carries healthcheckPath).
-  ⏳ Email templates (transactional, branded sender)
+  ⏳ Email templates — CODE SHIPPED via pipeline (supabase/email-templates/:
+      5 Supabase Auth + 3 transactional, branded H~M lockup/footer/registrant
+      block; scripts/email-templates-check.mjs enforces palette + brand).
+      Inert until: create support@hmtrade-business.com mailbox → paste auth
+      templates in Supabase Dashboard → Auth → Emails (sender "H~M Trading
+      Institute <no-reply@hmtrade-business.com>", custom SMTP recommended) →
+      pick a transactional provider for the 3 [bracket]-placeholder templates.
   ⏳ Cloudflare domain + SSL setup
   ⏳ Worker Railway deployment (production env vars)
   ⏳ Launch prep (legal review, support email, footer contact block)
