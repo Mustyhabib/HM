@@ -9,6 +9,7 @@
  *   charge.success        → re-verify transaction → upsert subscription
  *   subscription.create   → supplement charge.success if fired separately
  *   subscription.disable  → mark subscription canceled
+ *   subscription.charge   → renewal charge (paid → active, failed → past_due)
  *   invoice.update        → handle renewal / payment failure
  *
  * Secrets required (set via `supabase secrets set`):
@@ -78,6 +79,22 @@ interface PaystackTransaction {
   };
 }
 
+// ── Date-field normalization ────────────────────────────────────────────────
+// Paystack webhook payloads mix casing across event types (snake_case vs
+// camelCase) for the same logical field. Try each candidate field name in
+// order and return the first that parses to a valid Date.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function pickDate(data: any, ...fields: string[]): Date | null {
+  for (const f of fields) {
+    const v = data?.[f];
+    if (v) {
+      const d = new Date(v);
+      if (!isNaN(d.getTime())) return d;
+    }
+  }
+  return null;
+}
+
 // ── Main handler ───────────────────────────────────────────────────────────
 serve(async (req: Request) => {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
@@ -94,16 +111,24 @@ serve(async (req: Request) => {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const event: { event: string; data: any } = JSON.parse(body);
+  let event: { event: string; data: any };
+  try {
+    event = JSON.parse(body);
+  } catch {
+    return new Response("Invalid JSON", { status: 400 });
+  }
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
   // ── Idempotency key ──────────────────────────────────────────────────────
   // Paystack doesn't guarantee a unique event ID, so we derive one.
   // For charge events: use the transaction reference (globally unique).
   // For subscription events: event_type + subscription_code.
-  const dedupeKey =
-    event.data?.reference ??
-    `${event.event}::${event.data?.subscription_code ?? event.data?.id ?? "unknown"}`;
+  const subCode =
+    event.data?.subscription_code ??
+    event.data?.subscription?.subscription_code ??
+    event.data?.id ??
+    "unknown";
+  const dedupeKey = event.data?.reference ?? `${event.event}::${subCode}`;
 
   const { error: insertError } = await supabase.from("webhook_events").insert({
     provider_event_id: dedupeKey,
@@ -113,13 +138,15 @@ serve(async (req: Request) => {
 
   if (insertError) {
     if (insertError.code === "23505") {
-      // Unique violation — already processed
+      // Idempotent duplicate — already processed. 200 so Paystack stops.
       console.log(`Duplicate webhook skipped: ${dedupeKey}`);
       return new Response("Already processed", { status: 200 });
     }
-    console.error("Failed to record webhook event:", insertError.message);
-    // Don't 500 — return 200 so Paystack stops retrying on a DB transient error
-    return new Response("OK", { status: 200 });
+    // Any other insert failure is retryable (transient DB/network) — return
+    // 500 so Paystack re-delivers. Returning 200 here would silently drop
+    // the event and the user's subscription would never activate.
+    console.error("Failed to record webhook event (retrying):", insertError.message);
+    return new Response("Internal Server Error", { status: 500 });
   }
 
   // ── Route events ─────────────────────────────────────────────────────────
@@ -134,6 +161,9 @@ serve(async (req: Request) => {
       case "subscription.disable":
       case "subscription.not_renew":
         await handleSubscriptionDisable(supabase, event.data);
+        break;
+      case "subscription.charge":
+        await handleSubscriptionCharge(supabase, event.data);
         break;
       case "invoice.update":
         await handleInvoiceUpdate(supabase, event.data);
@@ -183,14 +213,14 @@ async function handleChargeSuccess(supabase: any, data: any) {
   const subscriptionCode =
     tx.subscription_data?.subscription_code ?? reference;
 
-  const now = new Date(tx.paid_at || new Date().toISOString());
-  const periodEnd = tx.subscription_data?.next_payment_date
-    ? new Date(tx.subscription_data.next_payment_date)
-    : (() => {
-        const d = new Date(now);
-        d.setMonth(d.getMonth() + 1);
-        return d;
-      })();
+  const now = pickDate(tx, "paid_at", "paidAt") ?? new Date();
+  const periodEnd =
+    pickDate(tx.subscription_data ?? {}, "next_payment_date", "nextPaymentDate") ??
+    (() => {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() + 1);
+      return d;
+    })();
 
   const { error } = await supabase.from("subscriptions").upsert(
     {
@@ -259,14 +289,14 @@ async function handleSubscriptionCreate(supabase: any, data: any) {
     return;
   }
 
-  const periodStart = data.createdAt ? new Date(data.createdAt) : new Date();
-  const periodEnd = data.next_payment_date
-    ? new Date(data.next_payment_date)
-    : (() => {
-        const d = new Date(periodStart);
-        d.setMonth(d.getMonth() + 1);
-        return d;
-      })();
+  const periodStart = pickDate(data, "createdAt", "created_at") ?? new Date();
+  const periodEnd =
+    pickDate(data, "next_payment_date", "nextPaymentDate") ??
+    (() => {
+      const d = new Date(periodStart);
+      d.setMonth(d.getMonth() + 1);
+      return d;
+    })();
 
   await supabase.from("subscriptions").upsert(
     {
@@ -300,6 +330,40 @@ async function handleSubscriptionDisable(supabase: any, data: any) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function handleSubscriptionCharge(supabase: any, data: any) {
+  // Fires on subscription renewal — the modern Paystack renewal event.
+  // status: "success"/"paid" (renewal paid) → active + extend period
+  // anything else (e.g. "failed")            → past_due
+  const code: string = data.subscription_code ?? data.subscription?.subscription_code;
+  if (!code) return;
+
+  const paid = data.status === "success" || data.status === "paid";
+  const periodEnd = pickDate(data, "next_payment_date", "nextPaymentDate");
+
+  if (paid) {
+    const { error } = await supabase
+      .from("subscriptions")
+      .update({
+        status: "active",
+        ...(periodEnd ? { current_period_end: periodEnd.toISOString() } : {}),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("provider_subscription_id", code);
+
+    if (error) console.error("Failed to record renewal charge:", error.message);
+    else console.log(`Renewal paid (subscription.charge): ${code}`);
+  } else {
+    const { error } = await supabase
+      .from("subscriptions")
+      .update({ status: "past_due", updated_at: new Date().toISOString() })
+      .eq("provider_subscription_id", code);
+
+    if (error) console.error("Failed to record renewal failure:", error.message);
+    else console.log(`Renewal failed (subscription.charge) -> past_due: ${code}`);
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleInvoiceUpdate(supabase: any, data: any) {
   // Fires on renewal attempt.
   // status: "success" (renewal paid) → keep active + extend period
@@ -308,9 +372,11 @@ async function handleInvoiceUpdate(supabase: any, data: any) {
   if (!subscriptionCode) return;
 
   if (data.paid) {
-    const periodEnd = data.subscription?.next_payment_date
-      ? new Date(data.subscription.next_payment_date)
-      : null;
+    const periodEnd = pickDate(
+      data.subscription ?? {},
+      "next_payment_date",
+      "nextPaymentDate",
+    );
 
     await supabase
       .from("subscriptions")
