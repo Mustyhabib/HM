@@ -309,7 +309,16 @@ Shipped (merged to main, live):
   ✅ 53 hermetic worker tests
 
 In progress / next:
-  🔨 Paystack billing end-to-end testing (live webhook → subscription active)
+  ⏳ Paystack billing E2E — HARNESS SHIPPED via pipeline (scripts/paystack-e2e.mjs,
+      scripts/paystack-fixtures.mjs, scripts/README.md) + webhook hardening:
+      4 defects fixed (500-on-transient-insert retry semantics, guarded JSON
+      parse, subscription.charge renewal event, date-casing normalization) +
+      [BUG] invoice.update dedupe-key collapse fixed (nested subscription_code)
+      + harness mirror de-drifted. Offline suite 7/7 green, zero deps. Remaining
+      manual: deploy both Edge Functions (supabase functions deploy / Supabase
+      MCP), set secrets, seed plans.provider_price_id, run
+      PAYSTACK_SECRET_KEY=sk_test_... SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=...
+      node scripts/paystack-e2e.mjs --live (hard-refuses sk_live_).
   🔨 Admin dashboard — CODE SHIPPED via pipeline (2026_08_17_admin_dashboard.sql):
       built but INERT until migration applied + owner seeded into admin_users
       (manual steps in migration footer). Frontend /admin/* is guarded
