@@ -333,11 +333,16 @@ In progress / next:
       live, owner seeded, audit_logs default-deny; audit_logs_legacy renamed
       then dropped — empty foreign table). Browser verify pending frontend
       deploy: /admin loads for owner, redirects non-admins, suspend blocks runs.
-  ⏳ Monitoring — CODE SHIPPED + Sentry projects CREATED 2026-08-18
-      (hmtrade-frontend + hmtrade-worker, DSNs in /tmp/hm_pipeline/infra_output.txt).
-      Activation remaining: set VITE_SENTRY_DSN / SENTRY_DSN at deploy time
-      (no-op without them); Railway dashboard → Settings → Networking → Health
-      Check port 9100 (railway.toml carries healthcheckPath).
+  ⏳ Monitoring — WORKER LIVE 2026-08-19 (Railway deploy c1ec9887 SUCCESS,
+      startup log line `Sentry error tracking enabled`; SENTRY_DSN set as
+      Railway env var, org hm-nt / team hm / project hmtrade-worker). Railway
+      healthcheck wired via WORKER_HEALTH_HOST=0.0.0.0 + PORT=9100 (dashboard
+      port setting no longer required — see Worker Railway deployment note).
+      Frontend paste PENDING on Vercel: set
+      VITE_SENTRY_DSN=https://957b0c7e7cce45e168d2d0cbaf3139be@o4511856863936512.ingest.us.sentry.io/4511929002754048
+      in Vercel → Environment Variables → redeploy. initSentry() in
+      Tradi/frontend/src/lib/sentry.ts is a no-op until the env var lands, so
+      the frontend build stays green in the meantime.
   ⏳ Email templates — CODE SHIPPED via pipeline (supabase/email-templates/:
       5 Supabase Auth + 3 transactional, branded H~M lockup/footer/registrant
       block; scripts/email-templates-check.mjs enforces palette + brand).
