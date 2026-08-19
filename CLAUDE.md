@@ -329,30 +329,35 @@ In progress / next:
       plans + key to live. Supabase checklist MCP-items CLOSED (realtime,
       storage, plans, RLS audit + webhook_events grant revoke, audit_logs_legacy
       dropped, secrets verified). Dashboard-only: auth URLs, email templates.
-  ⏳ Admin dashboard — CODE SHIPPED + MIGRATION APPLIED 2026-08-18 (admin RPCs
-      live, owner seeded, audit_logs default-deny; audit_logs_legacy renamed
-      then dropped — empty foreign table). Browser verify pending frontend
-      deploy: /admin loads for owner, redirects non-admins, suspend blocks runs.
+  ✅ Admin dashboard — VERIFIED 2026-08-19 (browser + API): /admin loads for
+      admin.tester (user-confirmed on live site); is_admin() true/false
+      correct per account; suspend gate proven end-to-end via API
+      (start_agent_run → no_api_key before suspend, account_suspended after);
+      audit_logs record user.suspend/unsuspend with actor email. Non-admin
+      redirect follows deterministically from AdminGuard (is_admin=false →
+      Navigate /dashboard). Test accounts kept for future verification:
+      admin.tester@hmtest.local + user.tester@hmtest.local (creds in
+      /tmp/hm_admin_creds.json) — clean up before launch.
   ⏳ Monitoring — WORKER LIVE 2026-08-19 (Railway deploy c1ec9887 SUCCESS,
       startup log line `Sentry error tracking enabled`; SENTRY_DSN set as
       Railway env var, org hm-nt / team hm / project hmtrade-worker). Railway
       healthcheck wired via WORKER_HEALTH_HOST=0.0.0.0 + PORT=9100 (dashboard
       port setting no longer required — see Worker Railway deployment note).
-      Frontend Sentry paste PENDING: VITE_SENTRY_DSN
-      https://957b0c7e7cce45e168d2d0cbaf3139be@o4511856863936512.ingest.us.sentry.io/4511929002754048
-      (full DSN known — visible in git history of this file). initSentry() in
-      Tradi/frontend/src/lib/sentry.ts is a no-op until the env var lands, so
-      the frontend build stays green in the meantime.
-  ⏳ Frontend production deploy — CONFIG FIXED 2026-08-19: the `hm` Vercel
-      project had NEVER been configured for real. Env vars were Supabase
-      integration leftovers (NEXT_PUBLIC_*/POSTGRES_*/SUPABASE_* junk,
-      service-role key present) and VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY
-      held invalid values. Patched both VITE vars to real values
-      (production+preview, API PATCH). Domain in this file is WRONG:
-      hmtrade-business.com does not exist — real production aliases are
-      hmtrade.business + hm-ashy-six.vercel.app (vercel.app names are global;
-      hm.vercel.app is another tenant's site). Rebuild-forcing deploy in
-      progress; verify bundle contains wqjdumforbalfmtawwpg before closing.
+      Frontend Sentry DONE 2026-08-19: VITE_SENTRY_DSN set on Vercel
+      (production+preview) and deployed — initSentry() active in the prod
+      build. Optional: smoke-test in Sentry dashboard (cleanup list).
+  ✅ Frontend production deploy — LIVE + VERIFIED 2026-08-19: `hm` Vercel
+      project was NEVER configured (env vars were Supabase integration
+      leftovers; VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY held invalid
+      values). Patched both VITE vars + set VITE_SENTRY_DSN (production+
+      preview). Fresh build from 5cd9712 live at hmtrade.business /
+      hm-ashy-six.vercel.app. Verified: login works for real accounts, admin
+      loads, all routes 200. NOTE: domain in this file is WRONG —
+      hmtrade-business.com does not exist; real aliases are hmtrade.business
+      + hm-ashy-six.vercel.app (vercel.app names are global; hm.vercel.app
+      is another tenant's site). Vercel env list still has Supabase
+      integration junk (NEXT_PUBLIC_*/POSTGRES_*/SUPABASE_SERVICE_ROLE_KEY)
+      — safe to purge except the 3 VITE_* vars.
   ⏳ Email templates — CODE SHIPPED via pipeline (supabase/email-templates/:
       5 Supabase Auth + 3 transactional, branded H~M lockup/footer/registrant
       block; scripts/email-templates-check.mjs enforces palette + brand).
