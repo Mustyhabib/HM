@@ -338,11 +338,21 @@ In progress / next:
       Railway env var, org hm-nt / team hm / project hmtrade-worker). Railway
       healthcheck wired via WORKER_HEALTH_HOST=0.0.0.0 + PORT=9100 (dashboard
       port setting no longer required — see Worker Railway deployment note).
-      Frontend paste PENDING on Vercel: set
-      VITE_SENTRY_DSN=https://957b0c7e7cce45e168d2d0cbaf3139be@o4511856863936512.ingest.us.sentry.io/4511929002754048
-      in Vercel → Environment Variables → redeploy. initSentry() in
+      Frontend Sentry paste PENDING: VITE_SENTRY_DSN
+      https://957b0c7e7cce45e168d2d0cbaf3139be@o4511856863936512.ingest.us.sentry.io/4511929002754048
+      (full DSN known — visible in git history of this file). initSentry() in
       Tradi/frontend/src/lib/sentry.ts is a no-op until the env var lands, so
       the frontend build stays green in the meantime.
+  ⏳ Frontend production deploy — CONFIG FIXED 2026-08-19: the `hm` Vercel
+      project had NEVER been configured for real. Env vars were Supabase
+      integration leftovers (NEXT_PUBLIC_*/POSTGRES_*/SUPABASE_* junk,
+      service-role key present) and VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY
+      held invalid values. Patched both VITE vars to real values
+      (production+preview, API PATCH). Domain in this file is WRONG:
+      hmtrade-business.com does not exist — real production aliases are
+      hmtrade.business + hm-ashy-six.vercel.app (vercel.app names are global;
+      hm.vercel.app is another tenant's site). Rebuild-forcing deploy in
+      progress; verify bundle contains wqjdumforbalfmtawwpg before closing.
   ⏳ Email templates — CODE SHIPPED via pipeline (supabase/email-templates/:
       5 Supabase Auth + 3 transactional, branded H~M lockup/footer/registrant
       block; scripts/email-templates-check.mjs enforces palette + brand).
