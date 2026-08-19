@@ -1026,7 +1026,15 @@ def build_llm(*, model_name: Optional[str] = None, callbacks: Any = None) -> Any
 
     if provider == "deepseek":
         adapter_mode = _deepseek_adapter_mode()
-        if adapter_mode != "openai-compatible":
+        # "auto" (the default) prefers the OpenAI-compatible path: the native
+        # langchain-deepseek adapter does not echo ``reasoning_content`` back
+        # on multi-turn assistant messages, which DeepSeek thinking models
+        # require (live 400: "The `reasoning_content` in the thinking mode
+        # must be passed back to the API"). The OpenAI-compatible path carries
+        # the echo (see ChatOpenAIWithReasoning + the deepseek capability's
+        # send_reasoning_content). Native remains available to anyone who
+        # explicitly opts in via VIBE_TRADING_DEEPSEEK_ADAPTER=native.
+        if adapter_mode == "native":
             native_llm = _build_native_deepseek(
                 model=name,
                 temperature=temperature,
@@ -1034,10 +1042,9 @@ def build_llm(*, model_name: Optional[str] = None, callbacks: Any = None) -> Any
             )
             if native_llm is not None:
                 return native_llm
-            if adapter_mode == "native":
-                raise RuntimeError(
-                    "VIBE_TRADING_DEEPSEEK_ADAPTER=native requires langchain-deepseek"
-                )
+            raise RuntimeError(
+                "VIBE_TRADING_DEEPSEEK_ADAPTER=native requires langchain-deepseek"
+            )
 
     if ChatOpenAI is None:
         raise RuntimeError("langchain-openai is not installed")

@@ -148,6 +148,8 @@ _PROVIDERS: dict[str, ProviderCapabilities] = {
         "DEEPSEEK_API_KEY",
         "DEEPSEEK_BASE_URL",
         capture_reasoning=True,
+        send_reasoning_content=True,
+        normalize_assistant_content=True,
         native_adapter_package="langchain-deepseek",
     ),
     "siliconflow-cn": ProviderCapabilities(
