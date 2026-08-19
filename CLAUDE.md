@@ -309,6 +309,15 @@ Shipped (merged to main, live):
   ✅ 53 hermetic worker tests
 
 In progress / next:
+  ✅ MVP RUN LOOP VERIFIED 2026-08-19 — FIRST REAL END-TO-END RUN COMPLETED
+      (prompt → queued → worker claim → engine → completed, 24 artifacts in
+      Storage, progress streamed). Fixed en route: [BUG-ENG-1] DeepSeek
+      reasoning_content echo (capability flags + auto→OpenAI-compatible
+      adapter routing; native adapter opt-in only), [BUG-ENG-2] worker RPC
+      usage_events NULL crash (RPCs captured into
+      2026_08_19_worker_rpc_hardening.sql + BYOK guard), [BUG-ENG-3] realtime
+      sync-client noise (polling fallback). Worker runs locally
+      (WORKER_EXECUTE_TRADI=true, Tradi/.venv engine); Railway deploy pending.
   ⏳ Paystack billing E2E — HARNESS SHIPPED + LIVE-VERIFIED 2026-08-18:
       scripts/paystack-e2e.mjs --live → 8/9 PASS, 0 FAIL (signature guards,
       idempotency, create, disable, renewal, invoice). [BUG-2] caught live and
