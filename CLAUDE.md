@@ -309,26 +309,26 @@ Shipped (merged to main, live):
   ✅ 53 hermetic worker tests
 
 In progress / next:
-  ⏳ Paystack billing E2E — HARNESS SHIPPED via pipeline (scripts/paystack-e2e.mjs,
-      scripts/paystack-fixtures.mjs, scripts/README.md) + webhook hardening:
-      4 defects fixed (500-on-transient-insert retry semantics, guarded JSON
-      parse, subscription.charge renewal event, date-casing normalization) +
-      [BUG] invoice.update dedupe-key collapse fixed (nested subscription_code)
-      + harness mirror de-drifted. Offline suite 7/7 green, zero deps. Remaining
-      manual: deploy both Edge Functions (supabase functions deploy / Supabase
-      MCP), set secrets, seed plans.provider_price_id, run
-      PAYSTACK_SECRET_KEY=sk_test_... SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=...
-      node scripts/paystack-e2e.mjs --live (hard-refuses sk_live_).
-  🔨 Admin dashboard — CODE SHIPPED via pipeline (2026_08_17_admin_dashboard.sql):
-      built but INERT until migration applied + owner seeded into admin_users
-      (manual steps in migration footer). Frontend /admin/* is guarded
-      server-side; until applied, admin RPCs don't exist and AdminGuard
-      redirects non-admins harmlessly.
-  ⏳ Monitoring — CODE SHIPPED via pipeline (Sentry + structured logs + /health):
-      wiring complete, tests green. Manual steps to activate: create Sentry
-      projects (frontend + worker), set VITE_SENTRY_DSN / SENTRY_DSN (no-op
-      without them); Railway dashboard → Settings → Networking → Health Check
-      port 9100 (railway.toml carries healthcheckPath).
+  ⏳ Paystack billing E2E — HARNESS SHIPPED + LIVE-VERIFIED 2026-08-18:
+      scripts/paystack-e2e.mjs --live → 8/9 PASS, 0 FAIL (signature guards,
+      idempotency, create, disable, renewal, invoice). [BUG-2] caught live and
+      fixed: renewal events (subscription.charge/invoice.update) had
+      event::code dedupe keys collapsing every attempt → failed renewals never
+      marked past_due; now per-attempt (::attemptId), v9 deployed, fixtures +
+      harness mirror synced. Remaining: charge case needs a real TEST checkout
+      (test card 4084 0840 8408 4081) → PAYSTACK_TEST_REFERENCE; at launch swap
+      plans + key to live. Supabase checklist MCP-items CLOSED (realtime,
+      storage, plans, RLS audit + webhook_events grant revoke, audit_logs_legacy
+      dropped, secrets verified). Dashboard-only: auth URLs, email templates.
+  ⏳ Admin dashboard — CODE SHIPPED + MIGRATION APPLIED 2026-08-18 (admin RPCs
+      live, owner seeded, audit_logs default-deny; audit_logs_legacy renamed
+      then dropped — empty foreign table). Browser verify pending frontend
+      deploy: /admin loads for owner, redirects non-admins, suspend blocks runs.
+  ⏳ Monitoring — CODE SHIPPED + Sentry projects CREATED 2026-08-18
+      (hmtrade-frontend + hmtrade-worker, DSNs in /tmp/hm_pipeline/infra_output.txt).
+      Activation remaining: set VITE_SENTRY_DSN / SENTRY_DSN at deploy time
+      (no-op without them); Railway dashboard → Settings → Networking → Health
+      Check port 9100 (railway.toml carries healthcheckPath).
   ⏳ Email templates — CODE SHIPPED via pipeline (supabase/email-templates/:
       5 Supabase Auth + 3 transactional, branded H~M lockup/footer/registrant
       block; scripts/email-templates-check.mjs enforces palette + brand).

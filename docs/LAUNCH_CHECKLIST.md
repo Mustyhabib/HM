@@ -5,34 +5,26 @@ worker `config.py`, Edge Functions `Deno.env.get`) + infra state as of 2026-08-1
 Tick each box as done. **All code is shipped; everything below is manual/infra.**
 
 Legend: 🔴 must do · 🟡 recommended · 🟢 optional
+*Status as of 2026-08-18 — MCP-executable Supabase items all closed (see A/H).*
 
 ---
 
 ## A · Supabase platform (dashboard / CLI)
 
-- [ ] 🔴 **Edge Function secrets** (MCP has no secrets tool — CLI or dashboard):
-  ```bash
-  supabase secrets set --project-ref wqjdumforbalfmtawwpg \
-    APP_URL=https://hmtrade-business.com \
-    PAYSTACK_SECRET_KEY=<sk_test_...>   # sk_live_ only at launch
-  ```
-  (`SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` are
-  auto-injected by the platform at runtime — do NOT set them manually.)
+- [x] 🔴 **Edge Function secrets** — ✅ VERIFIED SET via `supabase secrets list`
+      (all 9 incl. `APP_URL` + `PAYSTACK_SECRET_KEY`; key proven TEST by live E2E
+      signature checks). (`SUPABASE_URL` / `SUPABASE_ANON_KEY` /
+      `SUPABASE_SERVICE_ROLE_KEY` are auto-injected by the platform — never set
+      manually.)
 - [ ] 🔴 **Auth URLs** — Dashboard → Authentication → URL Configuration:
   Site URL = `https://hmtrade-business.com`; redirect allowlist includes
-  `/billing/callback`.
-- [ ] 🔴 **Seed Paystack plan codes** (SQL Editor; codes from Paystack dashboard
-  → Settings → Plans):
-  ```sql
-  UPDATE plans SET provider_price_id = '<PLN_test_code>' WHERE id = 'starter';
-  UPDATE plans SET provider_price_id = '<PLN_test_code>' WHERE id = 'pro';
-  UPDATE plans SET provider_price_id = '<PLN_test_code>' WHERE id = 'premium';
-  SELECT id, provider_price_id FROM plans;  -- verify
-  ```
-- [ ] 🟡 **Realtime** — Dashboard → Database → Replication: `agent_runs` +
-  `agent_artifacts` present in the publication (default public-schema pub).
-- [ ] 🟡 **Storage buckets** — Dashboard → Storage: `agent-artifacts` +
-  `agent-uploads` exist with owner-scoped policies (uploads = private, signed
+  `/billing/callback`. (`auth.config` not queryable via MCP — dashboard check.)
+- [x] 🔴 **Seed Paystack plan codes** — ✅ ALREADY SEEDED (all 3 tiers, verified
+      by SQL). Test codes in place; swap to LIVE codes at launch (B3).
+- [x] 🟡 **Realtime** — ✅ VERIFIED: `agent_runs` + `agent_artifacts` both in the
+  `supabase_realtime` publication (SQL-confirmed).
+- [x] 🟡 **Storage buckets** — ✅ VERIFIED: `agent-artifacts` + `agent-uploads`
+  exist with the migration's policies (SQL-confirmed; uploads private, signed
   URLs only).
 - [ ] 🔴 **Branded auth emails** — Dashboard → Auth → Emails → Templates: paste
   the 5 templates from `supabase/email-templates/auth/`; Subject fields too.
@@ -45,21 +37,27 @@ Legend: 🔴 must do · 🟡 recommended · 🟢 optional
 
 ## B · Paystack (the last 🔨)
 
-- [ ] 🔴 Create 3 **test** recurring plans (Starter ₦20,000 / Pro ₦35,000 /
-      Premium ₦75,000) in the Paystack dashboard → seed via A.
-- [ ] 🔴 Run the E2E harness (from repo root, on this machine):
+- [x] 🔴 **Create 3 test recurring plans + seed** — ✅ DONE (test plans exist,
+      `provider_price_id` seeded, verified by SQL).
+- [x] 🔴 **Run the E2E harness** — ✅ LIVE-RUN 2026-08-18: **8/9 passed, 0 failed**
+      (missing-signature, bad-signature, invalid-json, idempotency,
+      subscription-create, disable, renewal, invoice). Caught + fixed [BUG-2]:
+      per-attempt idempotency keys for renewal events (v9 deployed). One SKIP
+      left:
   ```bash
   cd /home/aurora/HM
-  PAYSTACK_SECRET_KEY=<sk_test_...> \
-  SUPABASE_URL=https://wqjdumforbalfmtawwpg.supabase.co \
+  PAYSTACK_SECRET_KEY=<sk_test_...> SUPABASE_URL=https://wqjdumforbalfmtawwpg.supabase.co \
   SUPABASE_SERVICE_ROLE_KEY=<service_role> \
+  E2E_TEST_USER_ID=<owner-id> E2E_TEST_USER_EMAIL=mustaphahabib270@gmail.com \
   node scripts/paystack-e2e.mjs --live
   ```
   (Hard-refuses `sk_live_` keys. Never paste these values into chat.)
-- [ ] 🔴 Manual checkout test: Pricing → pay with test card → callback page →
-      subscription row shows `active` (webhook re-verified + idempotent).
-- [ ] 🟡 Renewal test: `invoice.update`/`subscription.charge` fixtures mark
-      `past_due` on failure, extend period on success.
+- [ ] 🔴 **charge case** — needs a REAL completed Paystack TEST transaction:
+      run the frontend locally, pay with test card `4084 0840 8408 4081`, then
+      re-run with `PAYSTACK_TEST_REFERENCE=<ref>` — exercises paystack-init →
+      checkout → webhook → re-verification → activation end-to-end.
+- [x] 🟡 **Renewal test** — ✅ PASSED LIVE (past_due on failure, extend on
+      success) after the [BUG-2] fix.
 - [ ] 🔴 **At launch only**: swap `plans.provider_price_id` to **live** codes +
       `PAYSTACK_SECRET_KEY=sk_live_...` (function secret). Do the full loop once
       with a real card.
@@ -116,8 +114,8 @@ Legend: 🔴 must do · 🟡 recommended · 🟢 optional
 
 ## H · Cleanup / security
 
-- [ ] 🟡 Drop the renamed legacy table (0 rows, foreign shape, unreferenced):
-      `DROP TABLE public.audit_logs_legacy;`
+- [x] 🟡 Drop the renamed legacy table — ✅ DONE 2026-08-18 (0 rows, foreign
+      shape; `drop table public.audit_logs_legacy` + `to_regclass` → null).
 - [ ] 🟡 Revoke the surplus `cfut_` Cloudflare token (broader scopes, rejected
       by the MCP endpoint; keep `cfat_`).
 - [ ] 🟡 Post-deploy Sentry smoke: trigger a frontend error + a worker error →
