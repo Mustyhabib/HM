@@ -346,7 +346,17 @@ In progress / next:
       Institute <no-reply@hmtrade-business.com>", custom SMTP recommended) →
       pick a transactional provider for the 3 [bracket]-placeholder templates.
   ⏳ Cloudflare domain + SSL setup
-  ⏳ Worker Railway deployment (production env vars)
+  ✅ Worker Railway deployment 2026-08-19 — LIVE on Railway service "HM"
+      (project dynamic-tranquility). Deploy b014355f SUCCESS, worker polling
+      Supabase, health endpoint /health responding. Fixed en route:
+      [BUG-RW-1] health.py bound 127.0.0.1 — Railway probes from outside the
+      container so loopback is unreachable (health.py + config.py + main.py:
+      default 0.0.0.0 with WORKER_HEALTH_HOST override); [BUG-RW-2] Railway
+      dashboard drift — dockerfilePath was "/hm-worker" (bogus) instead of
+      "Dockerfile"; [BUG-RW-3] Railway healthcheck probes the PORT env var by
+      convention — was unset so probe hit the wrong port ("service
+      unavailable"); fixed by setting PORT=9100 via set-variables. Sprint
+      commit 162f178.
   ⏳ Launch prep — CODE SHIPPED via pipeline (ownership & contact footprint:
       lib/company.ts registrant source, SiteFooter on every page, Terms §14 +
       Privacy §12 registrant blocks, RunView operator line, admin About/System
