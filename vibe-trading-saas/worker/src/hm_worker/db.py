@@ -109,17 +109,27 @@ class RunQueue:
         Best-effort: if the connection drops, the fallback poll timeout in
         ``run_forever`` still claims runs (just with higher latency). The
         channel auto-reconnects by default.
+
+        The ``supabase-py`` client used here is the SYNC client, whose
+        ``realtime`` accessor raises ``NotImplementedError`` for channel
+        creation (live-observed, non-fatal) — sync realtime support isn't
+        implemented in this SDK version. Swallow that (and anything else
+        this best-effort path can raise) and fall back to polling; the
+        polling loop is the documented, always-correct fallback by design.
         """
-        channel = self._client.realtime.channel("worker-queue")
-        channel.on_postgres_changes(
-            event="INSERT",
-            schema="public",
-            table="agent_runs",
-            callback=lambda payload: wake.set(),
-        )
-        channel.subscribe()
-        self._realtime_channel = channel
-        log.info("subscribed to Realtime on agent_runs (instant wake)")
+        try:
+            channel = self._client.realtime.channel("worker-queue")
+            channel.on_postgres_changes(
+                event="INSERT",
+                schema="public",
+                table="agent_runs",
+                callback=lambda payload: wake.set(),
+            )
+            channel.subscribe()
+            self._realtime_channel = channel
+            log.info("subscribed to Realtime on agent_runs (instant wake)")
+        except Exception:  # noqa: BLE001
+            log.debug("realtime wake unavailable (sync client); polling only", exc_info=True)
 
     def unsubscribe(self) -> None:
         """Tear down the Realtime channel if one exists."""
