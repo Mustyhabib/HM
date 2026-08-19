@@ -92,11 +92,18 @@ export const fixtures = {
     };
   },
 
-  /** subscription.charge — renewal succeeded (modern Paystack renewal event). */
-  subscriptionChargePaid(code, nextDate = "2026-10-17T10:00:00.000Z") {
+  /**
+   * subscription.charge — renewal succeeded (modern Paystack renewal event).
+   * data.id is a distinct id per renewal ATTEMPT (Paystack fires one of these
+   * per attempt over a subscription's lifetime) — required so the paid and
+   * failed attempts below don't collapse onto the same dedupe key. Defaults
+   * to a value derived from `code` but callers can pass a real attempt id.
+   */
+  subscriptionChargePaid(code, nextDate = "2026-10-17T10:00:00.000Z", id = `evt_${code}_charge_paid`) {
     return {
       event: "subscription.charge",
       data: {
+        id,
         subscription_code: code,
         status: "success",
         next_payment_date: nextDate,
@@ -104,22 +111,28 @@ export const fixtures = {
     };
   },
 
-  /** subscription.charge — renewal failed. */
-  subscriptionChargeFailed(code) {
+  /** subscription.charge — renewal failed. See subscriptionChargePaid re: data.id. */
+  subscriptionChargeFailed(code, id = `evt_${code}_charge_failed`) {
     return {
       event: "subscription.charge",
       data: {
+        id,
         subscription_code: code,
         status: "failure",
       },
     };
   },
 
-  /** invoice.update — renewal paid (nested under data.subscription, legacy shape). */
-  invoiceUpdatePaid(code, nextDate = "2026-10-17T10:00:00.000Z") {
+  /**
+   * invoice.update — renewal paid (nested under data.subscription, legacy
+   * shape). data.id is a distinct id per renewal ATTEMPT — see
+   * subscriptionChargePaid re: why this must vary across attempts.
+   */
+  invoiceUpdatePaid(code, nextDate = "2026-10-17T10:00:00.000Z", id = `evt_${code}_invoice_paid`) {
     return {
       event: "invoice.update",
       data: {
+        id,
         paid: true,
         subscription: {
           subscription_code: code,
@@ -129,11 +142,12 @@ export const fixtures = {
     };
   },
 
-  /** invoice.update — renewal failed. */
-  invoiceUpdateFailed(code) {
+  /** invoice.update — renewal failed. See invoiceUpdatePaid re: data.id. */
+  invoiceUpdateFailed(code, id = `evt_${code}_invoice_failed`) {
     return {
       event: "invoice.update",
       data: {
+        id,
         paid: false,
         subscription: {
           subscription_code: code,

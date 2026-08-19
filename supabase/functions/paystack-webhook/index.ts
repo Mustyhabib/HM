@@ -128,7 +128,17 @@ serve(async (req: Request) => {
     event.data?.subscription?.subscription_code ??
     event.data?.id ??
     "unknown";
-  const dedupeKey = event.data?.reference ?? `${event.event}::${subCode}`;
+  // Distinguish renewal ATTEMPTS. subscription.charge and invoice.update fire
+  // once per renewal attempt over a subscription's lifetime (paid OR failed,
+  // each with its own data.id) — without an attempt component, every attempt
+  // for the same subscription collapses onto one key and only the first
+  // attempt ever processed (later failures silently dropped as "duplicate").
+  // subscription.create/disable carry no data.id, so their keys are unchanged.
+  const attemptId =
+    event.data?.id ?? event.data?.invoice?.id ?? event.data?.transaction?.id ?? null;
+  const dedupeKey =
+    event.data?.reference ??
+    `${event.event}::${subCode}${attemptId ? `::${attemptId}` : ""}`;
 
   const { error: insertError } = await supabase.from("webhook_events").insert({
     provider_event_id: dedupeKey,

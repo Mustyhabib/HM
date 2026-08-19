@@ -109,14 +109,21 @@ function assertInvoiceUpdateShape(evt) {
 // Mirrors the webhook's own dedupe key derivation — used to sanity-check
 // idempotency behavior offline, and to build REST filters live.
 // Must stay in sync with index.ts: subscription codes may be nested
-// (invoice.update carries data.subscription.subscription_code).
+// (invoice.update carries data.subscription.subscription_code), and
+// subscription.charge / invoice.update need an attempt component (data.id)
+// so each renewal attempt gets its own key — see index.ts for why.
 function deriveDedupeKey(evt) {
   const subCode =
     evt.data?.subscription_code ??
     evt.data?.subscription?.subscription_code ??
     evt.data?.id ??
     "unknown";
-  return evt.data?.reference ?? `${evt.event}::${subCode}`;
+  const attemptId =
+    evt.data?.id ?? evt.data?.invoice?.id ?? evt.data?.transaction?.id ?? null;
+  return (
+    evt.data?.reference ??
+    `${evt.event}::${subCode}${attemptId ? `::${attemptId}` : ""}`
+  );
 }
 
 // ── --fixtures mode ──────────────────────────────────────────────────────
@@ -162,6 +169,36 @@ async function runFixtures() {
   }
 
   console.log(`\n${cases.length - failures}/${cases.length} fixtures passed shape + signature checks.`);
+
+  // ── Renewal-attempt collision regression (BUG-2) ──────────────────────
+  // The bug this guards against: subscription.charge and invoice.update fire
+  // once per renewal ATTEMPT (paid or failed) for the SAME subscription code.
+  // Reusing "${event}::${subCode}" as the dedupe key made every attempt for
+  // a subscription collapse onto one webhook_events row, so a failed renewal
+  // after a paid one was silently dropped as "already processed". Exercise
+  // the exact collision shape here — same code, paid then failed — and
+  // assert the derived keys differ.
+  console.log("\n── renewal-attempt dedupe key collision check (same subscription code) ──");
+  const collisionCode = "SUB_e2e_collision_check";
+  const collisionPairs = [
+    ["subscription.charge", fixtures.subscriptionChargePaid(collisionCode), fixtures.subscriptionChargeFailed(collisionCode)],
+    ["invoice.update", fixtures.invoiceUpdatePaid(collisionCode), fixtures.invoiceUpdateFailed(collisionCode)],
+  ];
+  for (const [label, paidEvt, failedEvt] of collisionPairs) {
+    const paidKey = deriveDedupeKey(paidEvt);
+    const failedKey = deriveDedupeKey(failedEvt);
+    console.log(`  ${label}: paid=${paidKey}`);
+    console.log(`  ${label}: failed=${failedKey}`);
+    try {
+      assert.notEqual(paidKey, failedKey, `${label}: paid and failed attempts must not share a dedupe key`);
+      console.log(`  PASS  ${label} paid/failed keys differ`);
+    } catch (err) {
+      failures++;
+      console.log(`  FAIL  ${label}`);
+      console.log(`        ${err.message}`);
+    }
+  }
+
   if (failures > 0) {
     console.error(`\n${failures} fixture check(s) failed.`);
     process.exit(1);
