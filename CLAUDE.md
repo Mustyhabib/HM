@@ -365,7 +365,19 @@ In progress / next:
       templates in Supabase Dashboard → Auth → Emails (sender "H~M Trading
       Institute <no-reply@hmtrade-business.com>", custom SMTP recommended) →
       pick a transactional provider for the 3 [bracket]-placeholder templates.
-  ⏳ Cloudflare domain + SSL setup
+  ✅ Cloudflare domain + SSL — LIVE 2026-08-19: zone hmtrade.business active
+      (CF acct Mustyhabib9@gmail.com; NS destiny+stanley.ns.cloudflare.com,
+      switched at the Vercel registrar — domain is Vercel-registered but
+      under a DIFFERENT Vercel account than the API token). Proxied CNAMEs
+      @ + www → cname.vercel-dns.com, SSL Full (strict) via dashboard,
+      Universal SSL issued (GTS cert). Site serves through CF (browser
+      verified: login loads). Pitfalls captured: CF token
+      (MCP_CLOUDFLARE_API_KEY) CANNOT create zones or change zone settings
+      (dashboard-only; DNS:Edit works); zone wizard imports bogus A records
+      (216.198.79.1 etc.) that MUST be deleted before NS switch; Browser
+      Integrity Check default-ON → curl gets 1010 while browsers pass —
+      recommend turning BIC OFF (Security → Settings) so server clients
+      aren't blocked.
   ✅ Worker Railway deployment 2026-08-19 — LIVE on Railway service "HM"
       (project dynamic-tranquility). Deploy b014355f SUCCESS, worker polling
       Supabase, health endpoint /health responding. Fixed en route:
