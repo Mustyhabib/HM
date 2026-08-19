@@ -1,10 +1,11 @@
 """Minimal stdlib HTTP health endpoint — no framework, no new dependency.
 
 Railway has no way to healthcheck a worker with no HTTP surface. This adds
-just enough of one: ``GET /health`` on a daemon thread, bound to loopback
-only. The endpoint carries no sensitive data (queue depth, a timestamp,
-version), so loopback-only is about not exposing a needless port rather than
-protecting a secret.
+just enough of one: ``GET /health`` on a daemon thread. Default bind is
+``0.0.0.0`` so Railway's healthcheck probe can reach it (Railway checks from
+outside the container). The endpoint carries no sensitive data (queue depth,
+a timestamp, version). Override the host via ``WORKER_HEALTH_HOST`` if you
+want loopback-only for local development.
 """
 
 from __future__ import annotations
@@ -79,7 +80,7 @@ class HealthServer:
     worker").
     """
 
-    def __init__(self, status_fn: StatusFn, host: str = "127.0.0.1", port: int = 9100) -> None:
+    def __init__(self, status_fn: StatusFn, host: str = "0.0.0.0", port: int = 9100) -> None:
         self._status_fn = status_fn
         self._host = host
         self._port = port

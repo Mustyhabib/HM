@@ -243,7 +243,7 @@ def main() -> int:
     set_progress_push(lambda run_id, msg, itr: queue.progress(run_id, msg, itr))
 
     state = _LiveState()
-    health = HealthServer(state.snapshot, port=config.health_port)
+    health = HealthServer(state.snapshot, host=config.health_host, port=config.health_port)
     health.start()  # best-effort — logs a warning and continues if the bind fails
     try:
         run_forever(config, queue, runner, stop, artifacts, state)

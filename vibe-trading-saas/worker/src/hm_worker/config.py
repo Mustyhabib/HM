@@ -61,6 +61,7 @@ class Config:
     # sentry_dsn: manual per-env setup in sentry.io (D-M1: DSN-driven, fail-open).
     # health_port: stdlib HTTP health endpoint (see health.py).
     sentry_dsn: str | None = None
+    health_host: str = "0.0.0.0"
     health_port: int = 9100
 
     def __repr__(self) -> str:  # pragma: no cover - defensive, keeps the key out of logs
@@ -68,7 +69,8 @@ class Config:
             f"Config(supabase_url={self.supabase_url!r}, worker_id={self.worker_id!r}, "
             f"poll_interval_seconds={self.poll_interval_seconds}, "
             f"run_timeout_seconds={self.run_timeout_seconds}, "
-            f"execute_tradi={self.execute_tradi}, health_port={self.health_port}, "
+            f"execute_tradi={self.execute_tradi}, health_host={self.health_host}, "
+            f"health_port={self.health_port}, "
             f"sentry_dsn={'<redacted>' if self.sentry_dsn else None}, "
             f"service_role_key=<redacted>)"
         )
@@ -92,5 +94,6 @@ def load_config() -> Config:
         tradi_command=os.environ.get("WORKER_TRADI_COMMAND", "").strip() or "vibe-trading",
         runs_root=os.environ.get("WORKER_RUNS_ROOT", "").strip() or "/var/vibe-runs",
         sentry_dsn=os.environ.get("SENTRY_DSN", "").strip() or None,
+        health_host=os.environ.get("WORKER_HEALTH_HOST", "").strip() or "0.0.0.0",
         health_port=_int("WORKER_HEALTH_PORT", 9100),
     )
