@@ -2,6 +2,86 @@
 
 ## Research Workflow
 
+> **Proposed pipeline (2026-08-21)** — the visual form of the steps below,
+> with the research feedback loop made explicit. Mirrored at
+> `docs/INFRASTRUCTURE.md` (the infrastructure this pipeline runs on) and the
+> wiki [[workflow]] page.
+
+```text
+USER QUESTION
+    │
+    ▼
+AI RESEARCH AGENT
+    │
+    ▼
+FORMAL HYPOTHESIS
+    │
+    ▼
+EXPERIMENT SPEC
+    │
+    ▼
+DATA REQUIREMENTS
+    │
+    ▼
+DATA SNAPSHOT
+    │
+    ▼
+FEATURE PIPELINE
+    │
+┌───┼───┐
+▼   ▼   ▼
+BASELINE  ML  RL
+│   │   │
+└───┼───┘
+    ▼
+BACKTEST ENGINE
+    │
+    ▼
+COST / SLIPPAGE
+    │
+    ▼
+WALK-FORWARD
+    │
+    ▼
+UNTOUCHED TEST SET
+    │
+    ▼
+PASS / FAIL
+    │
+┌───┴───┐
+▼       ▼
+FAIL   PASS
+        │
+        ▼
+      PAPER
+        │
+        ▼
+  SHADOW LIVE
+        │
+        ▼
+   PROMOTION
+        │
+        ▼
+      LIVE
+        │
+        ▼
+RECONCILIATION
+        │
+        ▼
+PERFORMANCE DATA
+        │
+        ▼
+RESEARCH FEEDBACK  ────► (new question → new hypothesis)
+```
+
+**Key properties:**
+- **Untouched test set** is the gate: PASS/FAIL is decided on data the
+  experiment never trained/tuned on (no look-ahead, constitution #5).
+- **FAIL is a first-class outcome** — it feeds back to research, not forward
+  to paper.
+- **Closed loop:** LIVE → RECONCILIATION → PERFORMANCE DATA → RESEARCH
+  FEEDBACK → new research (observed performance drives new questions).
+
 ### Step 1 — Question
 Capture the question in natural language.
 
