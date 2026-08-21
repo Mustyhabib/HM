@@ -11,6 +11,7 @@ import {
   Search,
   Layers,
   Paperclip,
+  Plus,
   X as CloseIcon,
   FileSpreadsheet,
   FileJson,
@@ -26,6 +27,7 @@ import {
   type RunAttachment,
 } from "@/lib/runs";
 import { getApiKeyStatus, type ApiKeyStatus } from "@/lib/apikeys";
+import { SwarmPresetPicker } from "@/components/chat/SwarmPresetPicker";
 
 /**
  * The Agent workspace is the single research entry point. A prompt is queued
@@ -118,6 +120,10 @@ export function Agent() {
   const [attachments, setAttachments] = useState<RunAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
 
+  // Swarm preset panel — inline "+" toggle next to the send button (formerly
+  // the standalone /teams page, folded in 2026-08-21).
+  const [swarmOpen, setSwarmOpen] = useState(false);
+
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
   const [subscriptionLoaded, setSubscriptionLoaded] = useState(false);
   const [subscriptionError, setSubscriptionError] = useState(false);
@@ -205,6 +211,7 @@ export function Agent() {
     async (raw: string) => {
       const prompt = raw.trim();
       if (!prompt || starting || blocked) return;
+      setSwarmOpen(false);
       setStarting(true);
       setError(null);
       try {
@@ -283,6 +290,20 @@ export function Agent() {
           )}
         </div>
       )}
+
+      {/* ─── Swarm preset picker — sibling of the prompt form, never nested
+           inside it (its search/var inputs must not trigger the prompt
+           form's Enter-to-submit) ─── */}
+      <SwarmPresetPicker
+        open={swarmOpen}
+        onClose={() => setSwarmOpen(false)}
+        isPro={isPro}
+        subscriptionLoaded={subscriptionLoaded}
+        onStarted={(runId) => {
+          setSwarmOpen(false);
+          navigate(`/run/${runId}`);
+        }}
+      />
 
       {/* ─── Prompt box ─── */}
       <div className="gradient-border glow-pulse rounded-2xl">
@@ -393,6 +414,25 @@ export function Agent() {
                 )}
               </button>
 
+              {/* Swarm presets — inline team launcher */}
+              <button
+                type="button"
+                onClick={() => setSwarmOpen((prev) => !prev)}
+                disabled={starting || blocked}
+                className={cn(
+                  "flex h-11 w-11 items-center justify-center rounded-xl border transition",
+                  swarmOpen
+                    ? "border-primary/50 bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/8",
+                  "disabled:opacity-40 disabled:cursor-not-allowed",
+                )}
+                aria-label="Swarm presets"
+                aria-expanded={swarmOpen}
+                title="Deploy a specialist team"
+              >
+                <Plus className={cn("h-4 w-4 transition-transform", swarmOpen && "rotate-45")} />
+              </button>
+
               {/* Send */}
               <button
                 type="submit"
@@ -430,12 +470,14 @@ export function Agent() {
         )}
       </div>
 
-      {/* ─── Teams CTA — Pro & Premium ─── */}
+      {/* ─── Teams CTA — Pro & Premium — opens the inline swarm panel above
+           (formerly a Link to the standalone /teams page) ─── */}
       <div className="mt-8">
-        <Link
-          to="/teams"
+        <button
+          type="button"
+          onClick={() => setSwarmOpen(true)}
           className={cn(
-            "group flex items-center justify-between gap-4 rounded-xl border p-4 transition",
+            "group flex w-full items-center justify-between gap-4 rounded-xl border p-4 text-left transition",
             isPro
               ? "border-primary/25 bg-gradient-to-r from-primary/8 via-secondary/5 to-transparent hover:border-primary/45 hover:from-primary/12"
               : "border-border bg-card/60 hover:border-primary/30",
@@ -462,7 +504,7 @@ export function Agent() {
           <span className="hidden shrink-0 items-center gap-1 text-xs font-medium text-primary transition group-hover:translate-x-0.5 sm:inline-flex">
             Browse teams →
           </span>
-        </Link>
+        </button>
       </div>
 
       {/* ─── Example prompts — shown as mini conversations ─── */}

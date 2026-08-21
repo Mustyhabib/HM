@@ -3,7 +3,6 @@ import { Link, Outlet, useLocation } from "react-router";
 import {
   Home,
   Bot,
-  Users,
   Radio,
   BookOpen,
   Settings,
@@ -27,7 +26,6 @@ import { useTheme } from "@/lib/theme";
 const NAV_ITEMS = [
   { to: "/dashboard", icon: Home,     label: "Home"     },
   { to: "/agent",     icon: Bot,      label: "Agent"    },
-  { to: "/teams",     icon: Users,    label: "Teams"    },
   { to: "/signals",   icon: Radio,    label: "Signals"  },
   { to: "/usage",     icon: BookOpen, label: "Usage"    },
   { to: "/settings",  icon: Settings, label: "Settings" },
