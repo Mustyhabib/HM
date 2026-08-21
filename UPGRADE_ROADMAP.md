@@ -5,8 +5,15 @@
 >
 > **Relationship to other docs:** `CLAUDE.md` remains the source of truth for the
 > *current live system* until each phase lands. This file owns the *target* and the
-> *migration path*. `Build_Plan.md` is the superseded MVP blueprint (kept for
-> history). ADRs in `CLAUDE.md` are updated **only as a phase lands**, never ahead of it.
+> *migration path*. `Build_Plan.md` is the superseded MVP blueprint (kept for history).
+> ADRs in `CLAUDE.md` are updated **only as a phase lands**, never ahead of it.
+>
+> **Synthesis note:** this roadmap is the harmonization of two inputs — the
+> 10-phase build skeleton (`ROADMAP.md`, from the design discussions) and the
+> upgrade-specific plan (this file's predecessor, with HM's live-state constraints).
+> The skeleton adopted is the 10-phase one; the upgrade invariants (strangler-fig,
+> verification gates, provenance-first) are woven into every phase. The one timing
+> conflict — where research governance sits — is resolved in Phase 1/Phase 4 below.
 
 ---
 
@@ -108,16 +115,19 @@ primarily about **closing the rigor gap**, not adding surface area.
 `AI → hypothesis → strategy → backtest → "great result" → optimize → "even better" → paper`
 produces *beautiful garbage*. Once a result has been seen, the test set is no longer clean.
 The fix is **pre-registration + immutable out-of-sample data + full provenance** — the
-subject of Phase 1.
+scientific substrate laid in Phase 1, fully exercised in Phase 4.
 
 ---
 
-## 4. Recorded decisions (this planning session)
+## 4. Recorded decisions
 
 | Decision | Choice |
 |---|---|
 | First upgrade slice | **Research governance + experiment registry (reproducibility)** |
-| Architecture direction | **Adopt the full `ARCHITECTURE.md` target now** — FastAPI app + Redis + data lake + workers |
+| Architecture direction | **Adopt the full `ARCHITECTURE.md` target** — FastAPI app + Redis + data lake + workers |
+| Roadmap skeleton | **Harmonized 10-phase skeleton** (Phase 0–10), upgrade invariants woven in |
+| Compute hosting | **Railway today** (FastAPI + engine worker, one container, two processes) |
+| Edge unification | **Cloudflare unifies the edge, not the compute** — see §6. Workers cannot run the engine |
 | Session output | This written roadmap doc, committed (planning only — no code) |
 
 ### How "full target now" and "never break it" reconcile
@@ -125,13 +135,12 @@ subject of Phase 1.
 The destination is the full target. The **migration** is a *strangler fig*: stand up the
 new architecture **beside** the live system, move domains into it one at a time, and cut
 over only when each domain is proven. The live run loop keeps running on the current
-Supabase + worker path until the new experiment pipeline can reproduce it faithfully.
+Supabase + worker path until the new pipeline can reproduce it faithfully.
 
 - **Additive only.** New services/tables/buckets. No destructive rewrites.
 - **Domain boundaries enforced from Phase 1**, so we never accrete a monolith we later
-  have to break apart. Modular-monolith boundaries *within* the target, even though the
-  target includes multiple infra pieces.
-- **Fail closed, always.** The new layers must refuse unsafe action rather than guess.
+  have to break apart — modular-monolith boundaries *within* the target.
+- **Fail closed, always.** The new layers refuse unsafe action rather than guess.
 
 ---
 
@@ -152,24 +161,40 @@ Supabase + worker path until the new experiment pipeline can reproduce it faithf
 
 ---
 
-## 6. Target infrastructure mapping
+## 6. Target infrastructure — two planes, one control plane
 
-The `ARCHITECTURE.md` target, mapped onto the existing Supabase / Vercel / Railway /
-Cloudflare stack (no AWS lock-in; consistent with the team's infra posture).
+The target, mapped onto the existing Supabase / Vercel / Railway / Cloudflare stack
+(no AWS lock-in; consistent with the team's infra posture).
 
-| ARCHITECTURE.md concern | Target mapping |
-|---|---|
-| Web / PWA | Vercel (`Tradi/frontend/`) — already live |
-| Edge / WAF | Cloudflare — already live |
-| API + Auth | **New FastAPI application** (modular monolith, domain boundaries) on Railway; Supabase Auth stays |
-| PostgreSQL (transactional truth) | Supabase Postgres — already live |
-| Redis (queue/cache/realtime coord) | **New** — Upstash or Railway Redis (replaces `FOR UPDATE SKIP LOCKED` polling when scale demands) |
-| Object storage + Parquet (data lake) | **New** — Cloudflare R2 (or Supabase Storage initially); DuckDB/Polars worker-side |
-| Background workers | Railway — existing `hm-worker` evolves into the experiment/backtest/paper job runner |
-| Prometheus / Grafana | **New** — Grafana Cloud free tier; Sentry (already live) covers errors |
+| Plane | Provider | Pieces |
+|---|---|---|
+| **Control plane (edge)** | Cloudflare | DNS/WAF/SSL (live) · Workers API gateway (Phase 1+) · Queues (when justified) · R2 data lake (Phase 2) |
+| **Compute plane** | Railway (today) → VPS/Fly.io *only when justified* | FastAPI app + engine worker — **one container, two processes** |
+| **Data plane (transactional)** | Supabase | Postgres 17, Auth, Storage, Vault, Realtime (all live) |
+| **Frontend** | Vercel | `Tradi/frontend` SPA (live) |
+| **Observability** | Sentry (live) → + Grafana Cloud (Phase 9) | errors now; metrics later |
+| **Billing** | Paystack | test mode until launch |
 
-**Deferred on purpose:** do not buy large data packages, do not migrate ticks into the
-lake, do not stand up Kafka/Redpanda — until a phase actually requires it (Phase 2+).
+### Why Cloudflare Workers cannot host the engine (recorded decision)
+
+Cloudflare Workers run in **V8 isolates**: JavaScript/Wasm only (Python exists only via
+experimental Pyodide — no C-extension deps, no subprocess, no arbitrary filesystem),
+hard **CPU-time caps** (≈30 s on paid plans, far less on free) per invocation, and no
+long-lived processes. The Tradi engine is a **multi-minute Python subprocess per run**
+(LLM agent loop, backtests, isolated HOME dirs, heavy data loaders). It cannot run there —
+every run would hit the CPU cap.
+
+**Cloudflare unifies the edge, not the compute.** What Cloudflare genuinely *should* own:
+DNS/WAF/SSL (already live), a thin Workers API gateway in front of the FastAPI app,
+Cloudflare Queues as the job queue (enqueue at the edge, consume in the Python worker),
+and R2 as the Parquet data lake. The FastAPI app + engine worker stay on the compute plane
+(Railway at ~$5/mo today; a VPS/Fly.io only when cost or constraints justify the move —
+**not** for unification aesthetics while the deploy is working).
+
+### Deferred on purpose
+
+Do not buy large data packages · do not migrate ticks into the lake · do not stand up
+Kafka/Redpanda · do not move compute off Railway until a phase justifies it.
 
 ---
 
@@ -186,86 +211,116 @@ Directional matrix (the exhaustive file-level inventory is Phase 0's first deliv
 | `Tradi/` backtest engines / loaders / optimizers | **KEEP → EXTRACT** | Behind a common `ExecutionInterface` |
 | `Tradi/` broker connectors / paper / shadow account | **KEEP → MODIFY** | Behind Risk → OMS → Execution boundary |
 | Supabase (auth/billing/storage/realtime) | **KEEP** | Transactional truth + control plane |
-| `vibe-trading-saas/worker` | **KEEP → MODIFY** | Job/experiment runner (gains provenance capture) |
-| Research governance (hypotheses, experiment registry, dataset registry, promotion) | **NEW** | The #1 missing piece — Phase 1 |
+| `vibe-trading-saas/worker` | **KEEP → MODIFY** | Compute-plane runner (gains provenance capture) |
+| Research governance (hypotheses, experiment registry, dataset registry, promotion) | **NEW** | Substrate in Phase 1, workflow in Phase 4 |
 | Canonical versioned data + point-in-time | **NEW** | Data platform — Phase 2 |
 | Deterministic quant engine (strategy SDK, exchange simulator, execution models) | **NEW** | Quant core — Phase 3 |
-| Risk engine (strategy/platform/venue limits) | **NEW** | Hard boundary — Phase 4 |
-| OMS (order intents, idempotency, reconciliation) | **NEW** | Execution safety — Phase 4 |
-| ML / RL platform (datasets, training, eval, registry) | **NEW** | Late, research-only — Phase 3+ / deferred |
-| Observability, quotas, technical billing | **NEW** | Phase 5 |
+| Risk engine (strategy/platform/venue limits) | **NEW** | Hard boundary — Phase 6 |
+| OMS (order intents, idempotency, reconciliation) | **NEW** | Execution safety — Phase 6 |
+| ML / RL platform (datasets, training, eval, registry) | **NEW** | Phases 5 / 7 — research-only |
+| Workers API gateway, Queues, R2 lake | **NEW** | Control plane — Phases 1–2 |
+| Observability, quotas, metered billing | **NEW** | Cross-cutting → Phase 9 |
 
 ---
 
-## 8. Phased migration
+## 8. Harmonized phased migration (Phase 0–10)
 
 Each phase is **independently shippable and reversible**. The gate for every phase:
 **the live run loop (prompt → run → result) must still pass end-to-end after the phase lands.**
+Status marks refer to the HM repo today.
 
-### Phase 0 — Recon & freeze (blueprint)
-- **Goal:** produce the concrete migration order, not guesses from the README.
-- **Deliverable:** file/module inventory → `KEEP / MODIFY / MOVE / DELETE / NEW` matrix with
-  target location, dependencies, and migration order.
-- **Scope:** `agent/`, `backtest/`, broker connectors, MCP, frontend, storage, swarm,
-  tests, Docker/deploy, existing security boundaries.
-- **Must not touch:** any live path. Read-only inventory.
-- **Verify:** the matrix is committed and reviewed before Phase 1 starts.
+### Phase 0 — Baseline & freeze [~80% done]
+- **Delivers:** fork/clone ✅ (Tradi vendored) · running ✅ · commit recorded ✅ (`1907e47`)
+  · inventory 🔲 (exhaustive file-level `KEEP / MODIFY / MOVE / DELETE / NEW` matrix +
+    migration order) · branch strategy 🔲 (upgrade work on feature branches off `main`)
+  · project constitution 🔲 (commit `PROJECT.md / DATA.md / ARCHITECTURE.md / WORKFLOW.md`
+    + this roadmap into the repo).
+- **Must not touch:** any live path. Read-only inventory + docs.
+- **Gate:** matrix + constitution committed and reviewed before Phase 1.
 
-### Phase 1 — Research governance + experiment registry (FIRST SLICE)
-- **Goal:** make every experiment reproducible and pre-registrable. Attack overfitting.
-- **What lands:**
-  - **FastAPI application** (modular monolith) stood up as a *new* Railway service, owning
-    the **Research** domain: hypotheses, experiment registry, dataset registry, validation,
-    promotion, rejection, provenance.
-  - **New Postgres schema** (additive, in Supabase): `hypotheses`, `experiments`,
-    `dataset_registry`, promotion/validation event tables. Link to existing `agent_runs`
-    via a non-breaking reference (new mapping table / nullable FK) — **no change to existing
-    RPCs or worker critical path.**
-  - **Provenance capture** on every run (see §9 for the exact field list).
-  - **Redis** skeleton (queue/cache) and **data lake** skeleton (R2 bucket + Parquet layout)
-    stood up but minimally populated — proving the infra shape, not moving data yet.
-- **Must not break:** `start_agent_run` / `start_swarm_run` / `start_shadow_run` RPCs,
-  worker claim loop, artifact upload, Realtime UI. The existing loop keeps running unchanged;
-  provenance is written *alongside* it, not instead of it.
-- **Verify:**
-  - Live loop passes end-to-end (the existing verification recipe).
-  - A completed run carries a full provenance record that can be re-read 6 months later.
-  - New schema has RLS on every user-facing table; registry access is tenant-scoped.
-  - FastAPI service is up, health-checked, and behind the existing auth boundary.
+### Phase 1 — Foundation (typed schemas · auth · tenants · jobs · **provenance substrate**)
+- **Delivers:** FastAPI modular monolith stood up (same Railway container as the worker,
+  two processes); typed Pydantic domain schemas; Supabase Auth JWT validation in FastAPI;
+  **tenant projects/orgs model** (projects scope experiments/datasets/strategies);
+  **research-governance substrate**: `hypotheses`, `experiments`, `dataset_registry`,
+  `promotion_events` tables + provenance fields on runs (the chosen first slice — schema
+  + capture now, full workflow in Phase 4); audit events extended; job system keeps
+  `agent_runs` + poll loop, gains typed kinds; observability start (structured logs +
+  Sentry already live); Redis skeleton **only if queue contention is measured** (default:
+  defer).
+- **Must not break:** `start_agent_run / start_swarm_run / start_shadow_run` RPCs, worker
+  claim loop, artifact upload, Realtime UI. Provenance is written *alongside* the loop,
+  not instead of it.
+- **Gate:** run loop E2E green · every completed run carries a full provenance record ·
+  new schema RLS-scoped · FastAPI health behind auth.
 
-### Phase 2 — Canonical data + point-in-time
-- **Goal:** treat market data as a versioned scientific dependency.
-- **What lands:** versioned dataset store (object storage + Parquet), data catalog
-  (provider / venue / coverage / timezone / timestamp semantics / adjustment policy /
-  corporate-action policy / PIT capability / license / version / quality score),
-  bitemporal fields (`event_time` + `knowledge_time`).
-- **Scope:** **one asset class first.** Prove quality + pipeline before expanding.
-- **Must not break:** existing engine data loaders keep working; the catalog is additive.
+### Phase 2 — Data (canonical market data)
+- **Delivers:** canonical market-data schema · feed adapters · raw/normalized layers ·
+  data-quality checks · dataset registry (substrate from P1) · **Parquet pipeline to R2** ·
+  initial Feature layer · **point-in-time / bitemporal** (`event_time` + `knowledge_time`) ·
+  data catalog with license/entitlement metadata · **one asset class first**; do not buy
+  large data packages.
+- **Must not break:** existing engine data loaders keep working; catalog is additive.
+- **Gate:** PIT invariant enforced at the data layer (`knowledge_time ≤ decision time`) ·
+  catalog answers dataset provenance · loop green.
 
-### Phase 3 — Quant core + realistic backtest
-- **Goal:** a deterministic quant engine that exists independently of AI.
-- **What lands:** strategy SDK (rule-based / ML / RL / hybrid), exchange simulator,
-  execution models, **one `ExecutionInterface`** with `BacktestExecutor / PaperExecutor /
-  BrokerExecutor` sharing `submit_order / cancel_order / get_order / get_positions / get_account`.
-- **Rigor:** cost + slippage models, walk-forward, out-of-sample, parameter perturbation,
-  regime analysis, stress testing — wired into the Phase 1 registry.
+### Phase 3 — Quant Engine (deterministic quant core)
+- **Delivers:** strategy SDK (rule-based / ML / RL / hybrid) · execution simulator ·
+  order/position abstractions · portfolio accounting · cost/slippage model · multi-strategy
+  testing · walk-forward evaluation · **one `ExecutionInterface`** with
+  `BacktestExecutor / PaperExecutor / BrokerExecutor` sharing
+  `submit_order / cancel_order / get_order / get_positions / get_account` — existing Tradi
+  engines wrapped behind it.
+- **Rigor:** out-of-sample, parameter perturbation, regime analysis, stress testing — wired
+  into the Phase 1 registry.
+- **Gate:** same strategy runs identically across engines · validation harness reproducible
+  from the registry.
 
-### Phase 4 — Risk → OMS → Execution → reconciliation → paper
-- **Goal:** the hard safety boundary. AI/RL/strategy proposes; risk enforces.
-- **What lands:** two-level risk engine (strategy + platform + venue limits), OMS lifecycle
-  (order intent → validation → idempotency → ack → fills → reconciliation), reconciliation
-  as a first-class subsystem (internal vs broker state, alert on mismatch, fail closed),
-  server-side strategy state (browser is never the authority).
-- **Promotion ladder:** candidate → validated → paper → shadow → approved → live.
+### Phase 4 — Research AI (the governance substrate becomes the workflow)
+- **Delivers:** agent tools · research sessions · **formal hypothesis/spec generation**
+  (the AI produces specifications, not arbitrary behavior) · experiment creation ·
+  reports · provenance end-to-end · promotion ladder
+  (`candidate → validated → paper → shadow → approved → live`).
+- **Must not break:** the research brain (Tradi agent) keeps running; it gains the
+  governance layer, not a rewrite.
+- **Gate:** pre-registered experiments · immutable, untouched test sets · *"why was model
+  v47 promoted?"* is answerable from the registry.
 
-### Phase 5 — Observability + quotas + technical billing
-- **Goal:** scale safely and meter honestly.
-- **What lands:** Prometheus/Grafana, structured logs, resource quotas (CPU/GPU/RAM/storage/
-  LLM tokens/backtest/concurrency/WebSocket), usage metering → billing engine.
+### Phase 5 — ML (baseline first)
+- **Delivers:** dataset builder · feature pipelines · **baseline models before ML** ·
+  training/evaluation · model registry (versioned, immutable once promoted).
+- **Gate:** baseline beats naive · no model promoted without a registry entry
+  (dataset/feature version, windows, seed, cost model).
 
-### Deferred (do not start without explicit instruction)
-RL platform as an edge source (it is a *research capability*, not proof of profit) ·
-Kafka/Redpanda · second+ asset classes · AWS migration · Stripe (international).
+### Phase 6 — Paper Trading (risk · OMS · reconciliation)
+- **Delivers:** realtime data · paper execution · OMS (order intent → validation →
+  idempotency → ack → fills) · **two-level risk engine** (strategy + platform + venue) ·
+  **reconciliation as a first-class subsystem** (internal vs broker state, alert on
+  mismatch, fail closed) · live monitoring · **server-side state authority** (browser is
+  never the source of truth).
+- **Gate:** recon parity · fail-closed on injected uncertain state · loop green.
+
+### Phase 7 — RL (optional; research-only)
+- **Delivers:** market/portfolio environments · reward design · PPO/SAC/DQN experimentation
+  as appropriate · offline evaluation · paper evaluation.
+- **Explicit:** RL is a *research capability*, **not** proof of profitability. Only after
+  the deterministic/ML pipeline is trustworthy.
+
+### Phase 8 — Controlled Live (mandate-gated)
+- **Delivers:** broker adapters · live account management · hardened risk controls ·
+  reconciliation · promotion/approval workflow · emergency controls (kill switch).
+- **Gate:** explicit approval, hard limits, fail-closed, recon parity. Off by default.
+
+### Phase 9 — Scale (only after real usage justifies it)
+- **Delivers:** observability hardening (Prometheus/Grafana) · **resource quotas + metered
+  billing** · separate heavy workers · autoscaling · analytical DB / event bus *if needed* ·
+  multi-AZ · stronger tenant isolation · cost-aware workload scheduling.
+- **Gate:** each step justified by measured demand. No speculative infra.
+
+### Phase 10 — Expansion
+- **Delivers:** more asset classes · richer alternatives data · options · marketplace /
+  collaboration · desktop shell (Tauri, only if native needs emerge) · enterprise APIs /
+  data products.
 
 ---
 
@@ -305,7 +360,7 @@ created_at / actor     # audit
 **Schema sketch (additive, tenant-scoped RLS):**
 
 ```text
-hypotheses        id, user_id, org_id?, statement, falsifiable_criterion, status, created_at
+hypotheses        id, user_id, project_id, statement, falsifiable_criterion, status, created_at
 experiments       id, hypothesis_id, agent_run_id (nullable link), <all provenance fields above>, created_at
 dataset_registry  id, provider, venue, universe, coverage, timezone, timestamp_semantics,
                   adjustment_policy, corporate_action_policy, pit_capability, license,
@@ -319,14 +374,15 @@ promotion_events  experiment_id, from_status, to_status, actor, reason, created_
 
 | Risk | Mitigation |
 |---|---|
-| Overfitting / test-set contamination | Phase 1 pre-registration + immutable out-of-sample + provenance |
+| Overfitting / test-set contamination | Phase 1 substrate + Phase 4 pre-registration, immutable out-of-sample, provenance |
 | Breaking the live run loop | Strangler-fig, additive-only, per-phase end-to-end gate |
 | Look-ahead bias | Phase 2 point-in-time (bitemporal) data as a hard invariant |
-| AI bypassing risk/execution | Phase 4 deterministic risk engine as a hard boundary (fail closed) |
+| AI bypassing risk/execution | Phase 6 deterministic risk engine as a hard boundary (fail closed) |
 | Data-licensing landmines (SaaS redistribution ≠ personal use) | Phase 2 data catalog with license/entitlement fields |
-| Reconciliation drift | Phase 4 reconciliation subsystem; alert + controlled transition, never silent fix |
-| Cost blow-up | Defer data purchases; quotas + metering (Phase 5); one asset class first |
-| Premature microservices | Modular-monolith boundaries; Redis/Kafka only when a phase requires it |
+| Reconciliation drift | Phase 6 reconciliation subsystem; alert + controlled transition, never silent fix |
+| Engine forced into the wrong runtime | §6 decision: Cloudflare = edge only; engine stays on the compute plane |
+| Cost blow-up | Defer data purchases; quotas + metering (Phase 9); one asset class first |
+| Premature microservices | Modular-monolith boundaries; Redis/Queues/Kafka only when a phase requires it |
 
 ---
 
@@ -339,12 +395,14 @@ promotion_events  experiment_id, from_status, to_status, actor, reason, created_
 - **No-look-ahead:** assert `knowledge_time <= simulated decision time` at the data layer.
 - **Fail-closed:** inject uncertain broker/recon state and require refusal, not a guess.
 - **Deploy checks:** `gh api repos/Mustyhabib/HM/commits/<sha>/status` (Vercel + Railway)
-  as the single source of deploy truth.
+  as the single source of deploy truth (note: `gh` CLI must be installed — it is absent
+  from this machine's PATH today).
 
 ---
 
 ## 12. Immediate next step
 
 This session produced this doc (planning only, per decision). The next execution step is
-**Phase 0 — the exhaustive module inventory** — which converts §7's directional matrix into
-the concrete file-level `KEEP / MODIFY / MOVE / NEW` blueprint and migration order.
+**Phase 0 — the exhaustive module inventory + constitution commit** — which converts §7's
+directional matrix into the concrete file-level `KEEP / MODIFY / MOVE / NEW` blueprint and
+migration order.
