@@ -279,8 +279,9 @@ class TradiRunner:
             raise SystemError_(f"Failed to stage attachments: {exc}") from exc
 
         # 3. Build argv per run kind. Swarm dispatch reuses Tradi's
-        #    ``--swarm-run PRESET '{vars_json}'`` legacy CLI (see agent/cli/_legacy.py).
-        argv = self._argv_for(run)
+        #    ``--swarm-run PRESET '{vars_json}'`` legacy CLI (see agent/cli/_legacy.py);
+        #    shadow dispatch passes the journal via the main-parser ``--upload`` flag.
+        argv = self._argv_for(run, run_dir)
 
         log.info(
             "tradi run %s: kind=%s HOME=%s max_iter=%s attachments=%d",
@@ -325,7 +326,7 @@ class TradiRunner:
 
     # -- internals ---------------------------------------------------------
 
-    def _argv_for(self, run: ClaimedRun) -> list[str]:
+    def _argv_for(self, run: ClaimedRun, run_dir: Path) -> list[str]:
         """Pick the right Tradi invocation for the run kind."""
         if run.kind == "swarm":
             if not run.preset_name:
@@ -334,6 +335,24 @@ class TradiRunner:
             # Legacy CLI: `vibe-trading --swarm-run PRESET '{vars}'`.
             # No --json envelope (yet) — we scrape success from exit code + swarm dir.
             return [*self._command, "--swarm-run", run.preset_name, vars_json]
+        if run.kind == "shadow":
+            if not run.attachments:
+                raise SystemError_("shadow run missing journal attachment")
+            att = run.attachments[0]
+            # Safe filename — mirrors _mount_attachments() so the staged path
+            # always matches what the downloader wrote under run_dir/inputs/.
+            safe_name = Path(att.name).name.replace("/", "_") or "journal.csv"
+            journal = run_dir / "inputs" / safe_name
+            # `--upload` is a MAIN-parser flag in agent/cli/_legacy.py — it must
+            # precede the `run` subcommand. The engine agent then runs the
+            # journal → profile → shadow-backtest → report chain via its tools
+            # (analyze_trade_journal / extract_shadow_strategy / ...).
+            return [
+                *self._command,
+                "--upload", str(journal),
+                "run", "-p", run.prompt,
+                "--json", "--no-rich", "--max-iter", str(run.max_iter),
+            ]
         return [
             *self._command,
             "run",
