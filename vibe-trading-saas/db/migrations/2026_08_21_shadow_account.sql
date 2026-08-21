@@ -23,7 +23,7 @@ create or replace function public.start_shadow_run(
   p_prompt          text,
   p_journal_paths   jsonb,
   p_max_iter        integer default 50,
-  p_idempotency_key text
+  p_idempotency_key text default null
 ) returns uuid
   language plpgsql
   security definer
