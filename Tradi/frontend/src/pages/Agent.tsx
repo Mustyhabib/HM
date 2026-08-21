@@ -28,6 +28,7 @@ import {
 } from "@/lib/runs";
 import { getApiKeyStatus, type ApiKeyStatus } from "@/lib/apikeys";
 import { SwarmPresetPicker } from "@/components/chat/SwarmPresetPicker";
+import { ShadowUploadPanel } from "@/components/chat/ShadowUploadPanel";
 
 /**
  * The Agent workspace is the single research entry point. A prompt is queued
@@ -123,6 +124,7 @@ export function Agent() {
   // Swarm preset panel — inline "+" toggle next to the send button (formerly
   // the standalone /teams page, folded in 2026-08-21).
   const [swarmOpen, setSwarmOpen] = useState(false);
+  const [panelTab, setPanelTab] = useState<"teams" | "shadow">("teams");
 
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
   const [subscriptionLoaded, setSubscriptionLoaded] = useState(false);
@@ -291,11 +293,55 @@ export function Agent() {
         </div>
       )}
 
-      {/* ─── Swarm preset picker — sibling of the prompt form, never nested
-           inside it (its search/var inputs must not trigger the prompt
+      {/* ─── Swarm / Shadow launcher — sibling of the prompt form, never nested
+           inside it (its search/var/upload inputs must not trigger the prompt
            form's Enter-to-submit) ─── */}
+      {swarmOpen && (
+        <div className="mb-3">
+          {/* Panel tabs — Specialist teams | Shadow Account */}
+          <div className="-mx-1 mb-3 flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => setPanelTab("teams")}
+              className={cn(
+                "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition",
+                panelTab === "teams"
+                  ? "border-primary/50 bg-primary/12 text-primary"
+                  : "border-border bg-background text-muted-foreground hover:border-primary/30 hover:text-foreground",
+              )}
+            >
+              Specialist teams
+            </button>
+            <button
+              type="button"
+              onClick={() => setPanelTab("shadow")}
+              className={cn(
+                "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition",
+                panelTab === "shadow"
+                  ? "border-primary/50 bg-primary/12 text-primary"
+                  : "border-border bg-background text-muted-foreground hover:border-primary/30 hover:text-foreground",
+              )}
+            >
+              Shadow Account
+            </button>
+          </div>
+
+          {panelTab === "shadow" && (
+            <ShadowUploadPanel
+              open
+              onClose={() => setSwarmOpen(false)}
+              isPremium={isPremium}
+              subscriptionLoaded={subscriptionLoaded}
+              onStarted={(runId) => {
+                setSwarmOpen(false);
+                navigate(`/run/${runId}`);
+              }}
+            />
+          )}
+        </div>
+      )}
       <SwarmPresetPicker
-        open={swarmOpen}
+        open={swarmOpen && panelTab === "teams"}
         onClose={() => setSwarmOpen(false)}
         isPro={isPro}
         subscriptionLoaded={subscriptionLoaded}

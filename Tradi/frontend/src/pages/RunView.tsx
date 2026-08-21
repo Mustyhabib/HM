@@ -475,6 +475,38 @@ function ArtifactLink({ path }: { path: string }) {
   );
 }
 
+/**
+ * Inline preview for HTML run artifacts (e.g. the Shadow Account report).
+ * The engine's report HTML is self-authored and static — sandbox without
+ * scripts, same-origin so relative assets inside the report still load.
+ */
+function HtmlArtifactPreview({ path }: { path: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    signedArtifactUrl(path)
+      .then((u) => {
+        if (alive && u) setUrl(u);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [path]);
+  if (!url) return null;
+  return (
+    <div className="mt-3 overflow-hidden rounded-xl border border-border bg-card">
+      <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Report preview
+        </span>
+        <ArtifactLink path={path} />
+      </div>
+      <iframe src={url} title="Run report" sandbox="allow-same-origin" className="h-96 w-full bg-white" />
+    </div>
+  );
+}
+
 export function RunView() {
   const { runId } = useParams<{ runId: string }>();
   const [run, setRun] = useState<AgentRun | null>(null);
@@ -572,6 +604,11 @@ export function RunView() {
       unsubArts();
     };
   }, [runId, loadArtifacts]);
+
+  // Shadow Account / HTML reports get an inline preview below the artifact list.
+  const htmlArtifact = artifacts.find(
+    (a) => a.kind === "html" || a.storage_path.toLowerCase().endsWith(".html"),
+  );
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8">
@@ -706,6 +743,7 @@ export function RunView() {
                   </li>
                 ))}
               </ul>
+              {htmlArtifact && <HtmlArtifactPreview path={htmlArtifact.storage_path} />}
             </div>
           )}
         </>

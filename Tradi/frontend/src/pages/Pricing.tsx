@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth-store";
 /** Feature bundle a tier unlocks — server-enforced (start_swarm_run's plan
  * gate; attachments checked client-side today, Premium-only). BYOK pivot:
  * tiers differentiate by capability, not by a monthly run count. */
-type FeatureBundle = "single" | "swarm" | "attachments";
+type FeatureBundle = "single" | "swarm" | "attachments" | "shadow";
 
 interface Plan {
   id: string;
@@ -45,7 +45,7 @@ const PLANS: Plan[] = [
     id: "premium",
     name: "Premium",
     priceNgn: 75000,
-    bundle: ["single", "swarm", "attachments"],
+    bundle: ["single", "swarm", "attachments", "shadow"],
     description: "For power users who need the full research toolkit.",
     popular: false,
   },
@@ -53,12 +53,13 @@ const PLANS: Plan[] = [
 
 // Canonical display order — independent of how each plan's `bundle` array
 // happens to be authored.
-const BUNDLE_ORDER: FeatureBundle[] = ["single", "swarm", "attachments"];
+const BUNDLE_ORDER: FeatureBundle[] = ["single", "swarm", "attachments", "shadow"];
 
 const BUNDLE_FEATURE_LABEL: Record<FeatureBundle, string> = {
   single: "Single-agent research runs",
   swarm: "30 specialist research teams (swarm)",
   attachments: "Attach CSV / XLSX / JSON research data",
+  shadow: "Shadow Account — trade-journal analysis & shadow backtest",
 };
 
 // Shared across every tier — not a differentiator.
