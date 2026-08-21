@@ -1,90 +1,151 @@
-H~M Trading Institute — Claude Code Memory
+# H~M Trading Institute — Claude Code Memory
 
-Project
-Multi-user subscription SaaS wrapping HKUDS/Vibe-Trading (MIT). Users sign up,
-connect their own DeepSeek API key (BYOK), and run AI trading research agents via
-a web UI. The platform handles auth, billing, run queueing, artifact storage, and
-result rendering. This is research/backtesting only at MVP — no live trading.
+## Project
 
-Product name: H~M Trading Institute (never "Vibe-Trading" in customer-facing UI).
-Domain: hmtrade-business.com
-Deployed at: Vercel (frontend) + Railway (worker)
+**Brand (customer-facing):** H~M Trading Institute — *never "Vibe-Trading" in user-facing UI.*
+**Working name (internal docs):** Quant Research OS.
 
-Tech stack (do not deviate without explicit instruction)
+A web-first, multi-user **quantitative research and trading platform** that moves users
+through `idea → research → reproducible experiment → validation → backtest → paper → controlled live`.
+Today it is a **multi-user subscription SaaS** wrapping HKUDS/Vibe-Trading (MIT) — users sign
+up, connect their own DeepSeek key (BYOK), and run AI trading research agents via a web UI.
+The platform handles auth, billing, run queueing, artifact storage, and result rendering.
+**Research/backtesting only at MVP — no live trading** (mandate-gated, off by default).
+
+Domains: `hmtrade.business` (Vercel alias `hm-ashy-six.vercel.app`).
+⚠️ `hmtrade-business.com` does **not** exist — do not use it.
+Deployed at: Vercel (frontend) + Railway (worker) + Supabase (backend) + Cloudflare (edge/DNS).
+
+## MVP goal (priority order — do not invert)
+
+1. **The SERVICE loop (prompt → run → result) working end-to-end beats everything.**
+   Billing is LAST. Engine bugs that block a run get fixed (explicitly allowed).
+2. Realistic validation before promotion — a strategy that cannot survive validation is not success.
+3. Launch (Nigeria on Paystack), then iterate the Quant Research OS roadmap.
+
+## Constitution — project docs (read before architecture work)
+
+| Doc | Role |
+|---|---|
+| `SOUL.md` | Mission, 12 non-negotiable principles, product character, quality bar |
+| `PROJECT.md` | Product definition, inspiration, users, web-first model |
+| `DATA.md` | Data strategy: canonical layers, point-in-time, providers, feed health |
+| `ARCHITECTURE.md` | Target reference architecture (FastAPI + data plane + infra) |
+| `WORKFLOW.md` | Research + engineering + incident + promotion workflows |
+| `UPGRADE_ROADMAP.md` | **Harmonized 10-phase migration** — the plan for reaching the target |
+| `CLAUDE.md` | THIS FILE — current live system source of truth + session rules |
+
+The constitution describes the **destination**; `UPGRADE_ROADMAP.md` is the **path**;
+this file is the **current truth**. Do not implement target-state features without a
+roadmap phase saying so (see Roadmap section).
+
+## Tech stack — current live (do not deviate without explicit instruction)
+
 Frontend : React 19 · Vite · TypeScript · Tailwind CSS 3 · react-router 8
            · Zustand · @supabase/supabase-js · ECharts (via echarts-for-react)
            Lives in Tradi/frontend/ (reused from the vendored engine fork)
-Backend  : NO traditional backend server. Supabase is the entire backend:
+Backend  : NO traditional backend server at MVP. Supabase is the entire backend:
            · PostgreSQL 17 (data, RLS, SECURITY DEFINER RPCs)
            · Supabase Auth (JWT, email/password, onAuthStateChange)
            · Supabase Storage (agent-artifacts, agent-uploads buckets)
            · Supabase Vault (BYOK key encryption)
-           · Supabase Edge Functions (paystack-init, paystack-webhook)
+           · Supabase Edge Functions (paystack-init, paystack-webhook, stripe-* planned)
            · Supabase Realtime (agent_runs + agent_artifacts live updates)
-Billing  : Paystack ONLY (Nigerian entity — Stripe cannot onboard; parked for
-           future international expansion). Hosted checkout + Plans (recurring)
-           + signed webhooks (HMAC-SHA512). Edge Functions handle init + webhook.
-LLM      : DeepSeek via BYOK — users supply their own API key. Stored encrypted
-           in Supabase Vault (vault.secrets). The platform NEVER stores plaintext,
-           NEVER proxies LLM calls, NEVER marks them up. Worker decrypts server-
-           side via worker_get_user_api_key (service_role only).
-Worker   : Python 3.11+ polling loop (hm-worker). Polls agent_runs WHERE
-           status='queued' with FOR UPDATE SKIP LOCKED. One subprocess per run
-           (Tradi engine). Deployed on Railway.
-Engine   : Vibe-Trading vendored at Tradi/ — 462 alphas, 14 backtest engines,
-           38 data sources, ReAct agent, swarm orchestration (30 presets),
-           shadow-account + trade-journal toolset. Invoked as a subprocess:
+           Phase 1 (roadmap): a FastAPI modular monolith is introduced for NEW domains
+           (research governance first) — same Railway container as the worker.
+Billing  : **Paystack (NGN — Nigeria launch) + Stripe (international — planned)**.
+           Provider-agnostic subscription model; signed webhooks (HMAC-SHA512 for Paystack,
+           Stripe-Signature for Stripe); idempotent via webhook_events UNIQUE.
+LLM      : DeepSeek via BYOK — users supply their own API key. Stored encrypted in
+           Supabase Vault (vault.secrets). The platform NEVER stores plaintext, NEVER
+           proxies LLM calls, NEVER marks them up. Worker decrypts server-side via
+           worker_get_user_api_key (service_role only).
+Worker   : Python 3.11+ polling loop (hm-worker). Polls agent_runs WHERE status='queued'
+           with FOR UPDATE SKIP LOCKED. One subprocess per run (Tradi engine). Railway.
+Engine   : Vibe-Trading vendored at Tradi/ — 462 alphas, backtest engines, data sources,
+           ReAct agent, swarm orchestration (30 presets), shadow-account + trade-journal
+           toolset. Invoked as a subprocess:
            `vibe-trading run -p "<prompt>" --json --no-rich --max-iter N`
            Updated 2026-08-19 to upstream main 1907e47 (0.1.14+) — old fork
-           Mustyhabib/vibe-trading-engine is GONE (404); upstream HKUDS is the
-           engine source of truth. HM's old engine patch 4f9f969 (DeepSeek
-           reasoning_content) is absorbed upstream (llm.py normalizes it).
+           Mustyhabib/vibe-trading-engine is GONE (404); upstream HKUDS is the engine
+           source of truth. HM's old engine patch 4f9f969 (DeepSeek reasoning_content)
+           is absorbed upstream (llm.py normalizes it).
+Data     : Phase 2 (roadmap). Current runs use the engine's own loaders. Target:
+           canonical RAW → VALIDATED → NORMALIZED → DERIVED → FEATURE, point-in-time,
+           R2 + Parquet lake, dataset registry — see DATA.md.
 
-Directory layout
+## Roadmap — Quant Research OS upgrade (UPGRADE_ROADMAP.md, §8)
+
+| Phase | Name | Status |
+|---|---|---|
+| 0 | Baseline & freeze (inventory, branch strategy, constitution) | **In progress — constitution committed** |
+| 1 | Foundation (FastAPI monolith, tenant projects, **research-governance substrate**) | planned |
+| 2 | Data (canonical schema, PIT, R2+Parquet lake, dataset registry) | planned |
+| 3 | Quant Engine (strategy SDK, ExecutionInterface, walk-forward) | planned |
+| 4 | Research AI (hypotheses, experiment workflow, promotion ladder) | planned |
+| 5 | ML (baseline first, model registry) | planned |
+| 6 | Paper Trading (risk engine, OMS, reconciliation) | planned |
+| 7 | RL (optional, research-only) | planned |
+| 8 | Controlled Live (broker adapters, mandate-gated) | planned |
+| 9 | Scale (observability, quotas, metered billing — only when justified) | planned |
+| 10 | Expansion (asset classes, marketplace, enterprise) | planned |
+
+**Upgrade invariant:** the live run loop never breaks. Strangler-fig migration —
+new architecture stands up BESIDE the live system; additive-only changes; per-phase
+end-to-end gate. The chosen first slice (research governance/experiment registry) lands
+as schema + provenance capture in Phase 1, full workflow in Phase 4.
+
+## Directory layout
+
+```
 HM/
- ├── Tradi/                        Vendored Vibe-Trading engine (MIT)
- │   ├── agent/                    FastAPI server, CLI, ReAct agent, backtest engines
- │   ├── frontend/                 React 19 + Vite SPA (THE production frontend)
+ ├── PROJECT.md / DATA.md / ARCHITECTURE.md / WORKFLOW.md / SOUL.md   Constitution (target vision)
+ ├── UPGRADE_ROADMAP.md              Harmonized 10-phase migration plan
+ ├── CLAUDE.md                       THIS FILE — source of truth (current live)
+ ├── Build_Plan.md                   SUPERSEDED MVP blueprint (reference only)
+ ├── Design_Flow_Prompt.md           UI/UX design spec (User + Admin personas)
+ ├── Session.md                      Session prompt templates
+ ├── Tradi/                          Vendored Vibe-Trading engine (MIT)
+ │   ├── agent/                      FastAPI server, CLI, ReAct agent, backtest engines
+ │   ├── frontend/                   React 19 + Vite SPA (THE production frontend)
  │   │   ├── src/
- │   │   │   ├── pages/            Route components (25+ pages)
- │   │   │   ├── components/       auth/, charts/, chat/, common/, layout/, settings/
- │   │   │   ├── lib/              supabase.ts, auth-store.ts, runs.ts, billing.ts,
- │   │   │   │                     apikeys.ts, swarm.ts, storage.ts, api.ts, etc.
- │   │   │   ├── hooks/            useSSE.ts, useDarkMode.ts
- │   │   │   ├── types/            agent.ts
- │   │   │   └── router.tsx        createBrowserRouter with PublicLayout + AuthGuard
+ │   │   │   ├── pages/              Route components (25+ pages)
+ │   │   │   ├── components/         auth/, charts/, chat/, common/, layout/, settings/
+ │   │   │   ├── lib/                supabase.ts, auth-store.ts, runs.ts, billing.ts,
+ │   │   │   │                       apikeys.ts, swarm.ts, storage.ts, api.ts, etc.
+ │   │   │   ├── hooks/              useSSE.ts, useDarkMode.ts
+ │   │   │   ├── types/              agent.ts
+ │   │   │   └── router.tsx          createBrowserRouter with PublicLayout + AuthGuard
  │   │   └── index.html
- │   └── CLAUDE.md                 Engine-specific dev notes
+ │   └── CLAUDE.md                   Engine-specific dev notes
  │
  ├── vibe-trading-saas/
- │   ├── worker/                   Python worker — hm-worker entry point
- │   │   ├── src/hm_worker/        main.py, runner.py, artifacts.py, config.py,
- │   │   │                         db.py, progress.py
- │   │   ├── tests/                5 test files (53 tests, hermetic)
+ │   ├── worker/                     Python worker — hm-worker entry point
+ │   │   ├── src/hm_worker/          main.py, runner.py, artifacts.py, config.py,
+ │   │   │                           db.py, progress.py, health.py, sentry.py
+ │   │   ├── tests/                  74 hermetic tests
  │   │   └── pyproject.toml
- │   ├── db/migrations/            SQL migrations (applied to Supabase manually)
- │   │   ├── 2026_08_11_agent_teams_uploads.sql
- │   │   ├── 2026_08_12_byok_api_keys.sql
- │   │   ├── 2026_08_12_byok_revoke_anon_execute.sql
- │   │   └── 2026_08_12_paystack_billing.sql
- │   └── docs/                     Architecture, decisions
+ │   ├── db/migrations/              SQL migrations (applied to Supabase manually)
+ │   └── docs/                       LEGACY pre-pivot docs (historical only)
  │
  ├── supabase/
  │   └── functions/
- │       ├── paystack-init/        Initialize Paystack checkout (auth'd Edge Function)
- │       └── paystack-webhook/     Idempotent webhook handler (service-role)
+ │       ├── paystack-init/          Initialize Paystack checkout (auth'd Edge Function)
+ │       └── paystack-webhook/       Idempotent webhook handler (service-role)
+ │       └── stripe-init/            (planned) Stripe Checkout init
+ │       └── stripe-webhook/         (planned) Idempotent Stripe webhook (service-role)
  │
  ├── infra/
- │   ├── nginx/                    Reverse proxy config
- │   └── tradi-api/                Tradi API service config
+ │   ├── nginx/                      Reverse proxy config
+ │   └── tradi-api/                  Tradi API service config
  │
- ├── Build_Plan.md                 Original 10-phase architect blueprint (reference only)
- ├── Design_Flow_Prompt.md         Full UI/UX design spec (User + Admin personas)
- ├── CLAUDE.md                     THIS FILE — source of truth
- ├── Dockerfile                    Worker container
- └── railway.toml                  Railway deployment config
+ ├── Dockerfile                      Worker container
+ ├── railway.toml                    Railway deployment config
+ └── docs/                           LAUNCH_CHECKLIST, RAILWAY_DEPLOY, CLOUDFLARE_SETUP
+```
 
-DB schema — canonical reference (Supabase PostgreSQL 17)
+## DB schema — canonical reference (current LIVE; Supabase PostgreSQL 17)
+
 profiles        id UUID PK (= auth.uid()) | email | display_name
                 avatar_url | created_at | updated_at
                 # Supabase Auth owns credentials. This is the public profile.
@@ -102,7 +163,7 @@ subscriptions   id UUID PK | user_id FK→profiles | plan_id FK→plans
 agent_runs      id UUID PK | user_id FK→profiles | usage_period_id FK NULL
                 prompt TEXT | max_iter INT | idempotency_key TEXT UNIQUE
                 status CHECK ('queued','running','completed','failed','cancelled','timeout')
-                kind CHECK ('single','swarm') | attachments JSONB
+                kind CHECK ('single','swarm','shadow') | attachments JSONB
                 preset_name TEXT NULL | user_vars JSONB NULL
                 provider TEXT DEFAULT 'deepseek'
                 error_message TEXT NULL | refunded BOOL | celery_task_id TEXT NULL
@@ -121,8 +182,7 @@ user_api_keys   id UUID PK | user_id FK→profiles | provider CHECK ('deepseek')
 
 usage_periods   id UUID PK | user_id FK→profiles | plan_id FK→plans
                 period_start | period_end | uses_allowed | uses_consumed
-                # HISTORICAL — BYOK pivot stopped writing new rows. Kept for
-                # analytics. Do NOT use for access gating.
+                # HISTORICAL — BYOK pivot stopped writing new rows. Analytics only.
 
 usage_events    id UUID PK | usage_period_id FK→usage_periods
                 event_type | agent_run_id | created_at
@@ -130,325 +190,219 @@ usage_events    id UUID PK | usage_period_id FK→usage_periods
 
 webhook_events  id UUID PK | provider_event_id TEXT UNIQUE
                 type TEXT | payload JSONB | processed_at | created_at
-                # RLS enabled, zero policies. Service-role only (webhook handler).
+                # RLS enabled, zero policies. Service-role only.
 
-subscriptions   (see above — RLS: users can SELECT own rows)
+admin_users / audit_logs    Admin dashboard (2026_08_17_admin_dashboard.sql)
 
-Pricing (Paystack NGN plans — BYOK model, unlimited runs)
-| Tier      | price_ngn | Paystack plan code | Capabilities                     |
-|-----------|-----------|--------------------|---------------------------------|
-| Starter   | ₦20,000   | set in plans table  | Single-agent runs               |
-| Pro       | ₦35,000   | set in plans table  | + Swarm (30 multi-agent presets) |
-| Premium   | ₦75,000   | set in plans table  | + Attachment uploads (CSV/XLSX/JSON) |
+### Planned schema changes (roadmap Phase 1 — DO NOT create until that phase starts)
+- `hypotheses`, `experiments`, `dataset_registry`, `promotion_events` tables
+  (research-governance substrate; see UPGRADE_ROADMAP.md §9).
+- Stripe support: `plans.stripe_price_id TEXT NULL`; `subscriptions.provider TEXT
+  DEFAULT 'paystack'` (or a separate stripe_subscriptions table); `provider_event_id`
+  stays the idempotency key in webhook_events (namespace per provider).
+- `profiles.organization_id` / `projects` table (tenant project model, Phase 1).
+
+## Pricing (Paystack NGN — BYOK model, unlimited runs)
+
+| Tier | price_ngn | Paystack plan code | Stripe (planned USD) | Capabilities |
+|------|-----------|--------------------|----------------------|--------------|
+| Starter | ₦20,000 | in plans table | ~$15/mo (TBD) | Single-agent runs |
+| Pro | ₦35,000 | in plans table | ~$27/mo (TBD) | + Swarm (30 presets) |
+| Premium | ₦75,000 | in plans table | ~$58/mo (TBD) | + Attachments (CSV/XLSX/JSON) |
 All tiers: unlimited runs. Users pay DeepSeek directly for LLM tokens.
 Safety net: 30 runs/rolling hour/user soft rate limit (not a business quota).
 
-Key RPCs (SECURITY DEFINER, search_path pinned to 'public')
+## Key RPCs (SECURITY DEFINER, search_path pinned to 'public')
+
 start_agent_run(p_prompt, p_max_iter, p_idempotency_key, p_attachments)
   Gates: authenticated → active subscription → DeepSeek key configured → 30/hr rate limit
   Returns: run UUID | Errors: not_authenticated, no_active_subscription, no_api_key, rate_limited
-
 start_swarm_run(p_preset_name, p_user_vars, p_idempotency_key)
-  Gates: same as above + plan_id IN ('pro','premium')
-  Returns: run UUID | Errors: same + plan_gate
-
-save_user_api_key(p_provider, p_api_key)
-  Validates sk-... format, encrypts via Vault, upserts user_api_keys row.
-  NEVER returns plaintext. Granted to: authenticated.
-
-get_user_api_key_status()
-  Returns {provider, last4, configured_at} or null. Granted to: authenticated.
-
+  Gates: same as above + plan_id IN ('pro','premium') | Errors: same + plan_gate
+start_shadow_run(p_journal_file...)   # shadow account kind (2026_08_21_shadow_account.sql)
+save_user_api_key(p_provider, p_api_key)          # Vault encrypt, upsert, never returns plaintext
+get_user_api_key_status()                          # {provider, last4, configured_at} | null
 delete_user_api_key(p_provider)
-  Deletes metadata row + vault secret. Granted to: authenticated.
-
-worker_get_user_api_key(p_user_id, p_provider)
-  Decrypts and returns plaintext. Granted to: service_role ONLY.
-  Called by the worker before spawning the Tradi subprocess.
-
+worker_get_user_api_key(p_user_id, p_provider)     # service_role ONLY — decrypts for the worker
 upsert_subscription(p_user_id, p_plan_id, p_provider_subscription_id, p_status, p_period_start, p_period_end)
-  Upserts a subscription row. Granted to: service_role ONLY.
-  Called by the paystack-webhook Edge Function.
+                                                   # service_role ONLY — called by webhook handlers
 
-Security rules — enforce in EVERY feature, no exceptions
+## Security rules — enforce in EVERY feature, no exceptions
+
 Row isolation   — RLS on every user-facing table: user_id = auth.uid()
-BYOK keys       — stored in Supabase Vault (vault.secrets); public schema only
-                  holds an opaque secret_id. Decryption is service_role only via
-                  worker_get_user_api_key. Frontend NEVER sees plaintext.
-Auth gate       — Supabase Auth JWT on every protected route. AuthGuard component
-                  wraps all authenticated routes in the router.
-Subscription gate — start_agent_run / start_swarm_run check for active sub +
-                    configured key server-side. Client checks are UI-only.
-BYOK key RPCs   — ZERO RLS policies on user_api_keys (default deny). Table grants
-                  REVOKED from anon + authenticated. All access via SECURITY
-                  DEFINER RPCs that use auth.uid() internally.
-Webhooks        — Paystack events verified via x-paystack-signature HMAC-SHA512
-                  with constant-time comparison. Re-verified via Paystack API
-                  before activating a subscription.
-Webhook idempotency — webhook_events.provider_event_id UNIQUE constraint.
-                      Duplicate events silently accepted (200).
-Run isolation   — each subprocess gets its own HOME, VIBE_TRADING_HOME, and
-                  VIBE_TRADING_ALLOWED_RUN_ROOTS. Worker secrets stripped from
-                  engine env.
-Artifact access — Supabase Storage with owner-scoped RLS. Signed URLs for
-                  private downloads (5 min TTL).
+BYOK keys       — Supabase Vault; public schema holds only an opaque secret_id.
+                  Decryption is service_role only via worker_get_user_api_key.
+Auth gate       — Supabase Auth JWT on every protected route (AuthGuard).
+Subscription gate — start_*_run RPCs check active sub + configured key server-side.
+Webhooks        — Paystack: x-paystack-signature HMAC-SHA512 constant-time + API re-verify.
+                  Stripe: Stripe-Signature (Ed25519 via SDK) + API re-verify. Never trust
+                  the raw event payload alone.
+Webhook idempotency — webhook_events.provider_event_id UNIQUE. Duplicates → 200.
+Run isolation   — subprocess gets own HOME, VIBE_TRADING_HOME, VIBE_TRADING_ALLOWED_RUN_ROOTS.
+                  Worker secrets stripped from engine env.
+Artifact access — Supabase Storage, owner-scoped RLS, signed URLs (5 min TTL).
 No live trading — mandate-gated and off by default at MVP.
+Fail closed     — uncertain broker state / stale data / recon mismatch / risk breach
+                  blocks unsafe actions (roadmap Phases 6–8).
 
-Frontend architecture
+## Frontend architecture
+
 Router: createBrowserRouter (react-router 8)
   Public (PublicLayout): /, /pricing, /docs, /terms, /privacy, /billing/callback
   Guest (GuestGuard + PublicLayout): /login, /signup
-  Auth'd (AuthGuard + Layout): /dashboard, /agent, /teams, /run/:runId, /reports,
-    /settings, /profile, /signals, /runtime, /scheduled, /compare, /correlation,
-    /alpha-zoo, /about
+  Auth'd (AuthGuard + Layout): /dashboard, /agent, /run/:runId, /reports, /settings,
+    /profile, /signals, /runtime, /scheduled, /compare, /correlation, /alpha-zoo, /about
+Auth: Zustand store (useAuth) — supabase.auth.getSession + onAuthStateChange. Session set
+  synchronously (D9, fixed race).
+Data fetching: direct Supabase client (supabase.from / .rpc / .storage) + Realtime
+  postgres_changes. NO SWR/React Query.
+Key libs: lib/runs.ts, lib/billing.ts (initiateSubscription → provider Edge Function),
+  lib/apikeys.ts, lib/auth-store.ts, lib/supabase.ts, lib/swarm.ts.
 
-Auth: Zustand store (useAuth) — supabase.auth.getSession + onAuthStateChange.
-  signUp / signInWithPassword / signOut. Session set synchronously (fixed race).
+## Worker architecture (vibe-trading-saas/worker/)
 
-Data fetching:
-  Supabase client direct (supabase.from / supabase.rpc / supabase.storage)
-  Realtime: supabase.channel().on('postgres_changes') for agent_runs + artifacts
-  NO SWR/React Query — direct async calls in useEffect / event handlers
+Entry: `hm-worker` CLI. Modules: main.py (poll loop), runner.py (TradiRunner/StubRunner),
+artifacts.py (ArtifactStore), db.py (service-role client), config.py, progress.py
+(tail trace.jsonl), health.py (GET /health :9100), sentry.py (fail-open + PII scrubber),
+logging_config.py (JSON logs + run_id).
+Run flow: poll queued (FOR UPDATE SKIP LOCKED) → claim → fetch BYOK key via RPC →
+spawn subprocess (isolated HOME) → tail progress → upload artifacts → completed/failed/timeout.
 
-Key frontend libs:
-  lib/runs.ts       — startRun, getRun, getActiveRuns, subscribeToRun,
-                      subscribeToArtifacts, signedArtifactUrl, uploadAttachment,
-                      getActiveSubscription
-  lib/billing.ts    — initiateSubscription (→ paystack-init Edge Function),
-                      getSubscriptionStatus, pollSubscriptionActive
-  lib/apikeys.ts    — saveApiKey, getApiKeyStatus, deleteApiKey (all via RPCs)
-  lib/auth-store.ts — Zustand store: initialize, signUp, signIn, signOut
-  lib/supabase.ts   — createClient singleton
-  lib/swarm.ts      — swarm preset metadata + dispatch
+## Env vars required
 
-Worker architecture (vibe-trading-saas/worker/)
-Entry: `hm-worker` CLI (pyproject.toml console_scripts)
-Modules:
-  main.py     — polling loop: claim queued run → dispatch → update status
-  runner.py   — TradiRunner (subprocess-per-run) + StubRunner (dev fallback)
-  artifacts.py — ArtifactStore: upload results to Supabase Storage
-  db.py       — Supabase client (service-role key, bypasses RLS)
-  config.py   — env var loading (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, etc.)
-  progress.py — tail trace.jsonl, update progress_message/progress_iter on run row
-
-Run flow:
-  1. Worker polls: SELECT ... FROM agent_runs WHERE status='queued'
-     FOR UPDATE SKIP LOCKED LIMIT 1
-  2. Claims run: UPDATE status='running'
-  3. Fetches user's DeepSeek key: worker_get_user_api_key(user_id, 'deepseek')
-  4. Spawns subprocess: vibe-trading run -p "<prompt>" --json --no-rich --max-iter N
-     with isolated HOME/VIBE_TRADING_HOME per run
-  5. Tails trace.jsonl for live progress streaming → updates run row
-  6. On completion: uploads artifacts to Supabase Storage, marks status='completed'
-  7. On failure: status='failed', stores error_message
-  8. On timeout: status='timeout'
-
-Env vars required
 # Supabase (frontend — VITE_ prefix, public)
-VITE_SUPABASE_URL
-VITE_SUPABASE_ANON_KEY
+VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY / VITE_SENTRY_DSN
 
-# Supabase (worker / Edge Functions — private, never in frontend)
-SUPABASE_URL
-SUPABASE_SERVICE_ROLE_KEY
+# Supabase (worker / Edge Functions — private)
+SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY
 
-# Paystack (Edge Function secrets, set via `supabase secrets set`)
-PAYSTACK_SECRET_KEY
-APP_URL                      # e.g. https://hmtrade-business.com
+# Paystack (Edge Function secrets)
+PAYSTACK_SECRET_KEY / APP_URL
+
+# Stripe (Edge Function secrets — planned)
+STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET
+STRIPE_PRICE_STARTER / STRIPE_PRICE_PRO / STRIPE_PRICE_PREMIUM
 
 # Worker
-WORKER_EXECUTE_TRADI         # true to use real engine, false for stub
-WORKER_TRADI_COMMAND         # path to vibe-trading binary
-WORKER_RUNS_ROOT             # writable dir for per-run HOME dirs
+WORKER_EXECUTE_TRADI / WORKER_TRADI_COMMAND / WORKER_RUNS_ROOT / WORKER_ID
+poll/backoff/heartbeat/timeout tunables / LOG_LEVEL / SENTRY_DSN / WORKER_HEALTH_PORT
 
-# Engine (set in Tradi/agent/.env, NOT worker/.env)
-DEEPSEEK_API_KEY             # only for local dev — production uses BYOK per-user
+# Engine (Tradi/agent/.env — local dev only; production is BYOK)
+DEEPSEEK_API_KEY
 
-Billing flow (Paystack)
-1. Frontend: user clicks "Subscribe" on Pricing → billing.ts initiateSubscription(planId)
-2. Frontend → Edge Function (paystack-init): validates auth, looks up plans.provider_price_id,
-   calls Paystack transaction/initialize API → returns {authorization_url}
-3. Frontend redirects to Paystack hosted checkout
-4. After payment, Paystack redirects to /billing/callback?reference=...
-5. Paystack fires charge.success webhook → Edge Function (paystack-webhook):
-   verifies HMAC signature → re-verifies with Paystack API → upserts subscription row
-6. BillingCallback page polls getSubscriptionStatus() until active
+## Billing flows
 
-Swarm runs (Pro/Premium only)
-30 preset YAML team configs in Tradi/agent/src/swarm/presets/.
-start_swarm_run RPC gates on plan_id IN ('pro','premium').
-Worker dispatches swarm runs via the same subprocess mechanism.
+### Paystack (live, test mode)
+1. Frontend "Subscribe" → billing.ts → paystack-init Edge Function → authorization_url
+2. Redirect to hosted checkout → /billing/callback?reference=...
+3. charge.success webhook → paystack-webhook: HMAC verify → Paystack API re-verify →
+   upsert_subscription (service_role) → webhook_events dedupe (::attemptId per attempt)
+4. BillingCallback polls getSubscriptionStatus() until active
+E2E harness: scripts/paystack-e2e.mjs --live (8/9 PASS, 0 FAIL — see sprint tracker).
 
-File attachments (Premium only)
-Premium users upload CSV/XLSX/JSON to agent-uploads Storage bucket.
-50 MB limit enforced client + server. Paths: {uid}/{date}/{uuid}-{filename}.
-Attachments passed as JSONB array in agent_runs.attachments column.
-Worker mounts files into the subprocess's working directory.
+### Stripe (planned — mirrors Paystack)
+1. Frontend "Subscribe" (international tier) → stripe-init Edge Function → Checkout Session
+2. Redirect to Stripe hosted checkout → success/cancel URLs
+3. checkout.session.completed / customer.subscription.* / invoice.* webhooks → stripe-webhook:
+   verify Stripe-Signature → re-verify via Stripe API → upsert_subscription (provider='stripe')
+   → webhook_events dedupe
+4. Frontend polls getSubscriptionStatus() until active
+Entity note: Stripe cannot onboard a Nigerian entity directly — activation requires
+Stripe Atlas (US LLC) or a foreign entity. NOT a blocker for MVP (Nigeria launches on
+Paystack); international tier activates when the entity is ready.
 
-Sprint tracker — UPDATE AT END OF EVERY SESSION
-Sprint day : 8 of 30
-Status     : Week 2 in progress
+## Swarm runs (Pro/Premium) & attachments (Premium)
+
+30 preset YAML team configs in Tradi/agent/src/swarm/presets/. start_swarm_run gates
+plan. Attachments: CSV/XLSX/JSON → agent-uploads bucket, 50 MB cap, paths
+{uid}/{date}/{uuid}-{filename}, JSONB on agent_runs, mounted into subprocess cwd.
+
+## Sprint tracker — UPDATE AT END OF EVERY SESSION
+
+Sprint day : 8 of 30   Status: Week 2 in progress + Quant Research OS upgrade planning
 
 Shipped (merged to main, live):
-  ✅ Supabase Auth (email/password, AuthGuard, Zustand store)
-  ✅ Dashboard (analytics, recent runs, active bots count)
-  ✅ Agent launcher (NLP prompt box, exchange selector)
-  ✅ RunView (live status polling, artifact rendering, progress streaming)
-  ✅ Worker E2E (claim → subprocess → artifacts → Storage)
-  ✅ BYOK pivot (Supabase Vault, save/get/delete RPCs, worker decrypt)
-  ✅ Swarm dispatch (30 presets, Pro/Premium gate)
-  ✅ File attachment uploads (Premium gate, 50 MB, CSV/XLSX/JSON)
-  ✅ Realtime queue viewer (postgres_changes on agent_runs)
-  ✅ Live progress streaming (trace.jsonl tail → progress columns)
-  ✅ Paystack billing Edge Functions (init + webhook, idempotent)
-  ✅ Billing callback page (polls subscription status)
-  ✅ Pricing page (3 tiers, Paystack checkout CTA)
-  ✅ Landing page, Login, Signup
-  ✅ Settings, Profile, Signals, Reports, Compare, AlphaZoo pages
-  ✅ Teams page (swarm presets UI)
-  ✅ Legal pages (Terms, Privacy, Docs)
-  ✅ UI redesign (aurora-fire palette)
-  ✅ Brand mark component
-  ✅ Docker + Railway deployment config
-  ✅ Nginx reverse proxy config
-  ✅ 53 hermetic worker tests
+  ✅ MVP run loop VERIFIED end-to-end (prompt → queued → claim → engine → completed,
+     24 artifacts, progress streamed). Fixed en route: [BUG-ENG-1] reasoning_content
+     echo, [BUG-ENG-2] usage_events NULL crash, [BUG-ENG-3] realtime sync noise.
+  ✅ Auth, Dashboard, Agent launcher, RunView, BYOK pivot (Vault), Swarm dispatch,
+     attachments, realtime queue viewer, live progress streaming, Shadow Account
+     (journal → backtest → HTML report, Premium), 74 hermetic worker tests.
+  ✅ Paystack billing Edge Functions + E2E harness (8/9 PASS, 0 FAIL) — test mode.
+  ✅ Admin dashboard (suspend/unsuspend, audit logs, plan override).
+  ✅ Monitoring: Sentry worker + frontend live. Railway healthcheck wired.
+  ✅ Frontend production deploy LIVE (hmtrade.business / hm-ashy-six.vercel.app).
+  ✅ Cloudflare domain + SSL (zone hmtrade.business, Full strict, BIC off recommended).
+  ✅ Email templates shipped (inert until support@ mailbox + SMTP configured).
+  ✅ Launch prep code shipped (company.ts registrant, footer, legal blocks).
+  ✅ QUANT RESEARCH OS UPGRADE PLANNING 2026-08-21 — constitution committed
+     (PROJECT/DATA/ARCHITECTURE/WORKFLOW/SOUL.md), UPGRADE_ROADMAP.md harmonized
+     (10-phase, commits 5a5b42c 5e69d3c). Next: Phase 0 inventory + branch strategy.
 
 In progress / next:
-  ✅ Swarm-in-prompt (Phase 1) 2026-08-21 — Teams page REMOVED; Agent page "+"
-      button (left of send) opens inline SwarmPresetPicker (search/category/
-      vars, Pro/Premium gate); /teams → /agent redirect. Commit ed6ccb3
-      (feat(frontend)). Tester+CEO verified: build ✓, 261 tests ✓; flagged
-      pre-existing Layout.test.tsx flake (2 asides vs getByRole — separate
-      NOTE: claude.ai pipeline now runs via OmniRoute free route (cloudflare-ai
-      → glm-4.7-flash; settings.json pinned, base 127.0.0.1:20128 key omniroute).
-      Direct-OAuth settings backup at /tmp/claude-settings-direct-oauth.json.
-  ✅ Shadow Account (Phase 2) 2026-08-21 — journal upload → shadow strategy →
-      backtest → HTML report, PREMIUM tier. start_shadow_run RPC (migration
-      2026_08_21_shadow_account.sql — APPLY MANUALLY in Supabase SQL editor,
-      NOT yet applied), worker shadow branch (--upload before run, tested),
-      Agent '+' panel tabs (Specialist teams | Shadow Account), RunView
-      sandboxed HTML report preview, Pricing bundle. Commits 5eb106e 2759d62
-      d2bab78; sample journal samples/shadow_journal_sample.csv. Deploys green
-      (Vercel + Railway). NOTE: claude.ai pipeline runs via direct OAuth —
-      OmniRoute gateway's lmarena key expired (all 401); settings.json
-      temporarily gateway-free (backup /tmp/claude-settings-backup.json).
-  ✅ MVP RUN LOOP VERIFIED 2026-08-19 — FIRST REAL END-TO-END RUN COMPLETED
-      (prompt → queued → worker claim → engine → completed, 24 artifacts in
-      Storage, progress streamed). Fixed en route: [BUG-ENG-1] DeepSeek
-      reasoning_content echo (capability flags + auto→OpenAI-compatible
-      adapter routing; native adapter opt-in only), [BUG-ENG-2] worker RPC
-      usage_events NULL crash (RPCs captured into
-      2026_08_19_worker_rpc_hardening.sql + BYOK guard), [BUG-ENG-3] realtime
-      sync-client noise (polling fallback). Worker runs locally
-      (WORKER_EXECUTE_TRADI=true, Tradi/.venv engine); Railway deploy pending.
-  ⏳ Paystack billing E2E — HARNESS SHIPPED + LIVE-VERIFIED 2026-08-18:
-      scripts/paystack-e2e.mjs --live → 8/9 PASS, 0 FAIL (signature guards,
-      idempotency, create, disable, renewal, invoice). [BUG-2] caught live and
-      fixed: renewal events (subscription.charge/invoice.update) had
-      event::code dedupe keys collapsing every attempt → failed renewals never
-      marked past_due; now per-attempt (::attemptId), v9 deployed, fixtures +
-      harness mirror synced. Remaining: charge case needs a real TEST checkout
-      (test card 4084 0840 8408 4081) → PAYSTACK_TEST_REFERENCE; at launch swap
-      plans + key to live. Supabase checklist MCP-items CLOSED (realtime,
-      storage, plans, RLS audit + webhook_events grant revoke, audit_logs_legacy
-      dropped, secrets verified). Dashboard-only: auth URLs, email templates.
-  ✅ Admin dashboard — VERIFIED 2026-08-19 (browser + API): /admin loads for
-      admin.tester (user-confirmed on live site); is_admin() true/false
-      correct per account; suspend gate proven end-to-end via API
-      (start_agent_run → no_api_key before suspend, account_suspended after);
-      audit_logs record user.suspend/unsuspend with actor email. Non-admin
-      redirect follows deterministically from AdminGuard (is_admin=false →
-      Navigate /dashboard). Test accounts kept for future verification:
-      admin.tester@hmtest.local + user.tester@hmtest.local (creds in
-      /tmp/hm_admin_creds.json) — clean up before launch.
-  ⏳ Monitoring — WORKER LIVE 2026-08-19 (Railway deploy c1ec9887 SUCCESS,
-      startup log line `Sentry error tracking enabled`; SENTRY_DSN set as
-      Railway env var, org hm-nt / team hm / project hmtrade-worker). Railway
-      healthcheck wired via WORKER_HEALTH_HOST=0.0.0.0 + PORT=9100 (dashboard
-      port setting no longer required — see Worker Railway deployment note).
-      Frontend Sentry DONE 2026-08-19: VITE_SENTRY_DSN set on Vercel
-      (production+preview) and deployed — initSentry() active in the prod
-      build. Optional: smoke-test in Sentry dashboard (cleanup list).
-  ✅ Frontend production deploy — LIVE + VERIFIED 2026-08-19: `hm` Vercel
-      project was NEVER configured (env vars were Supabase integration
-      leftovers; VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY held invalid
-      values). Patched both VITE vars + set VITE_SENTRY_DSN (production+
-      preview). Fresh build from 5cd9712 live at hmtrade.business /
-      hm-ashy-six.vercel.app. Verified: login works for real accounts, admin
-      loads, all routes 200. NOTE: domain in this file is WRONG —
-      hmtrade-business.com does not exist; real aliases are hmtrade.business
-      + hm-ashy-six.vercel.app (vercel.app names are global; hm.vercel.app
-      is another tenant's site). Vercel env list still has Supabase
-      integration junk (NEXT_PUBLIC_*/POSTGRES_*/SUPABASE_SERVICE_ROLE_KEY)
-      — safe to purge except the 3 VITE_* vars.
-  ⏳ Email templates — CODE SHIPPED via pipeline (supabase/email-templates/:
-      5 Supabase Auth + 3 transactional, branded H~M lockup/footer/registrant
-      block; scripts/email-templates-check.mjs enforces palette + brand).
-      Inert until: create support@hmtrade-business.com mailbox → paste auth
-      templates in Supabase Dashboard → Auth → Emails (sender "H~M Trading
-      Institute <no-reply@hmtrade-business.com>", custom SMTP recommended) →
-      pick a transactional provider for the 3 [bracket]-placeholder templates.
-  ✅ Cloudflare domain + SSL — LIVE 2026-08-19: zone hmtrade.business active
-      (CF acct Mustyhabib9@gmail.com; NS destiny+stanley.ns.cloudflare.com,
-      switched at the Vercel registrar — domain is Vercel-registered but
-      under a DIFFERENT Vercel account than the API token). Proxied CNAMEs
-      @ + www → cname.vercel-dns.com, SSL Full (strict) via dashboard,
-      Universal SSL issued (GTS cert). Site serves through CF (browser
-      verified: login loads). Pitfalls captured: CF token
-      (MCP_CLOUDFLARE_API_KEY) CANNOT create zones or change zone settings
-      (dashboard-only; DNS:Edit works); zone wizard imports bogus A records
-      (216.198.79.1 etc.) that MUST be deleted before NS switch; Browser
-      Integrity Check default-ON → curl gets 1010 while browsers pass —
-      recommend turning BIC OFF (Security → Settings) so server clients
-      aren't blocked.
-  ✅ Worker Railway deployment 2026-08-19 — LIVE on Railway service "HM"
-      (project dynamic-tranquility). Deploy b014355f SUCCESS, worker polling
-      Supabase, health endpoint /health responding. Fixed en route:
-      [BUG-RW-1] health.py bound 127.0.0.1 — Railway probes from outside the
-      container so loopback is unreachable (health.py + config.py + main.py:
-      default 0.0.0.0 with WORKER_HEALTH_HOST override); [BUG-RW-2] Railway
-      dashboard drift — dockerfilePath was "/hm-worker" (bogus) instead of
-      "Dockerfile"; [BUG-RW-3] Railway healthcheck probes the PORT env var by
-      convention — was unset so probe hit the wrong port ("service
-      unavailable"); fixed by setting PORT=9100 via set-variables. Sprint
-      commit 162f178.
-  ⏳ Launch prep — CODE SHIPPED via pipeline (ownership & contact footprint:
-      lib/company.ts registrant source, SiteFooter on every page, Terms §14 +
-      Privacy §12 registrant blocks, RunView operator line, admin About/System
-      screen). Remaining manual: legal review fills SUPPORT_PHONE/MAILING_ADDRESS
-      in lib/company.ts, create support@hmtrade-business.com mailbox.
+  ⏳ Shadow Account migration 2026_08_21_shadow_account.sql — NOT yet applied (manual).
+  ⏳ Paystack charge.success E2E with test card (PAYSTACK_TEST_REFERENCE); swap to live
+     plans + key at launch.
+  ⏳ Stripe: onboarding (entity/Atlas) + stripe-init/stripe-webhook Edge Functions + plans.
+  ⏳ Email: support@hmtrade-business.com mailbox, Auth templates, transactional provider.
+  ⏳ Upgrade Phase 0: exhaustive KEEP/MODIFY/MOVE/NEW inventory + branch strategy.
+  ⏳ Cleanup before launch: test accounts (admin.tester/user.tester), env-var purge on Vercel.
 
 Not started (deferred):
-  🔲 Stripe (international billing — parked, no US/UK entity)
-  🔲 Live trading (mandate-gated, off by default)
-  🔲 Admin 2FA (TOTP gate for /admin/* routes)
+  🔲 Live trading (mandate-gated, off by default) — roadmap Phase 8
+  🔲 Admin 2FA (TOTP for /admin/*)
   🔲 Advanced analytics (per-user P&L, portfolio tracking)
-  🔲 Public API
+  🔲 Public API — roadmap Phase 10
   🔲 Mobile-optimized views
 
-Key decisions (ADRs)
+## Key decisions (ADRs)
+
 D1  — Subprocess-per-run: Tradi's process-global singletons make in-process multi-tenant unsafe
-D3  — Reuse Tradi frontend (React, not Next.js) — saves rewrite, inherits 462 alpha UI
+D3  — Reuse Tradi frontend (React, not Next.js) — saves rewrite, inherits alpha UI
 D5  — SQL job claiming with FOR UPDATE SKIP LOCKED — atomic, no Redis, N workers safe
-D8  — Paystack + NGN billing only (Nigerian entity, Stripe can't onboard)
+D8  — **Paystack (NGN, Nigeria launch) + Stripe (international, entity-gated, planned)** —
+      provider-agnostic subscriptions; webhooks signed + idempotent
 D9  — Auth store sets session synchronously (fixed signup/login race)
 D10 — One metered prompt box on Agent page (not a chat-style multi-turn UI)
 D11 — BYOK pivot: users supply their own DeepSeek key, unlimited runs per tier
-D12 — Supabase Vault for key storage (not AES-256-GCM with app-managed ENCRYPTION_KEY)
-D13 — Edge Functions for Paystack (not a FastAPI backend)
+D12 — Supabase Vault for key storage (not AES-256-GCM with app-managed key)
+D13 — Edge Functions for payment webhooks (not a FastAPI backend at MVP)
 D14 — No Celery/Redis — Python polling loop is simpler and sufficient for MVP scale
+D15 — **Cloudflare = edge/control plane (DNS/WAF, Workers gateway, Queues, R2); compute =
+      Railway container (FastAPI + engine worker, two processes). Workers CANNOT run the
+      engine (V8 isolates, CPU caps, no subprocess/Python)**
+D16 — **Harmonized 10-phase roadmap (UPGRADE_ROADMAP.md) governs the Quant Research OS
+      upgrade; strangler-fig migration; the live run loop never breaks**
 
-Testing requirements
-Worker   : 53 hermetic tests (pytest, black-clean) — cd vibe-trading-saas/worker && pytest -q
-Frontend : npm run build (type-check + Vite build) — cd Tradi/frontend && npm run build
+## Testing requirements
+
+Worker   : 74 hermetic tests (pytest, black-clean) —
+           cd vibe-trading-saas/worker && env -u PYTHONPATH -u VIRTUAL_ENV .venv/bin/python -m pytest -q
+           (the env -u prefix is required on this machine — Hermes shell leaks both)
+Frontend : npm run build (type-check + Vite) AND npm run test:run →
+           expect exit 0, 261/265 passing; the 4 failures are the PRE-EXISTING
+           Layout.test.tsx flake — do NOT chase it
 Engine   : pytest --ignore=agent/tests/e2e_backtest -q — cd Tradi
-Webhook  : Paystack signature verification (constant-time HMAC-SHA512)
+Webhook  : Paystack HMAC-SHA512 constant-time; Stripe Stripe-Signature; both re-verify via API
 Auth     : signUp → signIn → protected route → signOut happy path
-BYOK     : save key → key stored in Vault → worker decrypts → run completes
-Billing  : Paystack init → hosted checkout → webhook → subscription active
+BYOK     : save key → Vault → worker decrypts → run completes
+Billing  : init → hosted checkout → webhook → subscription active (Paystack harness: 8/9)
 
-Session workflow (read before every session)
+## Environment pitfalls (this machine)
+
+- **Slow Airtel 64kbps WAN**: GitHub slow (generous timeouts), npm ETIMEDOUT → npmmirror
+  via npm_config_registry; big downloads off-peak (6 AM) + retry.
+- **PEP 668 + Hermes shell leaks PYTHONPATH/VIRTUAL_ENV**: venv pythons need
+  `env -u PYTHONPATH -u VIRTUAL_ENV` or pip skips deps. User pkgs: `pip install --user --break-system-packages`.
+- **pkill -f self-matches** — use `pkill -x <comm>`.
+- **sudo needs a password** — root ops via pkexec (KDE polkit).
+- Supabase service-role key + Paystack test key live in `~/.hm-test.env` — never print tokens.
+- `gh` CLI is NOT installed on this machine — deploy checks need it (apt install gh + auth).
+
+## Session workflow (read before every session)
+
 Start: "Read CLAUDE.md. Continue from the sprint tracker. Today's task: [describe]."
 Debug: "Read CLAUDE.md. Bug: [...]. Error: [...]. File(s): [...]. Fix only what's broken."
 Add feature: "Read CLAUDE.md. Add: [feature]. Fits in: [component]. Rules that apply: [quote]."
-End: Update sprint tracker + commit CLAUDE.md.
+Upgrade work: "Read CLAUDE.md + UPGRADE_ROADMAP.md. Phase: [N]. Task: [...]."
+End: Update sprint tracker + commit CLAUDE.md (and roadmap if it changed).

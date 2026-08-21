@@ -1,10 +1,12 @@
 Session prompt templates
 Copy and fill in the blanks at the start of every Claude Code session.
-Aligned to CLAUDE.md (source of truth) — Supabase backend, Paystack-only, BYOK, polling worker.
+Aligned to CLAUDE.md (source of truth) — Supabase backend, Paystack + Stripe billing,
+BYOK, polling worker. Constitution: SOUL/PROJECT/DATA/ARCHITECTURE/WORKFLOW.md.
+Upgrade path: UPGRADE_ROADMAP.md (10 phases).
 
 Standard session start (use this every time)
 Read CLAUDE.md. Continue from the sprint tracker.
-Today's task: [describe the work — reference a Phase in BUILD_PLAN.md if applicable].
+Today's task: [describe the work — reference a Phase in UPGRADE_ROADMAP.md if applicable].
 
 Debugging session
 Read CLAUDE.md.
@@ -67,13 +69,21 @@ Design system: Aurora Fire tokens (index.css CSS vars), Inter + JetBrains Mono. 
 introduce new colors/fonts.
 Do not build any other pages. Focus only on this one.
 
-Billing / webhook session
+Billing / webhook session (Paystack)
 Read CLAUDE.md.
 Implement/adjust Paystack billing in: [paystack-init | paystack-webhook Edge Function | lib/billing.ts].
 Rules from CLAUDE.md that apply: verify x-paystack-signature HMAC-SHA512 (constant-time) before
 parsing; re-verify with Paystack API before activating; store nothing until the webhook confirms;
 webhook_events.provider_event_id UNIQUE (duplicates → 200); upsert via upsert_subscription RPC
 (service_role only).
+Do not touch any other files. Add/adjust the relevant test.
+
+Billing / webhook session (Stripe — planned)
+Read CLAUDE.md + UPGRADE_ROADMAP.md.
+Implement/adjust Stripe billing in: [stripe-init | stripe-webhook Edge Function | lib/billing.ts].
+Rules from CLAUDE.md that apply: verify Stripe-Signature before parsing; re-verify with the Stripe
+API before activating; namespace webhook_events.provider_event_id per provider; upsert via
+upsert_subscription RPC with provider='stripe' (service_role only); never trust raw event payloads.
 Do not touch any other files. Add/adjust the relevant test.
 
 Supabase auth session

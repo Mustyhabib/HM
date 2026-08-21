@@ -1,4 +1,10 @@
-Build Plan — H~M Trading Institute (reference)
+# Build Plan — H~M Trading Institute (reference)
+
+> ⚠️ **SUPERSEDED — historical MVP blueprint only.**
+> The live system's source of truth is `CLAUDE.md`; the Quant Research OS upgrade path is
+> `UPGRADE_ROADMAP.md` (harmonized 10-phase plan). This file documents how the MVP got built
+> and is kept for history — do not plan new work from it.
+
 This is a reference blueprint for the CURRENT architecture in CLAUDE.md (the
 source of truth). The original 10-phase plan (FastAPI + Celery + Redis +
 Stripe/Paystack + usage quotas) was superseded by the pivot to: Supabase-only
