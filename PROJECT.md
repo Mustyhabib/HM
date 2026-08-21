@@ -21,6 +21,12 @@ A web-first, multi-user quantitative research and trading platform that unifies:
 
 ## Inspiration / Existing Foundations
 
+> **Authority note:** `FOUNDATIONS.md` is the authoritative statement of project
+> identity and reference-project roles ("borrow concepts, not identity").
+> This section is retained for product-level context and must not contradict
+> `FOUNDATIONS.md`; where they conflict, `FOUNDATIONS.md` wins unless a
+> documented ADR changes it.
+
 ### Vibe-Trading
 Primary source of ideas and reusable foundations for:
 

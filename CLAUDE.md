@@ -3,6 +3,7 @@
 ## Project
 
 **Brand (customer-facing):** H~M Trading Institute — *never "Vibe-Trading" in user-facing UI.*
+**Product/app name:** QuantLab (user app) + QuantLab Admin (control plane).
 **Working name (internal docs):** Quant Research OS.
 
 A web-first, multi-user **quantitative research and trading platform** that moves users
@@ -28,11 +29,15 @@ Deployed at: Vercel (frontend) + Railway (worker) + Supabase (backend) + Cloudfl
 | Doc | Role |
 |---|---|
 | `SOUL.md` | Mission, 12 non-negotiable principles, product character, quality bar |
+| `FOUNDATIONS.md` | **Project identity** — what we are/aren't, reference-project roles, borrow-concepts-not-identity, data-layer authority |
 | `PROJECT.md` | Product definition, inspiration, users, web-first model |
 | `DATA.md` | Data strategy: canonical layers, point-in-time, providers, feed health |
 | `ARCHITECTURE.md` | Target reference architecture (FastAPI + data plane + infra) |
 | `WORKFLOW.md` | Research + engineering + incident + promotion workflows |
 | `UPGRADE_ROADMAP.md` | **Harmonized 10-phase migration** — the plan for reaching the target |
+| `docs/UNIFIED_SPEC.md` | **THE single source of truth (adopted 2026-08-21)** — 63-section unified spec; wins over earlier reports unless ADR changes it |
+| `docs/RECONCILIATION.md` | 18 conflict resolutions: unified spec vs existing ADRs/live stack |
+| `docs/REQUIREMENTS.md` | Complete requirements register — all requirements before build (81 IDs, 13 groups) |
 | `CLAUDE.md` | THIS FILE — current live system source of truth + session rules |
 
 The constitution describes the **destination**; `UPGRADE_ROADMAP.md` is the **path**;
@@ -102,6 +107,7 @@ HM/
  ├── PROJECT.md / DATA.md / ARCHITECTURE.md / WORKFLOW.md / SOUL.md   Constitution (target vision)
  ├── UPGRADE_ROADMAP.md              Harmonized 10-phase migration plan
  ├── CLAUDE.md                       THIS FILE — source of truth (current live)
+ ├── FOUNDATIONS.md                  Project identity + reference roles + 5-layer platform synthesis
  ├── Build_Plan.md                   SUPERSEDED MVP blueprint (reference only)
  ├── Design_Flow_Prompt.md           UI/UX design spec (User + Admin personas)
  ├── Session.md                      Session prompt templates
@@ -141,7 +147,9 @@ HM/
  │
  ├── Dockerfile                      Worker container
  ├── railway.toml                    Railway deployment config
- └── docs/                           LAUNCH_CHECKLIST, RAILWAY_DEPLOY, CLOUDFLARE_SETUP
+ └── docs/                           UNIFIED_SPEC (single source of truth), RECONCILIATION,
+                                     REQUIREMENTS, PHASE1_BRIEF, INFRASTRUCTURE, UI_VISION,
+                                     LAUNCH_CHECKLIST, RAILWAY_DEPLOY, CLOUDFLARE_SETUP
 ```
 
 ## DB schema — canonical reference (current LIVE; Supabase PostgreSQL 17)
@@ -338,6 +346,10 @@ Shipped (merged to main, live):
   ✅ QUANT RESEARCH OS UPGRADE PLANNING 2026-08-21 — constitution committed
      (PROJECT/DATA/ARCHITECTURE/WORKFLOW/SOUL.md), UPGRADE_ROADMAP.md harmonized
      (10-phase, commits 5a5b42c 5e69d3c). Next: Phase 0 inventory + branch strategy.
+  ✅ UNIFIED SPEC ADOPTED 2026-08-21 — docs/UNIFIED_SPEC.md (63-section single
+     source of truth) + docs/RECONCILIATION.md (18 conflicts resolved) +
+     docs/REQUIREMENTS.md (81 requirements before build). D17 WebSocket-first
+     recorded. Brand locked: H~M Trading Institute + QuantLab/QuantLab Admin.
 
 In progress / next:
   ⏳ Shadow Account migration 2026_08_21_shadow_account.sql — NOT yet applied (manual).
@@ -376,6 +388,10 @@ D15 — **Cloudflare = edge/control plane (DNS/WAF, Workers gateway, Queues, R2)
       engine (V8 isolates, CPU caps, no subprocess/Python)**
 D16 — **Harmonized 10-phase roadmap (UPGRADE_ROADMAP.md) governs the Quant Research OS
       upgrade; strangler-fig migration; the live run loop never breaks**
+D17 — **WebSocket-first architecture commitment (unified spec §18/§51)**: market data,
+      orders, fills, P&L, job progress, notifications over WS channels
+      (/ws/markets, /ws/portfolio, /ws/orders, /ws/strategies, /ws/jobs…);
+      REST stays request/response. Implementation Phase 6; recorded 2026-08-21.
 
 ## Testing requirements
 
