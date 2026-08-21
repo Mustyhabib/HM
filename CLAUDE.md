@@ -322,10 +322,16 @@ In progress / next:
       cleanup). NOTE: claude.ai pipeline runs via direct OAuth — OmniRoute
       gateway's lmarena key expired (all 401); settings.json temporarily
       gateway-free (backup /tmp/claude-settings-backup.json).
-  ⏳ Shadow Account (Phase 2) — IN PROGRESS: resurface upstream engine feature
-      (journal upload → behavior profile → shadow backtest → HTML/PDF report).
-      Tier: PREMIUM (reuses upload gate, user-confirmed). Plan:
-      .hermes/plans/2026-08-19_193000-swarm-in-prompt-shadow-account.md.
+  ✅ Shadow Account (Phase 2) 2026-08-21 — journal upload → shadow strategy →
+      backtest → HTML report, PREMIUM tier. start_shadow_run RPC (migration
+      2026_08_21_shadow_account.sql — APPLY MANUALLY in Supabase SQL editor,
+      NOT yet applied), worker shadow branch (--upload before run, tested),
+      Agent '+' panel tabs (Specialist teams | Shadow Account), RunView
+      sandboxed HTML report preview, Pricing bundle. Commits 5eb106e 2759d62
+      d2bab78; sample journal samples/shadow_journal_sample.csv. Deploys green
+      (Vercel + Railway). NOTE: claude.ai pipeline runs via direct OAuth —
+      OmniRoute gateway's lmarena key expired (all 401); settings.json
+      temporarily gateway-free (backup /tmp/claude-settings-backup.json).
   ✅ MVP RUN LOOP VERIFIED 2026-08-19 — FIRST REAL END-TO-END RUN COMPLETED
       (prompt → queued → worker claim → engine → completed, 24 artifacts in
       Storage, progress streamed). Fixed en route: [BUG-ENG-1] DeepSeek
