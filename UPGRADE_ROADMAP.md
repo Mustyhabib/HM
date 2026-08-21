@@ -130,6 +130,38 @@ scientific substrate laid in Phase 1, fully exercised in Phase 4.
 | Edge unification | **Cloudflare unifies the edge, not the compute** — see §6. Workers cannot run the engine |
 | Session output | This written roadmap doc, committed (planning only — no code) |
 
+### Decision ledger — grilling session (2026-08-21, batch-grill-me)
+
+All three rounds, settled with the user. Future sessions: these are decisions, not suggestions.
+
+| # | Decision | Resolution |
+|---|---|---|
+| R1-Q1 | Sequencing | **Launch Nigeria MVP first** → Phase 0 now (read-only) → launch → Phase 1+ after |
+| R1-Q2 | Phase 0 executor | **Hermes directly** (verify against files, no guessing); Claude Code pipeline takes Phase 1 builds |
+| R1-Q3 | Branch strategy | **Feature branches per phase**; docs commits stay on main |
+| R1-Q4 | FastAPI placement | **Same Railway container, two processes** (uvicorn + worker loop) |
+| R1-Q5 | Redis timing | **Skeleton in Phase 1 on free tier** (30 MB is ample for a skeleton = KBs) — minimal, measured; Upstash free; principle 9 maintained |
+| R1-Q6 | Stripe timing | **Deferred** until entity/Atlas path is real |
+| R1-Q7 | First asset class | **Crypto first** |
+| R1-Q8 | Tenant model | **Minimal `projects` table**; orgs/roles later |
+| R2-Q1 | Inventory depth | Module-level engine (30 modules/869 files/78 tools/90 skills) + file-level our code → `docs/UPGRADE_INVENTORY.md` |
+| R2-Q2 | Governance substrate | **Platform-canonical registry in Supabase** (RLS); engine's `governance/hypotheses/strategy_store` modules stay agent-side scratch (per-run isolated HOME) |
+| R2-Q3 | Supabase plan | **Stay free** (student; scale later) — mitigations: daily keepalive + manual `pg_dump` |
+| R2-Q4 | Registry schema home | **Same Supabase Postgres** |
+| R2-Q5 | Provenance capture | **Both**: worker emits lifecycle provenance + FastAPI records API-driven events |
+| R2-Q6 | Pre-registration UX | **Capture-first in Phase 1**; pre-registration workflow = Phase 4 |
+| R2-Q7 | Crypto RAW layer | **Reuse engine loaders** (OKX/Binance/CCXT fallback); dedicated fanout = Phase 6 |
+| R2-Q8 | Lake home | **Supabase Storage first**; R2 billing deferred until real data |
+| R2-Q9 | Project scoping | **Auto-create default project** per user |
+| R3-Q1 | Compute posture | **Railway $5 through launch**; evaluate Fly.io free at Phase 1 |
+| R3-Q2 | First FastAPI surface | **Research domain only** (registry CRUD + provenance API + health), Supabase JWT |
+| R3-Q3 | Phase 1 done | **All six criteria** (see §9 / Phase 1 section) |
+| R3-Q4 | First dataset | **BTC/ETH/SOL daily OHLCV** — start-narrow discipline |
+| R3-Q5 | Email provider | **Resend free tier** (3,000/mo) for auth + transactional |
+| R3-Q6 | Phase 2 done | Confirm: quality score + PIT metadata, layers distinguishable, lake in Supabase Storage, catalog answers provenance |
+
+Cost posture: total stack ≈ $5/mo (Vercel free · Supabase free + keepalive · Cloudflare free · Paystack test · Resend free · Railway $5).
+
 ### How "full target now" and "never break it" reconcile
 
 The destination is the full target. The **migration** is a *strangler fig*: stand up the
