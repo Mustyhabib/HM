@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
-from backtest.models import TradeRecord
+from backtest.models import FillRecord, TradeRecord
 
 # ─── Annualisation factor mapping ───
 
@@ -24,6 +24,9 @@ _TRADING_DAYS = {
     # existing
     "tushare": 252, "yfinance": 252, "okx": 365, "akshare": 252, "ccxt": 365,
     "mootdx": 252, "futu": 252, "mt5": 260,
+    # tickerall serves the same broker forex/CFD feed as mt5 (hosted, no local
+    # terminal), so it mirrors mt5's 24x5 annualisation everywhere in this table.
+    "tickerall": 260,
     # crypto
     "binance": 365,
     # A-share equity
@@ -59,7 +62,7 @@ _BARS_PER_DAY = {
             # crypto (24h)
             "okx": 1440, "ccxt": 1440, "binance": 1440,
             # forex/CFD (24h intraday)
-            "mt5": 1440,
+            "mt5": 1440, "tickerall": 1440,
             # Indian equity (6.25h session)
             "india_broker": 375,
             # Korean equity (6.5h session, 09:00-15:30 KST)
@@ -71,7 +74,7 @@ _BARS_PER_DAY = {
             "tushare": 48,  "akshare": 48,  "baostock": 48,  "tencent": 48,
             "eastmoney": 48,  "sina": 48,  "mootdx": 48,  "futu": 48,
             "okx": 288,  "ccxt": 288,  "binance": 288,
-            "mt5": 288,
+            "mt5": 288, "tickerall": 288,
             "india_broker": 75,
             "pykrx": 78,
             },
@@ -81,7 +84,7 @@ _BARS_PER_DAY = {
             "tushare": 16,  "akshare": 16,  "baostock": 16,  "tencent": 16,
             "eastmoney": 16,  "sina": 16,  "mootdx": 16,  "futu": 16,
             "okx": 96,   "ccxt": 96,   "binance": 96,
-            "mt5": 96,
+            "mt5": 96, "tickerall": 96,
             "india_broker": 25,
             "pykrx": 26,
             },
@@ -91,7 +94,7 @@ _BARS_PER_DAY = {
             "tushare": 8,   "akshare": 8,   "baostock": 8,   "tencent": 8,
             "eastmoney": 8,   "sina": 8,   "mootdx": 8,   "futu": 8,
             "okx": 48,   "ccxt": 48,   "binance": 48,
-            "mt5": 48,
+            "mt5": 48, "tickerall": 48,
             "india_broker": 13,
             "pykrx": 13,
             },
@@ -101,7 +104,7 @@ _BARS_PER_DAY = {
             "tushare": 4,   "akshare": 4,   "baostock": 4,   "tencent": 4,
             "eastmoney": 4,   "sina": 4,   "mootdx": 4,   "futu": 4,
             "okx": 24,   "ccxt": 24,   "binance": 24,
-            "mt5": 24,
+            "mt5": 24, "tickerall": 24,
             "india_broker": 7,
             "pykrx": 7,
             },
@@ -111,7 +114,7 @@ _BARS_PER_DAY = {
             "tushare": 1,   "akshare": 1,   "baostock": 1,   "tencent": 1,
             "eastmoney": 1,   "sina": 1,   "mootdx": 1,   "futu": 1,
             "okx": 6,    "ccxt": 6,    "binance": 6,
-            "mt5": 6,
+            "mt5": 6, "tickerall": 6,
             "india_broker": 2,
             "pykrx": 2,
             },
@@ -121,7 +124,7 @@ _BARS_PER_DAY = {
             "tushare": 1,   "akshare": 1,   "baostock": 1,   "tencent": 1,
             "eastmoney": 1,   "sina": 1,   "mootdx": 1,   "futu": 1,
             "okx": 1,    "ccxt": 1,    "binance": 1,
-            "mt5": 1,
+            "mt5": 1, "tickerall": 1,
             "india_broker": 1,
             "pykrx": 1,
             },
@@ -430,6 +433,31 @@ def calc_trade_turnover_series(
     return (traded_margin / denominator).replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
 
+def calc_fill_turnover_series(
+    fills: List[FillRecord],
+    equity_curve: pd.Series,
+) -> pd.Series:
+    """Per-bar turnover from immutable execution-fill evidence."""
+    if equity_curve is None or equity_curve.empty:
+        return pd.Series(dtype=float)
+
+    traded_margin = pd.Series(0.0, index=equity_curve.index, dtype=float)
+    for fill in fills:
+        try:
+            margin_value = float(fill.margin)
+        except (TypeError, ValueError):
+            continue
+        if (
+            fill.timestamp in traded_margin.index
+            and np.isfinite(margin_value)
+            and margin_value > 0
+        ):
+            traded_margin.loc[fill.timestamp] += margin_value
+
+    denominator = 2.0 * equity_curve.abs().replace(0.0, np.nan)
+    return (traded_margin / denominator).replace([np.inf, -np.inf], np.nan).fillna(0.0)
+
+
 def calc_metrics(
     equity_curve: pd.Series,
     trades: List[TradeRecord],
@@ -506,7 +534,11 @@ def calc_metrics(
         sharpe = 0.0
 
     # Drawdown
-    peak = equity_curve.cummax()
+    # The account starts at ``initial_cash`` before the first recorded bar, so
+    # that value is the initial high-water mark.  Using only observed equity
+    # understates a first-bar loss and makes drawdown nonsensical after equity
+    # crosses zero.
+    peak = equity_curve.cummax().clip(lower=float(initial_cash))
     dd = (equity_curve - peak) / peak.replace(0, 1)
     max_dd = float(dd.min())
 

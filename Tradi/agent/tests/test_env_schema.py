@@ -10,6 +10,7 @@ Covers:
 - Thread safety
 - _parse_bool utility
 - get_env_or utility
+- get_env_value utility
 - _parse_env_bool (EnvBool BeforeValidator)
 """
 
@@ -23,6 +24,7 @@ from src.config.accessor import (
     _parse_bool,
     get_env_config,
     get_env_or,
+    get_env_value,
     reset_env_config,
 )
 from src.config.env_schema import (
@@ -73,11 +75,33 @@ class TestEnvConfigDefaults:
         assert c.llm.langchain_model_name == ""
         assert c.llm.langchain_temperature == 0.0
         assert c.llm.timeout_seconds == 120
+        assert c.llm.vibe_trading_disable_http_proxy is False
         assert c.llm.max_retries == 2
         assert c.llm.langchain_reasoning_effort == ""
+        assert c.llm.langchain_use_responses_api is None
         assert c.llm.vibe_trading_deepseek_adapter == "auto"
         assert c.llm.moonshot_user_agent == ""
         assert c.llm.openai_codex_base_url == "https://chatgpt.com/backend-api/codex/responses"
+
+    def test_llm_responses_api_reads_boolean_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("LANGCHAIN_USE_RESPONSES_API", "true")
+        reset_env_config()
+
+        assert EnvConfig().llm.langchain_use_responses_api is True
+
+        monkeypatch.setenv("LANGCHAIN_USE_RESPONSES_API", "false")
+        reset_env_config()
+
+        assert EnvConfig().llm.langchain_use_responses_api is False
+
+    @pytest.mark.parametrize("value", ["TRUE", "yes", "1", "on"])
+    def test_llm_responses_api_requires_literal_true(
+        self, monkeypatch: pytest.MonkeyPatch, value: str
+    ) -> None:
+        monkeypatch.setenv("LANGCHAIN_USE_RESPONSES_API", value)
+        reset_env_config()
+
+        assert EnvConfig().llm.langchain_use_responses_api is False
 
     def test_data_defaults(self) -> None:
         c = EnvConfig()
@@ -471,6 +495,20 @@ class TestGetEnvOr:
         monkeypatch.setenv("PRIMARY", "")
         monkeypatch.setenv("FALLBACK", "")
         assert get_env_or("PRIMARY", "FALLBACK", "default") == "default"
+
+
+class TestGetEnvValue:
+    """Verify dynamic registry keys still go through the config layer."""
+
+    def test_reads_configured_value(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("DYNAMIC_PROVIDER_API_KEY", "secret")
+        assert get_env_value("DYNAMIC_PROVIDER_API_KEY") == "secret"
+
+    def test_returns_default_for_missing_value(
+        self, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.delenv("DYNAMIC_PROVIDER_API_KEY", raising=False)
+        assert get_env_value("DYNAMIC_PROVIDER_API_KEY", "fallback") == "fallback"
 
 
 # ===================================================================

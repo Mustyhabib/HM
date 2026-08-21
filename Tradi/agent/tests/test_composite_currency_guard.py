@@ -1,7 +1,7 @@
 """Regression tests for the composite engine's single-currency requirement.
 
 ``CompositeEngine`` keeps one shared capital pool: a single cash scalar and one
-equity curve. Before this guard a code set spanning CNY, USD, HKD, INR and KRW
+equity curve. Before this guard a code set spanning CNY, USD, HKD, INR, KRW and CAD
 was summed into that curve as if the units matched, and every metric derived
 from it was reported without a warning. There is no FX translation layer, so
 the engine refuses the run instead.
@@ -26,6 +26,9 @@ class TestCodeCurrency:
             ("00700.HK", "HKD"),
             ("RELIANCE.NS", "INR"),
             ("005930.KS", "KRW"),
+            ("TD.TO", "CAD"),
+            ("PNG.V", "CAD"),
+            ("VIC.VN", "VND"),
             ("IF2406.CFFEX", "CNY"),
         ],
     )
@@ -65,6 +68,22 @@ class TestRejectMixedCurrency:
     def test_cny_mixed_with_usd_is_refused(self):
         with pytest.raises(ValueError, match="one settlement currency"):
             _reject_mixed_currency(["600519.SH", "AAPL.US"])
+
+    def test_canadian_and_us_equities_are_not_summed_without_fx(self):
+        with pytest.raises(ValueError, match="one settlement currency"):
+            _reject_mixed_currency(["TD.TO", "AAPL.US"])
+
+    def test_vnd_is_named_rather_than_marked_unknown(self):
+        # A market with no entry in the table degrades to 'UNKNOWN:<market>',
+        # which still fails closed but names nothing useful in the error.
+        with pytest.raises(ValueError) as excinfo:
+            _reject_mixed_currency(["VIC.VN", "AAPL.US"])
+        message = str(excinfo.value)
+        assert "VND" in message
+        assert "UNKNOWN" not in message
+
+    def test_two_hose_symbols_are_one_currency(self):
+        _reject_mixed_currency(["VIC.VN", "FPT.VN"])
 
     def test_the_error_names_every_currency_and_its_codes(self):
         with pytest.raises(ValueError) as excinfo:

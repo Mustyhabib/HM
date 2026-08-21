@@ -31,9 +31,14 @@ LLM      : DeepSeek via BYOK — users supply their own API key. Stored encrypte
 Worker   : Python 3.11+ polling loop (hm-worker). Polls agent_runs WHERE
            status='queued' with FOR UPDATE SKIP LOCKED. One subprocess per run
            (Tradi engine). Deployed on Railway.
-Engine   : Vibe-Trading vendored at Tradi/ — 462 alphas, 8 backtest engines,
-           24 data sources, ReAct agent, swarm orchestration. Invoked as a
-           subprocess: `vibe-trading run -p "<prompt>" --json --no-rich --max-iter N`
+Engine   : Vibe-Trading vendored at Tradi/ — 462 alphas, 14 backtest engines,
+           38 data sources, ReAct agent, swarm orchestration (30 presets),
+           shadow-account + trade-journal toolset. Invoked as a subprocess:
+           `vibe-trading run -p "<prompt>" --json --no-rich --max-iter N`
+           Updated 2026-08-19 to upstream main 1907e47 (0.1.14+) — old fork
+           Mustyhabib/vibe-trading-engine is GONE (404); upstream HKUDS is the
+           engine source of truth. HM's old engine patch 4f9f969 (DeepSeek
+           reasoning_content) is absorbed upstream (llm.py normalizes it).
 
 Directory layout
 HM/

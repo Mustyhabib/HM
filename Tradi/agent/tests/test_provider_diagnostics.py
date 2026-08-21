@@ -52,10 +52,7 @@ def test_provider_capabilities_are_provider_specific() -> None:
     openrouter = get_provider_capabilities("openrouter", "deepseek/deepseek-v4-pro")
 
     assert deepseek.capture_reasoning is True
-    # DeepSeek thinking mode requires reasoning_content echoed back on
-    # multi-turn assistant messages (live 400 otherwise) — same protocol
-    # class as Moonshot kimi-k2.6. See capabilities.py deepseek entry.
-    assert deepseek.send_reasoning_content is True
+    assert deepseek.send_reasoning_content is False
     assert deepseek.gemini_thought_signatures is False
 
     assert kimi.capture_reasoning is True
@@ -92,6 +89,18 @@ def test_spark_capabilities_use_generic_openai_path() -> None:
     assert spark.send_reasoning_content is False
     assert spark.openrouter_reasoning_body is False
     assert get_provider_capabilities("iflytek", "4.0Ultra") is spark
+
+
+def test_novita_capabilities_use_generic_openai_path() -> None:
+    """Novita AI rides the plain OpenAI-compatible path with no capability flags."""
+    novita = get_provider_capabilities("novita", "moonshotai/kimi-k3")
+
+    assert novita.name == "novita"
+    assert novita.api_key_env == "NOVITA_API_KEY"
+    assert novita.base_url_env == "NOVITA_BASE_URL"
+    assert novita.capture_reasoning is False
+    assert novita.send_reasoning_content is False
+    assert novita.openrouter_reasoning_body is False
 
 
 def test_reasoning_effort_extra_body_is_openrouter_only() -> None:
@@ -235,13 +244,8 @@ def test_nvidia_build_passes_only_capability_headers() -> None:
     assert "X-NVIDIA-API-Key" not in captured["default_headers"]
 
 
-def test_deepseek_native_adapter_used_when_explicitly_requested(monkeypatch) -> None:
-    """DeepSeek uses the native adapter only when explicitly opted in.
-
-    The default (auto) prefers the OpenAI-compatible path, which carries the
-    ``reasoning_content`` echo DeepSeek thinking models require on multi-turn
-    assistant messages (live 400 otherwise).
-    """
+def test_deepseek_native_adapter_is_used_when_available(monkeypatch) -> None:
+    """DeepSeek should prefer the optional native adapter when installed."""
     import sys
     from types import SimpleNamespace
 
@@ -260,7 +264,6 @@ def test_deepseek_native_adapter_used_when_explicitly_requested(monkeypatch) -> 
         "DEEPSEEK_API_KEY": "ds-test",
         "DEEPSEEK_BASE_URL": "https://api.deepseek.com/v1",
         "LANGCHAIN_MODEL_NAME": "deepseek-v4-pro",
-        "VIBE_TRADING_DEEPSEEK_ADAPTER": "native",
     }
 
     with patch.dict(os.environ, env, clear=True):
@@ -270,38 +273,3 @@ def test_deepseek_native_adapter_used_when_explicitly_requested(monkeypatch) -> 
     assert captured["model"] == "deepseek-v4-pro"
     assert captured["api_key"] == "ds-test"
     assert captured["base_url"] == "https://api.deepseek.com/v1"
-
-
-def test_deepseek_auto_adapter_prefers_openai_compatible(monkeypatch) -> None:
-    """Regression: auto (the default) must NOT route through the native adapter.
-
-    The native langchain-deepseek adapter drops ``reasoning_content`` on
-    multi-turn assistant messages, which DeepSeek thinking models reject with
-    a hard 400 ("reasoning_content ... must be passed back to the API"),
-    breaking every multi-turn agent run.
-    """
-    import sys
-    from types import SimpleNamespace
-
-    import src.providers.llm as llm_mod
-
-    llm_mod._dotenv_loaded = True
-    captured: dict = {}
-
-    class _FakeChatDeepSeek:
-        def __init__(self, **kwargs: object) -> None:
-            captured.update(kwargs)
-
-    monkeypatch.setitem(sys.modules, "langchain_deepseek", SimpleNamespace(ChatDeepSeek=_FakeChatDeepSeek))
-    env = {
-        "LANGCHAIN_PROVIDER": "deepseek",
-        "DEEPSEEK_API_KEY": "ds-test",
-        "DEEPSEEK_BASE_URL": "https://api.deepseek.com/v1",
-        "LANGCHAIN_MODEL_NAME": "deepseek-v4-pro",
-    }
-
-    with patch.dict(os.environ, env, clear=True):
-        llm = build_llm()
-
-    assert not isinstance(llm, _FakeChatDeepSeek)
-    assert captured == {}, "native adapter constructor must not be called under auto"

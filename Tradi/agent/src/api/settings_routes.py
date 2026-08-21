@@ -17,7 +17,7 @@ import httpx
 from fastapi import Depends, FastAPI, HTTPException, status
 from pydantic import BaseModel, Field
 
-from src.config.accessor import reset_env_config
+from src.config.accessor import get_env_value, reset_env_config
 
 # Agent root (agent/) — resolved from this file's location (agent/src/api/).
 _AGENT_DIR = Path(__file__).resolve().parent.parent.parent
@@ -152,6 +152,19 @@ LLM_API_KEY_PLACEHOLDERS = {"", "sk-or-v1-your-key-here", "sk-xxx", "xxx", "gsk_
 TUSHARE_TOKEN_PLACEHOLDERS = {"", "your-tushare-token"}
 
 
+def _desktop_secure_credential_names() -> set[str]:
+    """Return secrets owned by the desktop host when secure storage is active."""
+    names = {"TUSHARE_TOKEN", "QVERIS_API_KEY"}
+    names.update(
+        provider.api_key_env for provider in LLM_PROVIDERS if provider.api_key_env
+    )
+    return names
+
+
+def _desktop_secure_credentials_enabled() -> bool:
+    return get_env_value("VIBE_TRADING_DESKTOP_SECURE_CREDENTIALS") == "1"
+
+
 # ---------------------------------------------------------------------------
 # Host access helpers (late-binding for test monkeypatch compat)
 # ---------------------------------------------------------------------------
@@ -206,6 +219,13 @@ def _read_settings_env_values() -> Dict[str, str]:
     else:
         values = {}
 
+    if _desktop_secure_credentials_enabled():
+        for name in _desktop_secure_credential_names():
+            runtime_value = get_env_value(name)
+            if runtime_value:
+                values[name] = runtime_value
+            else:
+                values.pop(name, None)
     return values
 
 
@@ -264,12 +284,12 @@ async def _list_provider_models(
 ) -> LLMModelsResponse:
     """Best-effort live model discovery with a safe editable fallback."""
     fallback = [provider.default_model]
-    if provider.auth_type == "oauth":
+    if provider.auth_type in {"oauth", "gh_cli"}:
         return LLMModelsResponse(
             provider=provider.name,
             models=fallback,
             source="default",
-            warning_code="oauth_discovery_unsupported",
+            warning_code=f"{provider.auth_type}_discovery_unsupported",
         )
     if provider.api_key_required and not api_key:
         return LLMModelsResponse(
@@ -333,6 +353,15 @@ def _build_llm_settings_response(
             token = None
         api_key_configured = bool(token)
         api_key_hint = None
+    elif provider.auth_type == "gh_cli":
+        try:
+            from src.providers.copilot_auth import get_copilot_auth_status
+
+            authenticated, auth_status = get_copilot_auth_status()
+        except Exception:
+            authenticated, auth_status = False, ""
+        api_key_configured = authenticated
+        api_key_hint = auth_status if authenticated else None
     return LLMSettingsResponse(
         provider=provider.name,
         model_name=env_values.get("LANGCHAIN_MODEL_NAME", provider.default_model),
@@ -389,7 +418,14 @@ def _sync_runtime_env(provider: LLMProviderOption, updates: Dict[str, str]) -> N
         else:
             os.environ.pop(key, None)
 
-    if provider.api_key_env:
+    if provider.auth_type == "gh_cli":
+        # The Copilot SDK owns credential discovery and transport.
+        os.environ.pop("OPENAI_API_KEY", None)
+        os.environ.pop("OPENAI_API_BASE", None)
+        os.environ.pop("OPENAI_BASE_URL", None)
+        reset_env_config()
+        return
+    elif provider.api_key_env:
         key_value = os.environ.get(provider.api_key_env, "")  # noqa: env-gate — dynamic provider api_key_env
         if host._is_configured_secret(key_value, LLM_API_KEY_PLACEHOLDERS):
             os.environ["OPENAI_API_KEY"] = key_value
@@ -429,6 +465,10 @@ def _persist_settings_updates(updates: Dict[str, str]) -> Dict[str, str]:
     merged = dict(updates)
     if not target.exists() and legacy != target and legacy.exists():
         merged = {**host._read_env_values(legacy), **updates}
+    if _desktop_secure_credentials_enabled():
+        # Empty known secret keys in dotenv while preserving the decrypted
+        # environment values injected by Electron for this process.
+        merged.update({name: "" for name in _desktop_secure_credential_names()})
     try:
         host._write_env_values(target, merged)
     except OSError as exc:
@@ -439,7 +479,7 @@ def _persist_settings_updates(updates: Dict[str, str]) -> Dict[str, str]:
                 "~/.vibe-trading/.env"
             ),
         ) from exc
-    return host._read_env_values(target)
+    return _read_settings_env_values()
 
 
 # ---------------------------------------------------------------------------

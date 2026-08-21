@@ -14,6 +14,7 @@ from copy import deepcopy
 from dataclasses import dataclass, is_dataclass
 from typing import Any, Awaitable, Callable, Coroutine, Iterable, Protocol, TypeVar
 
+import httpx
 from fastmcp.client import Client
 from fastmcp.client.auth import OAuth
 from fastmcp.client.client import CallToolResult
@@ -35,6 +36,7 @@ from pydantic_core import PydanticSerializationError, to_jsonable_python
 from src.agent.tools import BaseTool
 from src.config.schema import (
     ROBINHOOD_AGENT_CONFIG_PATH,
+    MCPOAuthConfig,
     MCPServerConfig,
     live_broker_key_for_entry,
     robinhood_readonly_enabled_tools,
@@ -63,14 +65,56 @@ _MCP_SPECS_CACHE: dict[tuple[str, ...], list["MCPRemoteToolSpec"]] = {}
 _MCP_SPECS_LOCK = threading.Lock()
 
 
+def _fingerprint(text: str) -> str:
+    """One-way fingerprint for a cache-key component that may carry secrets."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _fingerprint_auth(auth: MCPOAuthConfig | None) -> str:
+    """Fingerprint an MCP server's OAuth config, never storing it raw.
+
+    ``MCPOAuthConfig.client_secret`` is a real credential, so the whole
+    config is hashed as one unit rather than spread across raw tuple
+    elements.
+    """
+    if auth is None:
+        return _fingerprint("")
+    canonical = "|".join(
+        [
+            auth.type,
+            str(sorted(auth.scopes)),
+            auth.client_name,
+            auth.cache_dir,
+            str(auth.callback_port),
+            auth.client_id or "",
+            auth.client_secret or "",
+            auth.client_metadata_url or "",
+        ]
+    )
+    return _fingerprint(canonical)
+
+
 def _make_cache_key(server_name: str, server_config: "MCPServerConfig") -> tuple[str, ...]:
-    """Build a content-based cache key for MCP tool discovery results."""
+    """Build a content-based cache key for MCP tool discovery results.
+
+    Every field that can change the tool specs a server returns must
+    participate in cache identity (mirrors the enabled_tools fix this cache
+    key already went through once). ``url``, ``headers``, and ``auth`` are
+    fingerprinted rather than stored raw: a URL can carry a credential in
+    its query string, a header can carry a static bearer token, and
+    ``auth`` can carry an OAuth client secret. None of those should sit as
+    plaintext in a process-wide in-memory cache key.
+    """
     return (
         server_name,
+        str(server_config.type),
         server_config.command,
         str(server_config.args or []),
         str(sorted((server_config.env or {}).items())),
         str(sorted(server_config.enabled_tools or [])),
+        _fingerprint(server_config.url or ""),
+        _fingerprint(str(sorted((server_config.headers or {}).items()))),
+        _fingerprint_auth(server_config.auth),
     )
 
 
@@ -407,7 +451,18 @@ class MCPServerAdapter:
         Raises:
             Exception: Propagates discovery failures after retry exhaustion.
         """
-        tools = _run_sync(self._list_tools)
+        try:
+            tools = _run_sync(self._list_tools)
+        except httpx.HTTPStatusError as exc:
+            # Same reason as _http_error_body: discovery propagates raw, so the
+            # traceback the user sees would otherwise carry no server detail.
+            if body := _http_error_body(exc):
+                raise httpx.HTTPStatusError(
+                    f"{exc} - server said: {body}",
+                    request=exc.request,
+                    response=exc.response,
+                ) from exc
+            raise
         seen_names: dict[str, str] = {}
         specs: list[MCPRemoteToolSpec] = []
 
@@ -1118,6 +1173,41 @@ def _message_looks_transient(message: str) -> bool:
     return any(token in lowered for token in _TRANSIENT_ERROR_TOKENS)
 
 
+#: Cap on the remote error body echoed back to the user. Enough for a JSON
+#: error envelope, short enough that a stray HTML page does not fill the log.
+_HTTP_ERROR_BODY_LIMIT = 300
+
+
+def _http_error_body(exc: BaseException) -> str:
+    """Return the response body of an HTTP status error, if there is one.
+
+    ``httpx.HTTPStatusError`` stringifies to the status and URL only, so the
+    server's own explanation is dropped — which turns an auth rejection into an
+    unreadable "Client error 400". IBKR, for one, answers a token it will not
+    accept with ``{"error":"Status failed 500","statusCode":400}`` and a 400,
+    while an unauthenticated request gets a 401 (issue #1126); without the body
+    those two are indistinguishable to the user.
+
+    Args:
+        exc: Exception that may carry an HTTP response.
+
+    Returns:
+        The trimmed body, or ``""`` when there is none to report.
+    """
+    response = getattr(exc, "response", None)
+    if response is None:
+        return ""
+    try:
+        body = (response.text or "").strip()
+    except Exception:  # noqa: BLE001 - a body we cannot read is not reportable
+        return ""
+    if not body:
+        return ""
+    if len(body) > _HTTP_ERROR_BODY_LIMIT:
+        body = body[:_HTTP_ERROR_BODY_LIMIT] + "..."
+    return " ".join(body.split())
+
+
 def _format_exception_message(exc: Exception) -> str:
     """Render an exception into a user-facing error string.
 
@@ -1129,7 +1219,10 @@ def _format_exception_message(exc: Exception) -> str:
     """
     if isinstance(exc, McpError) and getattr(exc, "error", None) is not None:
         return getattr(exc.error, "message", str(exc))
-    return str(exc) or type(exc).__name__
+    message = str(exc) or type(exc).__name__
+    if isinstance(exc, httpx.HTTPStatusError) and (body := _http_error_body(exc)):
+        return f"{message} - server said: {body}"
+    return message
 
 
 def _make_jsonable(value: Any) -> Any:
