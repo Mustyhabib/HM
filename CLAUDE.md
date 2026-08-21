@@ -345,7 +345,10 @@ In progress / next:
      plans + key at launch.
   ⏳ Stripe: onboarding (entity/Atlas) + stripe-init/stripe-webhook Edge Functions + plans.
   ⏳ Email: support@hmtrade-business.com mailbox, Auth templates, transactional provider.
-  ⏳ Upgrade Phase 0: exhaustive KEEP/MODIFY/MOVE/NEW inventory + branch strategy.
+  ⏳ Upgrade Phase 0: ✅ DONE 2026-08-21 — inventory (docs/UPGRADE_INVENTORY.md), decision
+     ledger (UPGRADE_ROADMAP.md §4), launch gates shipped (keepalive + backup workflows).
+     ⏳ Phase 1: brief drafted (docs/PHASE1_BRIEF.md) — build starts AFTER launch (R1-Q1);
+     branch upgrade/phase-1-foundation.
   ⏳ Cleanup before launch: test accounts (admin.tester/user.tester), env-var purge on Vercel.
 
 Not started (deferred):
