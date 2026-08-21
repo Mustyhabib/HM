@@ -319,9 +319,9 @@ In progress / next:
       vars, Pro/Premium gate); /teams → /agent redirect. Commit ed6ccb3
       (feat(frontend)). Tester+CEO verified: build ✓, 261 tests ✓; flagged
       pre-existing Layout.test.tsx flake (2 asides vs getByRole — separate
-      cleanup). NOTE: claude.ai pipeline runs via direct OAuth — OmniRoute
-      gateway's lmarena key expired (all 401); settings.json temporarily
-      gateway-free (backup /tmp/claude-settings-backup.json).
+      NOTE: claude.ai pipeline now runs via OmniRoute free route (cloudflare-ai
+      → glm-4.7-flash; settings.json pinned, base 127.0.0.1:20128 key omniroute).
+      Direct-OAuth settings backup at /tmp/claude-settings-direct-oauth.json.
   ✅ Shadow Account (Phase 2) 2026-08-21 — journal upload → shadow strategy →
       backtest → HTML report, PREMIUM tier. start_shadow_run RPC (migration
       2026_08_21_shadow_account.sql — APPLY MANUALLY in Supabase SQL editor,
