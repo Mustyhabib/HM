@@ -314,6 +314,18 @@ Shipped (merged to main, live):
   ✅ 53 hermetic worker tests
 
 In progress / next:
+  ✅ Swarm-in-prompt (Phase 1) 2026-08-21 — Teams page REMOVED; Agent page "+"
+      button (left of send) opens inline SwarmPresetPicker (search/category/
+      vars, Pro/Premium gate); /teams → /agent redirect. Commit ed6ccb3
+      (feat(frontend)). Tester+CEO verified: build ✓, 261 tests ✓; flagged
+      pre-existing Layout.test.tsx flake (2 asides vs getByRole — separate
+      cleanup). NOTE: claude.ai pipeline runs via direct OAuth — OmniRoute
+      gateway's lmarena key expired (all 401); settings.json temporarily
+      gateway-free (backup /tmp/claude-settings-backup.json).
+  ⏳ Shadow Account (Phase 2) — IN PROGRESS: resurface upstream engine feature
+      (journal upload → behavior profile → shadow backtest → HTML/PDF report).
+      Tier: PREMIUM (reuses upload gate, user-confirmed). Plan:
+      .hermes/plans/2026-08-19_193000-swarm-in-prompt-shadow-account.md.
   ✅ MVP RUN LOOP VERIFIED 2026-08-19 — FIRST REAL END-TO-END RUN COMPLETED
       (prompt → queued → worker claim → engine → completed, 24 artifacts in
       Storage, progress streamed). Fixed en route: [BUG-ENG-1] DeepSeek
