@@ -97,11 +97,16 @@ Domain correction: **`hmtrade.business`** is live (Vercel alias `hm-ashy-six.ver
 
 ## H · Reliability / cleanup (new, from the grilling)
 
-- [ ] 🔴 **Supabase free-tier keepalive** — free projects pause after 7 days of no API
-      activity. Add a **daily keepalive** (e.g., Vercel cron hitting the Supabase API, or a
-      Railway scheduled job) so a live product never pauses. (R2-Q3 mitigation.)
-- [ ] 🟡 **Manual `pg_dump` schedule** — no automated backups on the free tier; script a
-      periodic dump (Supabase CLI or dashboard export) to local/Storage.
+- [ ] 🔴 **Supabase free-tier keepalive** — ✅ **SHIPPED 2026-08-21**:
+      `.github/workflows/supabase-keepalive.yml` (daily 04:05 UTC ping; ANY HTTP response
+      resets the free-tier inactivity timer). **Pending (1 click):** repo Settings → Actions
+      → General → allow Actions → Actions tab → supabase-keepalive → **Run workflow** to verify.
+      (R2-Q3 mitigation.)
+- [ ] 🟡 **Database backups** — ✅ **SHIPPED 2026-08-21**: `scripts/db-backup.sh` (manual,
+      env-driven `DATABASE_URL`) + `.github/workflows/supabase-backup.yml` (weekly
+      custom-format dump, 30-day artifact). **Pending:** add repo secret **`DATABASE_URL`**
+      (Supabase Dashboard → Connect → Connection string (Pooler) → Transaction URI), enable
+      Actions, then run the backup workflow once to verify.
 - [ ] 🟡 **Sentry smoke** — trigger a frontend error + a worker error → both appear in
       sentry.io.
 - [ ] 🟡 **Rate-limit safety net** (30 runs/hour/user) behaves under load.

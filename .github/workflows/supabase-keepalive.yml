@@ -1,0 +1,26 @@
+# Keep the Supabase free-tier project alive: free projects PAUSE after 7 days of
+# no API activity. This workflow pings the REST API daily — ANY HTTP response
+# (2xx/4xx) proves the project processed a request, which resets the timer.
+# Enable: repo Settings → Actions → General → "Allow all actions and reusable workflows".
+# Test now: Actions tab → supabase-keepalive → Run workflow.
+name: supabase-keepalive
+on:
+  schedule:
+    - cron: '5 4 * * *'   # daily 04:05 UTC
+  workflow_dispatch: {}   # manual run button
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        run: |
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30             -H "apikey: $SUPABASE_ANON_KEY"             -H "Authorization: Bearer $SUPABASE_ANON_KEY"             "$SUPABASE_URL/rest/v1/profiles?select=id&limit=1" || echo 000)
+          echo "HTTP $code"
+          case "$code" in
+            000) echo "::error::Supabase unreachable — keepalive FAILED"; exit 1 ;;
+            *)   echo "activity recorded (HTTP $code)"; exit 0 ;;
+          esac
+        env:
+          SUPABASE_URL: https://wqjdumforbalfmtawwpg.supabase.co
+          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxamR1bWZvcmJhbGZtdGF3d3BnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0Mjg4NzQsImV4cCI6MjEwMTAwNDg3NH0.Ola-ZvnCfRq6mF0oLeiG4NqsfDKaHcz6UCDmNzp9swo

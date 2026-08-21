@@ -1,0 +1,32 @@
+# Weekly automated backup of the Supabase Postgres database (free tier has NO
+# automated backups).
+# One-time setup: repo Settings → Secrets and variables → Actions → New secret
+#   Name: DATABASE_URL
+#   Value: postgresql://postgres.<ref>:<db_password>@<host>.pooler.supabase.com:5432/postgres
+#   (Supabase Dashboard → Connect → Connection string (Pooler) → Transaction)
+# Artifacts expire after 30 days — download them or they are gone.
+name: supabase-backup
+on:
+  schedule:
+    - cron: '20 3 * * 0'   # weekly, Sunday 03:20 UTC
+  workflow_dispatch: {}    # manual run button
+
+jobs:
+  pg-dump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install postgresql client
+        run: sudo apt-get update && sudo -S -p '' apt-get install -y --no-install-recommends postgresql-client
+      - name: Dump database
+        run: |
+          ts=$(date +%Y%m%d-%H%M%S)
+          pg_dump "$DATABASE_URL" --no-owner --no-privileges --format=custom -f "supabase-$ts.dump"
+          ls -la "supabase-$ts.dump"
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backup
+          path: supabase-*.dump
+          retention-days: 30
