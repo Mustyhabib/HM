@@ -1,0 +1,212 @@
+{
+ "page": {
+  "width_mm": 297,
+  "height_mm": 210,
+  "margins_mm": {
+   "top": 10,
+   "bottom": 10,
+   "left": 14,
+   "right": 14
+  }
+ },
+ "header": "H~M Trading Institute \u2014 QuantLab: The Quant Research OS \u00b7 Confidential",
+ "footer": "hmtrade.business \u00b7 mustaphahabib270@gmail.com",
+ "footer_page_numbers": true,
+ "styles": [
+  {
+   "name": "Compact",
+   "base": "Normal",
+   "size_pt": 8.5
+  },
+  {
+   "name": "CompactBold",
+   "base": "Normal",
+   "size_pt": 8.5,
+   "bold": true
+  }
+ ],
+ "blocks": [
+  {
+   "type": "heading",
+   "text": "H~M Trading Institute \u2014 QuantLab",
+   "level": 1
+  },
+  {
+   "type": "paragraph",
+   "text": "The Quant Research OS \u00b7 Executive Summary \u2014 August 2026 \u00b7 CONFIDENTIAL \u00b7 hmtrade.business"
+  },
+  {
+   "type": "paragraph",
+   "runs": [
+    {
+     "text": "Africa's retail investors have execution but no research. ",
+     "bold": true
+    },
+    {
+     "text": "We built the research layer \u2014 and it is live today.",
+     "bold": true
+    }
+   ]
+  },
+  {
+   "type": "table",
+   "header": [
+    "The Problem",
+    "The Solution \u2014 QuantLab"
+   ],
+   "rows": [
+    [
+     "Brokerages let Africans buy; nothing helps them think. Institutional research is USD-priced, Western-railed, closed to them. AI made research cheap \u2014 nobody delivered it locally.",
+     "Production-grade AI research platform: sign up, connect your own DeepSeek key (BYOK), run unlimited research agents \u2014 market scans, backtests, journal analysis \u2192 rendered reports with live progress."
+    ]
+   ],
+   "style": "Table Grid",
+   "header_bold": true
+  },
+  {
+   "type": "paragraph",
+   "text": "WHAT IS LIVE TODAY (VERIFIED 2026-08-22)",
+   "bold": true
+  },
+  {
+   "type": "bullet_list",
+   "items": [
+    "Run loop verified end-to-end: prompt \u2192 queued \u2192 claim \u2192 engine \u2192 artifacts \u2192 completed (React SPA \u00b7 Vercel, Python worker \u00b7 Railway, Supabase backend)",
+    "Shadow Account live: trade-journal \u2192 behavior profile \u2192 shadow backtest \u2192 HTML report (Premium tier)",
+    "Billing test-ready: Paystack NGN, signed webhooks, E2E 8/9 \u00b7 Admin live (suspension, audit) \u00b7 Sentry \u00b7 83 worker tests \u00b7 Cloudflare SSL live"
+   ]
+  },
+  {
+   "type": "paragraph",
+   "text": "UNIT ECONOMICS (FULL MODEL IN THE BRIEF, SECTION 15)",
+   "bold": true
+  },
+  {
+   "type": "table",
+   "header": [
+    "Metric",
+    "Value",
+    "Metric",
+    "Value"
+   ],
+   "rows": [
+    [
+     "Blended ARPU",
+     "\u20a630,000 / $20/mo",
+     "Gross margin",
+     ">98% (BYOK)"
+    ],
+    [
+     "LTV (7%/mo churn)",
+     "$286",
+     "LTV : CAC",
+     "35.7 : 1"
+    ],
+    [
+     "Target CAC",
+     "$8",
+     "CAC payback",
+     "0.4 months"
+    ],
+    [
+     "Infra (MVP)",
+     "~$12/mo",
+     "1,000 subs",
+     "$240k ARR"
+    ]
+   ],
+   "style": "Light Grid Accent 1",
+   "header_bold": true
+  },
+  {
+   "type": "table",
+   "header": [
+    "Subscribers",
+    "MRR (\u2248USD)",
+    "ARR (\u2248USD)"
+   ],
+   "rows": [
+    [
+     "100",
+     "$2,000",
+     "$24,000"
+    ],
+    [
+     "250",
+     "$5,000",
+     "$60,000"
+    ],
+    [
+     "500",
+     "$10,000",
+     "$120,000"
+    ]
+   ],
+   "style": "Light Grid Accent 1",
+   "header_bold": true
+  },
+  {
+   "type": "paragraph",
+   "runs": [
+    {
+     "text": "THE ASK \u2014 $50,000 PRE-SEED \u00b7 12-MONTH RUNWAY \u00b7 ",
+     "bold": true
+    },
+    {
+     "text": "break-even at ~210 subscribers (month 5 of a 25\u2192750 ramp).",
+     "bold": false
+    }
+   ]
+  },
+  {
+   "type": "table",
+   "header": [
+    "Category",
+    "Share",
+    "Amount",
+    "What it buys"
+   ],
+   "rows": [
+    [
+     "Go-to-market & acquisition",
+     "40%",
+     "$20,000",
+     "Creator partnerships, community campaigns, referral incentives"
+    ],
+    [
+     "Compliance, legal & entity",
+     "20%",
+     "$10,000",
+     "Registrant block, ToS/Privacy, NDPR posture, support"
+    ],
+    [
+     "Product expansion",
+     "25%",
+     "$12,500",
+     "Phase 1 FastAPI + research governance, API, mobile, Stripe"
+    ],
+    [
+     "Working capital & runway",
+     "15%",
+     "$7,500",
+     "Paystack float, infra buffer, contingency"
+    ]
+   ],
+   "style": "Light Grid Accent 1",
+   "header_bold": true
+  },
+  {
+   "type": "paragraph",
+   "runs": [
+    {
+     "text": "\"The engineering is done. The company is what the raise builds.\"",
+     "italic": true
+    }
+   ]
+  },
+  {
+   "type": "paragraph",
+   "text": "Contact: mustaphahabib270@gmail.com \u00b7 hmtrade.business \u00b7 Demo: https://hm-ashy-six.vercel.app (test card 4084 0840 8408 4081)"
+  }
+ ]
+}
