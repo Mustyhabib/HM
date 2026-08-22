@@ -99,15 +99,19 @@ function PhasePlaceholder({
   );
 }
 
-// ─── Live Market Chart (LSE — London Strategic Edge via Edge Function) ────────
+// ─── Live Market Chart (LSE via Edge Function → CoinGecko fallback) ──────────
 // ADR D18: LSE is the Phase 2 primary data provider (platform-managed API key).
 // ADR D17: WebSocket live feed is Phase 6; HTTP OHLCV (historical) is Phase 2.
 // The LSE_API_KEY stays server-side — the browser calls the market-data Edge
 // Function which proxies to LSE and returns normalised PriceBar[].
+// Fallback: if the Edge Function isn't deployed yet (404) or LSE_API_KEY isn't
+// configured (503), we fall back to CoinGecko's free public OHLC API so the
+// chart is never empty. Once the Edge Function + LSE key are live, the fallback
+// is never reached.
 const COINS = [
-  { lseSymbol: "BTC/USD", symbol: "BTC", label: "Bitcoin"  },
-  { lseSymbol: "ETH/USD", symbol: "ETH", label: "Ethereum" },
-  { lseSymbol: "SOL/USD", symbol: "SOL", label: "Solana"   },
+  { lseSymbol: "BTC/USD", cgId: "bitcoin",  symbol: "BTC", label: "Bitcoin"  },
+  { lseSymbol: "ETH/USD", cgId: "ethereum", symbol: "ETH", label: "Ethereum" },
+  { lseSymbol: "SOL/USD", cgId: "solana",   symbol: "SOL", label: "Solana"   },
 ] as const;
 
 const RANGES = [
@@ -115,6 +119,21 @@ const RANGES = [
   { label: "30D", days: 30 },
   { label: "90D", days: 90 },
 ] as const;
+
+/** CoinGecko fallback — free, no key, CORS-enabled */
+async function fetchCoinGeckoOHLC(cgId: string, days: number): Promise<PriceBar[]> {
+  const r = await fetch(
+    `https://api.coingecko.com/api/v3/coins/${cgId}/ohlc?vs_currency=usd&days=${days}`,
+  );
+  if (!r.ok) throw new Error(`CoinGecko ${r.status}`);
+  const raw = (await r.json()) as [number, number, number, number, number][];
+  const byDate = new Map<string, PriceBar>();
+  for (const [ts, open, high, low, close] of raw) {
+    const date = new Date(ts).toISOString().split("T")[0];
+    byDate.set(date, { time: date, open, high, low, close, volume: 0 });
+  }
+  return [...byDate.values()];
+}
 
 function LiveMarketChart() {
   const [coin, setCoin]   = useState<(typeof COINS)[number]>(COINS[0]);
@@ -133,6 +152,7 @@ function LiveMarketChart() {
     from.setDate(from.getDate() - range.days);
     const fmt = (d: Date) => d.toISOString().split("T")[0];
 
+    // Try LSE Edge Function first; fall back to CoinGecko if unavailable
     supabase.functions
       .invoke<{ bars: PriceBar[] }>("market-data", {
         body: {
@@ -144,18 +164,25 @@ function LiveMarketChart() {
       })
       .then(({ data: resp, error: fnErr }) => {
         if (cancelled) return;
-        if (fnErr) { setError(fnErr.message); setLoading(false); return; }
-        setData(resp?.bars ?? []);
+        if (fnErr || !resp?.bars?.length) {
+          // Edge Function not deployed or LSE key not set — fall back
+          return fetchCoinGeckoOHLC(coin.cgId, range.days).then((bars) => {
+            if (!cancelled) { setData(bars); setLoading(false); }
+          });
+        }
+        setData(resp.bars);
         setLoading(false);
       })
-      .catch((e: Error) => {
+      .catch(() => {
         if (cancelled) return;
-        setError(e.message);
-        setLoading(false);
+        // Network error calling Edge Function — fall back to CoinGecko
+        return fetchCoinGeckoOHLC(coin.cgId, range.days)
+          .then((bars) => { if (!cancelled) { setData(bars); setLoading(false); } })
+          .catch((e: Error) => { if (!cancelled) { setError(e.message); setLoading(false); } });
       });
 
     return () => { cancelled = true; };
-  }, [coin.lseSymbol, range.days]);
+  }, [coin.lseSymbol, coin.cgId, range.days]);
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
