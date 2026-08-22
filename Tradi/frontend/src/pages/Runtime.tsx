@@ -58,10 +58,13 @@ export function Runtime() {
       setStatus(null);
       setError(err instanceof Error ? err.message : tRef.current("runtime.statusUnavailable"));
     } finally {
-      if (!mountedRef.current || !isCurrentStatusRequest(activeRequestRef.current, requestId, controller)) return;
-      activeRequestRef.current = null;
-      setLoading(false);
-      setRefreshing(false);
+      // Avoid return-in-finally (no-unsafe-finally): guard the cleanup with
+      // an if instead of returning early, so exceptions from try/catch survive.
+      if (mountedRef.current && isCurrentStatusRequest(activeRequestRef.current, requestId, controller)) {
+        activeRequestRef.current = null;
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
