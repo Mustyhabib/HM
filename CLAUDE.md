@@ -220,13 +220,14 @@ Safety net: 30 runs/rolling hour/user soft rate limit (not a business quota).
 ## Key RPCs (SECURITY DEFINER, search_path pinned to 'public')
 
 start_agent_run(p_prompt, p_max_iter, p_idempotency_key, p_attachments)
-  Gates: authenticated → active subscription → DeepSeek key configured → 30/hr rate limit
+  Gates: authenticated → active subscription → DeepSeek OR Ollama key configured → 30/hr rate limit
   Returns: run UUID | Errors: not_authenticated, no_active_subscription, no_api_key, rate_limited
 start_swarm_run(p_preset_name, p_user_vars, p_idempotency_key)
   Gates: same as above + plan_id IN ('pro','premium') | Errors: same + plan_gate
 start_shadow_run(p_journal_file...)   # shadow account kind (2026_08_21_shadow_account.sql)
 save_user_api_key(p_provider, p_api_key)          # Vault encrypt, upsert, never returns plaintext
-get_user_api_key_status()                          # {provider, last4, configured_at} | null
+get_user_api_key_status()                          # {provider, last4, configured_at} | null  (deepseek only — backward compat)
+list_user_api_key_statuses()                       # [{provider, last4, configured_at}] all providers (2026_08_22_ollama_byok)
 delete_user_api_key(p_provider)
 worker_get_user_api_key(p_user_id, p_provider)     # service_role ONLY — decrypts for the worker
 upsert_subscription(p_user_id, p_plan_id, p_provider_subscription_id, p_status, p_period_start, p_period_end)
@@ -335,7 +336,7 @@ plan. Attachments: CSV/XLSX/JSON → agent-uploads bucket, 50 MB cap, paths
 
 ## Sprint tracker — UPDATE AT END OF EVERY SESSION
 
-Sprint day : 8 of 30   Status: Week 2 in progress — Phase 2 data plane in flight
+Sprint day : 8 of 30   Status: Week 2 in progress — Ollama BYOK + landing page v2 on branch, pending merge
 
 Shipped (merged to main, live):
   ✅ MVP run loop VERIFIED end-to-end (prompt → queued → claim → engine → completed,
@@ -343,7 +344,7 @@ Shipped (merged to main, live):
      echo, [BUG-ENG-2] usage_events NULL crash, [BUG-ENG-3] realtime sync noise.
   ✅ Auth, Dashboard, Agent launcher, RunView, BYOK pivot (Vault), Swarm dispatch,
      attachments, realtime queue viewer, live progress streaming, Shadow Account
-     (journal → backtest → HTML report, Premium), 74 hermetic worker tests.
+     (journal → backtest → HTML report, Premium), 83 hermetic worker tests.
   ✅ Paystack billing Edge Functions + E2E harness (8/9 PASS, 0 FAIL) — test mode.
   ✅ Admin dashboard (suspend/unsuspend, audit logs, plan override).
   ✅ Monitoring: Sentry worker + frontend live. Railway healthcheck wired.
@@ -366,6 +367,21 @@ Shipped (merged to main, live):
      ADR D18 recorded: LSE promoted from reference to live Phase 2 data provider.
 
 In progress / next:
+  ✅ OLLAMA BYOK (2026-08-22) — branch feat/landing-page-v2, commit 51be48f:
+     • DB migration 2026_08_22_ollama_byok.sql — expand provider CHECK on
+       user_api_keys + agent_runs; URL validation in save_user_api_key; new
+       list_user_api_key_statuses() RPC; updated start_*_run gates (deepseek|ollama).
+       ⚠ NOT YET APPLIED to Supabase — apply before this branch lands.
+     • Worker: ollama_model field (WORKER_OLLAMA_MODEL, default qwen2.5:32b);
+       execute() resolves deepseek-first/ollama-fallback; _build_env() provider-aware.
+     • Frontend apikeys.ts: Provider = 'deepseek'|'ollama'; URL pattern validation;
+       listApiKeyStatuses() RPC; Profile.tsx OllamaSection (Globe icon, type=url input).
+     • Tests: 83/83 pass; frontend build clean.
+     NEXT: apply migration → merge PR → (optionally) add WORKER_OLLAMA_MODEL to Railway.
+  ✅ Landing page v2 (2026-08-22) — branch feat/landing-page-v2, PR #18:
+     trading-chart.mp4 hero video, Quant Research OS positioning, institutional copy.
+     ⚠ Not yet merged to main (same branch as Ollama BYOK).
+     NEXT: apply Supabase migration → merge this branch.
   ✅ Shadow Account migration 2026_08_21_shadow_account.sql — APPLIED to Supabase
      2026-08-22 (Management API; kind constraint already present, start_shadow_run
      RPC created + grants verified: PUBLIC execute only, no anon row).
@@ -420,7 +436,9 @@ D8  — **Paystack (NGN, Nigeria launch) + Stripe (international, entity-gated, 
       provider-agnostic subscriptions; webhooks signed + idempotent
 D9  — Auth store sets session synchronously (fixed signup/login race)
 D10 — One metered prompt box on Agent page (not a chat-style multi-turn UI)
-D11 — BYOK pivot: users supply their own DeepSeek key, unlimited runs per tier
+D11 — BYOK pivot: users supply their own LLM credential — DeepSeek (sk-…) or
+      Ollama (base URL, self-hosted). Both encrypted in Supabase Vault. Worker
+      resolves provider per-user at run time: DeepSeek first, Ollama fallback.
 D12 — Supabase Vault for key storage (not AES-256-GCM with app-managed key)
 D13 — Edge Functions for payment webhooks (not a FastAPI backend at MVP)
 D14 — No Celery/Redis — Python polling loop is simpler and sufficient for MVP scale
