@@ -349,7 +349,9 @@ Shipped (merged to main, live):
      recorded. Brand locked: H~M Trading Institute + QuantLab/QuantLab Admin.
 
 In progress / next:
-  ⏳ Shadow Account migration 2026_08_21_shadow_account.sql — NOT yet applied (manual).
+  ✅ Shadow Account migration 2026_08_21_shadow_account.sql — APPLIED to Supabase
+     2026-08-22 (Management API; kind constraint already present, start_shadow_run
+     RPC created + grants verified: PUBLIC execute only, no anon row).
   ⏳ Paystack charge.success E2E with test card (PAYSTACK_TEST_REFERENCE); swap to live
      plans + key at launch.
   ⏳ Stripe: onboarding (entity/Atlas) + stripe-init/stripe-webhook Edge Functions + plans.

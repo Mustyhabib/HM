@@ -61,6 +61,9 @@ runner. Order matters; newest first:
 5. `2026_08_17_admin_dashboard.sql` — admin_users + audit_logs + 10 admin RPCs
    (APPLIED to production 2026-08-18; forward = lines 1–917, rollback section
    commented below line 919)
+6. `2026_08_21_shadow_account.sql` — shadow run kind + start_shadow_run RPC
+   (APPLIED to production 2026-08-22 via Management API; kind constraint had
+   already been added, RPC was the missing piece — verified post-apply)
 
 Do not edit applied migrations; write new numbered files. The admin migration's
 rollback block is a comment — copy it out if a rollback is ever needed.
