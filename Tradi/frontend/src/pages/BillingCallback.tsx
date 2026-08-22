@@ -1,12 +1,12 @@
 /**
  * BillingCallback — post-payment landing page at /billing/callback
  *
- * Paystack redirects here after the user completes (or closes) the checkout.
- * URL params: ?reference=REF&trxref=REF
+ * Both Paystack and Stripe redirect here after checkout:
+ *   Paystack: ?reference=REF&trxref=REF
+ *   Stripe:   ?session_id=SESSION_ID
  *
- * We optimistically show success (Paystack only redirects with a reference on
- * success). The paystack-webhook Edge Function activates the subscription in
- * the background. We poll briefly and redirect to /dashboard.
+ * The respective webhook Edge Function activates the subscription in the
+ * background. We poll briefly and redirect to /dashboard.
  */
 
 import { useEffect, useState } from "react";
@@ -22,7 +22,12 @@ export function BillingCallback() {
   const [phase, setPhase] = useState<Phase>("verifying");
   const [countdown, setCountdown] = useState(5);
 
-  const reference = searchParams.get("reference") ?? searchParams.get("trxref");
+  // Detect which provider redirected us back.
+  // Stripe uses session_id; Paystack uses reference/trxref.
+  const reference =
+    searchParams.get("reference") ??
+    searchParams.get("trxref") ??
+    searchParams.get("session_id");
 
   useEffect(() => {
     if (!reference) {
