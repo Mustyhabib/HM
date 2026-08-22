@@ -5,6 +5,10 @@ import { PublicLayout } from "@/components/layout/PublicLayout";
 import { AuthGuard, GuestGuard } from "@/components/auth/AuthGuard";
 import { AdminGuard } from "@/components/auth/AdminGuard";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import {
+  Markets, Strategies, MLStudio, RLStudio, Backtests,
+  Paper, Portfolio, DataPage, Models, Live,
+} from "@/pages/stubs";
 
 // --- Public / SaaS pages ---
 const Landing = lazy(() => import("@/pages/Landing").then((m) => ({ default: m.Landing })));
@@ -148,6 +152,17 @@ export const router = createBrowserRouter([
           { path: "/alpha-zoo/bench", element: wrap(AlphaZoo) },
           { path: "/alpha-zoo/compare", element: wrap(AlphaZoo) },
           { path: "/alpha-zoo/:alphaId", element: wrap(AlphaZoo) },
+          // Phase 2–8 stubs (no lazy — tiny components)
+          { path: "/markets",      element: <Markets /> },
+          { path: "/strategies",   element: <Strategies /> },
+          { path: "/ml-studio",    element: <MLStudio /> },
+          { path: "/rl-studio",    element: <RLStudio /> },
+          { path: "/backtests",    element: <Backtests /> },
+          { path: "/paper",        element: <Paper /> },
+          { path: "/portfolio",    element: <Portfolio /> },
+          { path: "/data",         element: <DataPage /> },
+          { path: "/models",       element: <Models /> },
+          { path: "/live",         element: <Live /> },
         ],
       },
 
