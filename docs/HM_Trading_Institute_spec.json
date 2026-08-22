@@ -1,0 +1,1292 @@
+{
+ "page": {
+  "width_mm": 210,
+  "height_mm": 297,
+  "margins_mm": {
+   "top": 22,
+   "bottom": 22,
+   "left": 20,
+   "right": 20
+  }
+ },
+ "header": "H~M Trading Institute \u2014 QuantLab: The Quant Research OS \u00b7 Confidential",
+ "footer": "hmtrade.business \u00b7 mustaphahabib270@gmail.com",
+ "footer_page_numbers": true,
+ "blocks": [
+  {
+   "type": "heading",
+   "text": "H~M Trading Institute",
+   "level": 1
+  },
+  {
+   "type": "heading",
+   "text": "QuantLab \u2014 The Quant Research OS",
+   "level": 2
+  },
+  {
+   "type": "paragraph",
+   "text": "CONFIDENTIAL INVESTOR & TECHNICAL BRIEF \u2014 revised 2026-08-22"
+  },
+  {
+   "type": "paragraph",
+   "text": "AI-assisted quantitative research for African retail investors \u2014 subscription SaaS, Nigerian entity, production-grade engineering."
+  },
+  {
+   "type": "paragraph",
+   "text": "Prepared: August 2026 \u00b7 Status: Phase 0 complete, MVP production-live \u00b7 Contact: mustaphahabib270@gmail.com \u00b7 hmtrade.business"
+  },
+  {
+   "type": "paragraph",
+   "text": "Confidential \u2014 prepared for investor & technical-partner review. Figures marked \u2248 are indicative planning estimates; the full financial model is reproduced in Section 15 with all assumptions stated."
+  },
+  {
+   "type": "heading",
+   "text": "Executive Summary \u2014 Why This Matters Now",
+   "level": 1
+  },
+  {
+   "type": "paragraph",
+   "text": "Africa's retail investors are the last major market with access to execution but no access to research. Brokerages let them buy; nothing helps them think. Every institutional-grade research tool is priced in USD, built for Western rails, and closed to them \u2014 while the AI that made research cheap to operate is available per-token to anyone with an API key. H~M Trading Institute closes that gap with QuantLab: a production-grade, multi-user research platform that is engineered, deployed, and running today."
+  },
+  {
+   "type": "paragraph",
+   "text": "What is live right now (verified 2026-08-22):"
+  },
+  {
+   "type": "bullet_list",
+   "items": [
+    "MVP run loop verified end-to-end \u2014 prompt \u2192 queued \u2192 claim \u2192 engine \u2192 artifacts \u2192 completed, with live progress streaming (React SPA on Vercel, Python worker on Railway, Supabase backend).",
+    "Shadow Account LIVE \u2014 the full trade-journal \u2192 behavior profile \u2192 shadow backtest \u2192 HTML report path, Premium tier. Migration applied 2026-08-22; two worker integration bugs found and fixed en route (BUG-ENG-4, BUG-ENG-5), 83 hermetic tests green.",
+    "Billing test-ready \u2014 Paystack NGN checkout, subscription webhooks, HMAC-SHA512 verification; E2E harness 8/9 PASS, 0 FAIL (test mode).",
+    "Admin dashboard shipped \u2014 suspension gates, user management, audit trails, database-level enforcement (10 RPCs).",
+    "BYOK (Bring-Your-Own-Key) model \u2014 zero LLM cost-of-goods-sold; customers run unlimited research on their own DeepSeek key; platform never proxies or marks up model calls.",
+    "Monitoring live \u2014 Sentry frontend + worker, structured JSON logs, /health endpoint."
+   ]
+  },
+  {
+   "type": "paragraph",
+   "text": "The structural unlock: a ~$15/month infrastructure footprint, >98% gross margin, and a community-led GTM pattern that built African fintech \u2014 creator channels, trading communities, referral loops. This document is written so an investor or technical partner can understand the system end-to-end: market problem, current MVP state, architecture, roadmap, and the exact financial model (Section 15) for a $50,000 pre-seed that funds 12 months of runway."
+  },
+  {
+   "type": "heading",
+   "text": "1. The Problem \u2014 The Research Gap",
+   "level": 2
+  },
+  {
+   "type": "paragraph",
+   "text": "Retail investors in Nigeria and across emerging markets face a research gap. Professional-grade trading research \u2014 quantitative alpha screening, multi-asset backtesting, news-and-data synthesis \u2014 is either locked inside institutions, priced in USD for Western salaries, or buried inside fragmented tools built for US/EU infrastructure (USD pricing, foreign card rails, no local context)."
+  },
+  {
+   "type": "paragraph",
+   "text": "Meanwhile, tools that do exist for African retail (fractional brokerage, investment apps) are execution platforms. They let users buy but do not help them think. The result: self-directed traders make decisions on sentiment, with no accessible research layer \u2014 exactly when AI made such a layer cheap to operate."
+  },
+  {
+   "type": "paragraph",
+   "text": "Two structural facts make this solvable today: (1) frontier LLMs are available per-token to anyone with an API key, and (2) a BYOK model lets a platform operator offer unlimited AI research without bearing model cost. The customer pays for intelligence; the platform sells the product around it."
+  },
+  {
+   "type": "heading",
+   "text": "2. The Solution \u2014 QuantLab (MVP, live)",
+   "level": 2
+  },
+  {
+   "type": "paragraph",
+   "text": "A web application where a user signs up, connects their own DeepSeek API key, and launches AI trading-research agents: natural-language prompts become runs that scan markets, backtest strategies, analyze uploaded data, and return rendered artifacts (charts, tables, reports) with live progress streaming. Three subscription tiers gate capability depth, not usage \u2014 all tiers are unlimited runs."
+  },
+  {
+   "type": "table",
+   "header": [
+    "Tier",
+    "Price (NGN/mo)",
+    "\u2248USD/mo",
+    "Capabilities"
+   ],
+   "rows": [
+    [
+     "Starter",
+     "\u20a620,000",
+     "$20,000",
+     "Single-agent research runs, unlimited"
+    ],
+    [
+     "Pro",
+     "\u20a635,000",
+     "$35,000",
+     "Starter + Swarm orchestration (30 presets)"
+    ],
+    [
+     "Premium",
+     "\u20a675,000",
+     "$75,000",
+     "Pro + attachments + Shadow Account (journal analysis)"
+    ]
+   ],
+   "style": "Light Grid Accent 1",
+   "header_bold": true
+  },
+  {
+   "type": "paragraph",
+   "text": "Users pay DeepSeek directly for tokens (typically a small monthly LLM bill). The platform charges a flat prepaid subscription for the research product around it. A soft safety net of 30 runs/hour/user prevents abuse without creating a business quota."
+  },
+  {
+   "type": "heading",
+   "text": "2.1 Why BYOK (Bring-Your-Own-Key)",
+   "level": 3
+  },
+  {
+   "type": "bullet_list",
+   "items": [
+    "Zero LLM margin risk \u2014 the platform never proxies or marks up model calls.",
+    "Trust \u2014 user keys are encrypted in Supabase Vault; the platform never sees or spends them.",
+    "Unlimited is true \u2014 since tokens are the customer's, 'unlimited runs' is a genuine statement.",
+    "Simplified compliance \u2014 no handling of customer LLM content through our payment flow."
+   ]
+  },
+  {
+   "type": "heading",
+   "text": "2.2 Shadow Account (live 2026-08-22)",
+   "level": 3
+  },
+  {
+   "type": "paragraph",
+   "text": "A first-class Premium run kind: the user uploads a broker trade journal (CSV/XLSX/JSON), and the engine profiles their behavior, extracts an explicit 'shadow strategy', backtests it against their actual trades, and renders an HTML report. Migration applied to production 2026-08-22; the worker path was proven end-to-end via a live smoke run, during which two latent integration bugs were found and fixed (Sections 6.3, 11)."
+  },
+  {
+   "type": "heading",
+   "text": "3. Why This Infrastructure \u2014 Capital-Efficient Design",
+   "level": 2
+  },
+  {
+   "type": "paragraph",
+   "text": "No traditional backend server at MVP: Supabase (PostgreSQL 17 + Auth + Storage + Vault + Realtime + Edge Functions) is the entire backend. RLS and SECURITY DEFINER RPCs enforce access in the database \u2014 the most audit-friendly security model available."
+  },
+  {
+   "type": "bullet_list",
+   "items": [
+    "Paystack only, NGN \u2014 Nigerian entity; Stripe cannot onboard Nigerian businesses. Hosted checkout, recurring plans, signed webhooks (HMAC-SHA512) handle billing end-to-end. Stripe is designed for (provider-agnostic model) but deferred until the entity/Atlas path is real (R1-Q6).",
+    "Python polling worker \u2014 runs are claimed with FOR UPDATE SKIP LOCKED: atomic, no Redis, safe with N workers. Each run executes in its own subprocess (engine uses process-global singletons).",
+    "Cloudflare at the edge \u2014 zone, DNS, WAF, SSL (Full strict) live on hmtrade.business; R2 + Queues + Workers API gateway are the Phase 1+ target. Cloudflare Workers cannot run the engine (V8 isolates), so compute stays on Railway (D15).",
+    "BYOK decouples model economics \u2014 see \u00a72.1.",
+    "Observability from day one \u2014 Sentry on frontend + worker, structured JSON logs with run IDs, /health endpoint."
+   ]
+  },
+  {
+   "type": "paragraph",
+   "text": "Result: a production-grade, multi-tenant research platform whose monthly infrastructure cost is ~$12 before scale \u2014 the margin structure an investor can underwrite."
+  },
+  {
+   "type": "heading",
+   "text": "4. System Architecture \u2014 End-to-End View",
+   "level": 2
+  },
+  {
+   "type": "table",
+   "header": [
+    "Layer",
+    "What it is"
+   ],
+   "rows": [
+    [
+     "Frontend",
+     "React 19 + Vite SPA (25+ pages: public, user, admin surfaces) \u2014 on Vercel (hmtrade.business)"
+    ],
+    [
+     "Auth",
+     "Supabase Auth (email/password, JWT, branded templates)"
+    ],
+    [
+     "Data",
+     "PostgreSQL 17 with RLS on every table, SECURITY DEFINER RPCs, billing/admin/audit tables"
+    ],
+    [
+     "Storage",
+     "Supabase Storage (agent-artifacts, agent-uploads buckets, RLS-scoped)"
+    ],
+    [
+     "BYOK Vault",
+     "Supabase Vault stores encrypted keys (service-role only decrypts)"
+    ],
+    [
+     "Billing",
+     "Paystack NGN hosted checkout, recurring plans, signed webhooks"
+    ],
+    [
+     "Worker",
+     "Python polling loop (Railway), FOR UPDATE SKIP LOCKED claim, subprocess-per-run isolation"
+    ],
+    [
+     "Engine",
+     "Tradi (vendored Vibe-Trading 0.1.14+): ReAct agent, 462 alphas, 8 backtest engines, 24 data sources, 78 tools, 90 skills, 30 swarm presets, shadow-account toolset"
+    ],
+    [
+     "LLM",
+     "DeepSeek via BYOK \u2014 never proxied or marked up"
+    ],
+    [
+     "Observability",
+     "Sentry (frontend + worker), structured JSON logs, /health"
+    ],
+    [
+     "Edge",
+     "Cloudflare: zone hmtrade.business, proxied DNS, WAF, Full-strict SSL"
+    ]
+   ],
+   "style": "Light Grid Accent 1",
+   "header_bold": true
+  },
+  {
+   "type": "heading",
+   "text": "4.1 The Run Pipeline (core flow)",
+   "level": 3
+  },
+  {
+   "type": "numbered_list",
+   "items": [
+    "User launches a run; the start_agent_run RPC validates auth \u2192 active subscription \u2192 DeepSeek key configured.",
+    "Row inserted as 'queued' with a unique idempotency key; Realtime notifies the browser.",
+    "Worker polls WHERE status='queued' with FOR UPDATE SKIP LOCKED, claims one row.",
+    "Worker spawns a subprocess: vibe-trading run -p '<prompt>' --json, with per-run isolated HOME.",
+    "Progress streams back; artifacts upload to Storage.",
+    "Run completes/fails; the UI renders artifacts via Realtime."
+   ]
+  },
+  {
+   "type": "paragraph",
+   "text": "A run is a row, a claim, a subprocess and a stream \u2014 nothing more. That simplicity is the design's resilience."
+  },
+  {
+   "type": "heading",
+   "text": "4.2 Provenance & the research substrate (Phase 1, planned)",
+   "level": 3
+  },
+  {
+   "type": "paragraph",
+   "text": "The Phase 1 brief (docs/PHASE1_BRIEF.md) stands: a FastAPI modular monolith on the same Railway container (two processes), adding projects/hypotheses/experiments/dataset_registry/promotion_events tables + RLS, worker-side provenance capture on every run, Supabase JWT validation, and an Upstash Redis skeleton (health + queue smoke, fail-open). The live run loop never breaks (D16 strangler-fig)."
+  },
+  {
+   "type": "heading",
+   "text": "5. Data Strategy \u2014 Canonical Layers (DATA.md)",
+   "level": 2
+  },
+  {
+   "type": "paragraph",
+   "text": "Market data is treated as a versioned product and scientific dependency, not an API response (DATA.md). The canonical pipeline:"
+  },
+  {
+   "type": "table",
+   "header": [
+    "Layer",
+    "Meaning"
+   ],
+   "rows": [
+    [
+     "RAW",
+     "As-received, never overwritten"
+    ],
+    [
+     "VALIDATED RAW",
+     "Sequence/gap validation"
+    ],
+    [
+     "NORMALIZED",
+     "Canonical schema, multiple providers \u2192 one model"
+    ],
+    [
+     "DERIVED",
+     "Computed fields, corporate actions"
+    ],
+    [
+     "FEATURES",
+     "Versioned feature layer (training-serving parity)"
+    ]
+   ],
+   "style": "Light Grid Accent 1",
+   "header_bold": true
+  },
+  {
+   "type": "paragraph",
+   "text": "Every dataset carries metadata: provider, venue, symbols, asset class, frequency, timezone, timestamp semantics, coverage, adjustment/corporate-action policy, point-in-time capability, license, version, quality score. Point-in-time is a hard invariant: historical experiments may only use information knowable at the simulated time (event time + knowledge time). Phase 2 targets a Supabase-Storage lake (Parquet) with DuckDB/Polars access and a dataset registry; the R2 billing decision is deferred until real data volume exists (R2-Q8). First asset class: crypto (R1-Q7), first dataset BTC/ETH/SOL daily OHLCV (R3-Q4), reusing the engine's OKX/Binance/CCXT loader fallbacks."
+  },
+  {
+   "type": "heading",
+   "text": "6. Research Workflow (WORKFLOW.md)",
+   "level": 2
+  },
+  {
+   "type": "paragraph",
+   "text": "The research pipeline the platform is being built toward (the visual form lives in WORKFLOW.md and INFRASTRUCTURE.md):"
+  },
+  {
+   "type": "numbered_list",
+   "items": [
+    "User question \u2192 AI research agent \u2192 formal hypothesis \u2192 experiment spec \u2192 data requirements \u2192 data snapshot \u2192 feature pipeline",
+    "Baseline / ML / RL experiments \u2192 backtest engine \u2192 cost & slippage \u2192 walk-forward validation \u2192 untouched test set",
+    "Pass/fail \u2192 promotion ladder: candidate \u2192 validated \u2192 paper \u2192 shadow \u2192 approved \u2192 live (Phase 4 workflow; the promotion vocabulary is already in the Phase 1 schema, per RECONCILIATION R12)",
+    "Research feedback loop: results feed the next question \u2014 an explicit, governed loop, not a black box."
+   ]
+  },
+  {
+   "type": "paragraph",
+   "text": "Engineering workflow: every change rides the same discipline \u2014 83 hermetic worker tests, frontend build + 261/265 vitest, engine suite, CI grep gates, and the launch checklist as the single tracking artifact."
+  },
+  {
+   "type": "heading",
+   "text": "7. UI Vision \u2014 QuantLab & QuantLab Admin (UI_VISION.md)",
+   "level": 2
+  },
+  {
+   "type": "paragraph",
+   "text": "Brand lock (2026-08-21): customer-facing brand H~M Trading Institute; product QuantLab (user app) + QuantLab Admin (control plane). One design system, one palette, one typography \u2014 locked, never alternatives (design-system rule)."
+  },
+  {
+   "type": "paragraph",
+   "text": "QuantLab (user app) \u2014 data-dense, calm, professional, AI-native: Overview/Dashboard (portfolio, P&L, Sharpe, drawdown \u2014 never fake numbers, R17), Markets, Research (AI copilot prompt + research cards), Strategies, ML Studio, RL Studio, Backtests, Paper trading, Portfolio, Data, Models, Live. Live controls are visually distinct from research/paper surfaces."
+  },
+  {
+   "type": "paragraph",
+   "text": "QuantLab Admin (control plane) \u2014 platform operations: user management, subscription/plan overrides, suspension controls, audit logs, system health. The current /admin SPA surface stays; RBAC granularity + MFA (TOTP) are roadmap items (R10)."
+  },
+  {
+   "type": "heading",
+   "text": "8. Current Status \u2014 What Is Live Today (2026-08-22)",
+   "level": 2
+  },
+  {
+   "type": "table",
+   "header": [
+    "Component",
+    "Status"
+   ],
+   "rows": [
+    [
+     "Frontend SPA",
+     "\u2713 LIVE: React 19 + Vite on Vercel (hmtrade.business / hm-ashy-six.vercel.app)"
+    ],
+    [
+     "Auth",
+     "\u2713 LIVE: Supabase Auth + branded templates (dashboard paste pending)"
+    ],
+    [
+     "Run pipeline",
+     "\u2713 VERIFIED: prompt \u2192 queued \u2192 claim \u2192 engine \u2192 artifacts \u2192 completed; BUG-ENG-4/5 fixed 2026-08-22"
+    ],
+    [
+     "Billing (Paystack)",
+     "\u2713 TEST MODE: E2E harness 8/9 PASS; test-card flow verified; live keys pending at launch"
+    ],
+    [
+     "BYOK + Vault",
+     "\u2713 LIVE: encrypted key storage, worker decrypts server-side"
+    ],
+    [
+     "Swarm (30 presets)",
+     "\u2713 LIVE: Pro/Premium gate, user_vars routing"
+    ],
+    [
+     "Attachments (CSV/XLSX/JSON)",
+     "\u2713 LIVE: Premium tier, 50 MB cap, Storage upload/RLS"
+    ],
+    [
+     "Shadow Account",
+     "\u2713 LIVE: journal \u2192 profile \u2192 shadow backtest \u2192 HTML report (Premium); migration + fixes 2026-08-22"
+    ],
+    [
+     "Admin dashboard",
+     "\u2713 LIVE: suspend/unsuspend, user list, plan override, audit logs (10 RPCs, DB-enforced)"
+    ],
+    [
+     "Worker tests",
+     "\u2713 83 hermetic tests, black-clean, all passing"
+    ],
+    [
+     "Monitoring",
+     "\u2713 LIVE: Sentry frontend + worker, structured JSON logs, /health"
+    ],
+    [
+     "Cloudflare + SSL",
+     "\u2713 LIVE: zone hmtrade.business, proxied DNS, Full strict, GTS cert"
+    ],
+    [
+     "Railway worker",
+     "\u2713 LIVE: service HM, /health :9100, WORKER_EXECUTE_TRADI=true"
+    ],
+    [
+     "Email",
+     "\u2713 Templates shipped (branded); support@ mailbox + Resend SMTP pending"
+    ],
+    [
+     "Keepalive + backup",
+     "\u2713 SHIPPED: daily keepalive + weekly pg_dump workflows; Actions + DATABASE_URL secret pending"
+    ]
+   ],
+   "style": "Light Grid Accent 1",
+   "header_bold": true
+  },
+  {
+   "type": "paragraph",
+   "text": "The run loop is production-verified. Billing is test-ready. Admin is live. Remaining before launch: Paystack live key switch + charge-case E2E, Auth URLs + branded emails (Resend), support mailbox, legal fields, test-account cleanup, env-var purge."
+  },
+  {
+   "type": "heading",
+   "text": "9. Roadmap \u2014 The Quant Research OS (10 Phases)",
+   "level": 2
+  },
+  {
+   "type": "paragraph",
+   "text": "The destination: from a single-purpose AI research wrapper into a full Quant Research OS. Each phase stands up beside the live system (strangler fig), never breaking the run loop (D16)."
+  },
+  {
+   "type": "table",
+   "header": [
+    "Phase",
+    "Name",
+    "Status"
+   ],
+   "rows": [
+    [
+     "0",
+     "Baseline & freeze (inventory, branch strategy, constitution)",
+     "\u2713 DONE 2026-08-21"
+    ],
+    [
+     "1",
+     "Foundation \u2014 FastAPI monolith, tenant projects, research-governance substrate (projects, hypotheses, experiments, dataset_registry, promotion_events; provenance capture; Redis skeleton fail-open)",
+     "\u23f3 POST-LAUNCH (branch upgrade/phase-1-foundation)"
+    ],
+    [
+     "2",
+     "Data \u2014 canonical schema, PIT, Parquet lake (Supabase Storage), dataset registry, BTC/ETH/SOL first",
+     "planned"
+    ],
+    [
+     "3",
+     "Quant Engine \u2014 strategy SDK, ExecutionInterface, walk-forward, realistic backtesting",
+     "planned"
+    ],
+    [
+     "4",
+     "Research AI \u2014 pre-registration workflow, hypotheses, experiment workflow, promotion ladder",
+     "planned"
+    ],
+    [
+     "5",
+     "ML \u2014 baseline first, model registry (MLflow candidate)",
+     "planned"
+    ],
+    [
+     "6",
+     "Paper Trading \u2014 risk engine, OMS, reconciliation, WebSocket-first plane (D17)",
+     "planned"
+    ],
+    [
+     "7",
+     "RL \u2014 research-only, isolated environments",
+     "planned"
+    ],
+    [
+     "8",
+     "Controlled Live \u2014 broker adapters, mandate-gated, fail-closed OMS",
+     "planned"
+    ],
+    [
+     "9",
+     "Scale \u2014 observability, metered billing, quotas, cost attribution ($150\u2013250/mo target)",
+     "planned"
+    ],
+    [
+     "10",
+     "Expansion \u2014 asset classes, public API, mobile views, marketplace, enterprise",
+     "planned"
+    ]
+   ],
+   "style": "Light Grid Accent 1",
+   "header_bold": true
+  },
+  {
+   "type": "paragraph",
+   "text": "Sequencing: Phase 0 \u2713 DONE. Nigeria MVP launch now. Phase 1 begins post-launch (R1-Q1). Governance decisions locked in UPGRADE_ROADMAP.md \u00a74 (R1\u2013R3 grilling): launch-first, Hermes-executed Phase 0, feature branches per phase, same-container two-process FastAPI, Upstash Redis free-tier skeleton, Stripe deferred, crypto first, minimal projects table, Supabase free + keepalive + pg_dump, provenance captured by both worker and FastAPI, capture-first (pre-registration UX = Phase 4), Railway $5 through launch (evaluate Fly.io free at Phase 1), research-domain-only first FastAPI surface, Resend free tier for email."
+  },
+  {
+   "type": "heading",
+   "text": "10. Reconciliation \u2014 Unified Spec Authority",
+   "level": 2
+  },
+  {
+   "type": "paragraph",
+   "text": "docs/UNIFIED_SPEC.md (63 sections, adopted 2026-08-21) is the single source of truth for the target architecture; docs/RECONCILIATION.md records the 18 conflicts with existing ADRs/live stack and their resolutions; docs/REQUIREMENTS.md is the 81-ID requirements register (13 groups, MUST/SHOULD/MAY, traceable to roadmap phases). Key reconciliations:"
+  },
+  {
+   "type": "table",
+   "header": [
+    "#",
+    "Unified spec says",
+    "Resolution"
+   ],
+   "rows": [
+    [
+     "R1",
+     "Next.js frontend",
+     "Keep D3 React 19 + Vite for the live product; Next.js is a future refactor decision"
+    ],
+    [
+     "R2",
+     "AWS primary cloud",
+     "Keep Railway + Supabase + Cloudflare until scale justifies AWS (Phase 9/10)"
+    ],
+    [
+     "R3",
+     "Stripe billing",
+     "Keep D8 Paystack NGN first; Stripe activates when entity exists; spec's provider abstraction matches D8"
+    ],
+    [
+     "R4",
+     "Celery/RQ via Redis",
+     "Keep D14 SQL SKIP LOCKED for MVP; queue enters Phase 1 with FastAPI"
+    ],
+    [
+     "R5",
+     "LLM gateway/router",
+     "BYOK+Vault stays the key mechanism (D12); gateway is Phase 3+"
+    ],
+    [
+     "R6",
+     "MLflow",
+     "Adopt as Phase 5 candidate implementation; our provenance schema stays canonical"
+    ],
+    [
+     "R7",
+     "Redis cache/rate-limit",
+     "Keep Postgres rate limit (30/hr) until Phase 1 Redis skeleton"
+    ],
+    [
+     "R10",
+     "Admin RBAC/MFA",
+     "Keep SPA /admin; add roles + TOTP as roadmap items"
+    ],
+    [
+     "R11",
+     "WebSocket-first",
+     "D17 recorded; REST + polling stay until Phase 6 WS plane"
+    ],
+    [
+     "R12",
+     "Registry lifecycles",
+     "Spec lifecycles refine the Phase 1 DDL (DRAFT\u2192\u2026\u2192RETIRED; candidate\u2192\u2026\u2192live)"
+    ],
+    [
+     "R13",
+     "Repo layout apps/services",
+     "Target layout for new code only; no big-bang restructure (D16)"
+    ],
+    [
+     "R17",
+     "No fake numbers",
+     "Adopted \u2014 empty states + paper-account offer"
+    ]
+   ],
+   "style": "Light Grid Accent 1",
+   "header_bold": true
+  },
+  {
+   "type": "heading",
+   "text": "11. Key Architecture Decisions (ADRs)",
+   "level": 2
+  },
+  {
+   "type": "table",
+   "header": [
+    "ID",
+    "Decision",
+    "Rationale"
+   ],
+   "rows": [
+    [
+     "D1",
+     "Subprocess-per-run",
+     "Engine uses process-global singletons; in-process multi-tenant is unsafe"
+    ],
+    [
+     "D3",
+     "React 19 + Vite frontend",
+     "Saves a rewrite; inherits Vibe-Trading alpha UI"
+    ],
+    [
+     "D5",
+     "SQL job claiming (FOR UPDATE SKIP LOCKED)",
+     "Atomic, no Redis, N workers safe"
+    ],
+    [
+     "D8",
+     "Paystack NGN first (Stripe planned)",
+     "Nigerian entity; provider-agnostic subscription model"
+    ],
+    [
+     "D11",
+     "BYOK pivot",
+     "Users supply keys; unlimited runs per tier; zero LLM margin risk"
+    ],
+    [
+     "D12",
+     "Supabase Vault for key storage",
+     "Encryption without app-managed secrets"
+    ],
+    [
+     "D13",
+     "Edge Functions for billing",
+     "No FastAPI backend at MVP"
+    ],
+    [
+     "D14",
+     "Python polling loop, no Celery/Redis",
+     "Simpler; sufficient for MVP scale; queue enters Phase 1"
+    ],
+    [
+     "D15",
+     "Railway + Supabase + Cloudflare",
+     "Cost-efficient compute/data/edge; CF Workers cannot run the engine"
+    ],
+    [
+     "D16",
+     "Strangler-fig migration",
+     "Live loop never breaks; new code beside old"
+    ],
+    [
+     "D17",
+     "WebSocket-first commitment",
+     "Market data, orders, fills, P&L, job progress over WS (Phase 6)"
+    ]
+   ],
+   "style": "Light Grid Accent 1",
+   "header_bold": true
+  },
+  {
+   "type": "heading",
+   "text": "11.1 Verification gates",
+   "level": 3
+  },
+  {
+   "type": "bullet_list",
+   "items": [
+    "Worker: 83 hermetic tests (pytest, black-clean).",
+    "Frontend: npm run build + 261/265 vitest (4 pre-existing Layout flake).",
+    "Engine: pytest suite, upstream 0.1.14+ (1907e47) with DeepSeek reasoning absorption.",
+    "Billing: E2E harness (offline fixtures + live mode, hard sk_live_ guard), 8/9 PASS.",
+    "Webhook: Paystack HMAC-SHA512 constant-time verification + API re-verification.",
+    "Auth: signUp \u2192 signIn \u2192 protected route \u2192 signOut happy path.",
+    "BYOK: save key \u2192 Vault \u2192 worker decrypts \u2192 run completes."
+   ]
+  },
+  {
+   "type": "heading",
+   "text": "12. Repository & Testing",
+   "level": 2
+  },
+  {
+   "type": "table",
+   "header": [
+    "Path",
+    "Role"
+   ],
+   "rows": [
+    [
+     "Tradi/frontend/",
+     "React SPA \u2014 production frontend (public + user + admin routes)"
+    ],
+    [
+     "Tradi/",
+     "Vendored Vibe-Trading engine (MIT) \u2014 agent, backtests, data sources, skills"
+    ],
+    [
+     "vibe-trading-saas/worker/",
+     "Python worker \u2014 polling loop, runner, artifacts, logging, health"
+    ],
+    [
+     "vibe-trading-saas/db/migrations/",
+     "SQL migrations (applied manually to Supabase)"
+    ],
+    [
+     "supabase/functions/",
+     "Edge Functions: paystack-init, paystack-webhook"
+    ],
+    [
+     "supabase/email-templates/",
+     "Branded auth + transactional email templates"
+    ],
+    [
+     "scripts/",
+     "E2E harness + template validator (zero-dependency Node)"
+    ],
+    [
+     "CLAUDE.md",
+     "Single source of truth for the live system: schema, RPCs, sprint tracker"
+    ],
+    [
+     "SOUL/PROJECT/DATA/ARCHITECTURE/WORKFLOW/FOUNDATIONS.md",
+     "Constitution \u2014 mission, identity, data, target architecture, workflows"
+    ],
+    [
+     "UPGRADE_ROADMAP.md",
+     "Harmonized 10-phase migration plan + decision ledger"
+    ],
+    [
+     "docs/",
+     "UNIFIED_SPEC.md, RECONCILIATION.md, REQUIREMENTS.md, PHASE1_BRIEF.md, LAUNCH_CHECKLIST.md, UI_VISION.md, INFRASTRUCTURE.md"
+    ]
+   ],
+   "style": "Light Grid Accent 1",
+   "header_bold": true
+  },
+  {
+   "type": "heading",
+   "text": "13. Security & Compliance Posture",
+   "level": 2
+  },
+  {
+   "type": "bullet_list",
+   "items": [
+    "Row isolation: RLS on every user-facing table (user_id = auth.uid()).",
+    "BYOK keys: Supabase Vault; public schema holds only opaque secret_id; decryption service-role only.",
+    "Auth gate: Supabase Auth JWT on every protected route (AuthGuard + AdminGuard).",
+    "Subscription gate: start_*_run RPCs check active sub + configured key server-side.",
+    "Webhooks: Paystack x-paystack-signature HMAC-SHA512 constant-time + API re-verify; idempotency via webhook_events UNIQUE.",
+    "Run isolation: subprocess gets own HOME / VIBE_TRADING_HOME / VIBE_TRADING_ALLOWED_RUN_ROOTS; worker secrets stripped from engine env.",
+    "Artifact access: Supabase Storage, owner-scoped RLS, signed URLs (5-min TTL).",
+    "No live trading: mandate-gated, off by default at MVP (SOUL principle #6).",
+    "Fail closed: uncertain broker state / stale data / recon mismatch / risk breach blocks unsafe actions (SOUL #8)."
+   ]
+  },
+  {
+   "type": "heading",
+   "text": "14. Business Model & Unit Economics",
+   "level": 2
+  },
+  {
+   "type": "paragraph",
+   "text": "Revenue: flat monthly NGN subscription (prepaid via Paystack). No usage metering, no token markup. COGS: customer's own DeepSeek spend (outside the platform). Infra: serverless Supabase + one small Railway worker \u2248 $12/mo. Structurally >98% gross margin at scale."
+  },
+  {
+   "type": "table",
+   "header": [
+    "Metric",
+    "Value"
+   ],
+   "rows": [
+    [
+     "Blended ARPU",
+     "\u20a630,000 / $20"
+    ],
+    [
+     "Paystack effective fee",
+     "1.83% (1.5% + \u20a6100/txn at blended ARPU)"
+    ],
+    [
+     "Gross margin",
+     "98.2%"
+    ],
+    [
+     "Lifetime value (LTV)",
+     "$286 at 7%/mo churn"
+    ],
+    [
+     "Target CAC",
+     "$8 (community-led GTM)"
+    ],
+    [
+     "LTV:CAC",
+     "35.7:1"
+    ],
+    [
+     "CAC payback",
+     "0.4 months"
+    ],
+    [
+     "Monthly infra (MVP)",
+     "$12"
+    ]
+   ],
+   "style": "Light Grid Accent 1",
+   "header_bold": true
+  },
+  {
+   "type": "paragraph",
+   "text": "Acquisition: creator/community-led GTM (trading communities, educator channels) \u2014 the pattern that built African fintech. Expansion: public API + mobile views open B2B2C (brokers, educators reselling research); Stripe enables pan-African once the entity permits."
+  },
+  {
+   "type": "heading",
+   "text": "15. Financial Pitch \u2014 Budget, Model & Funding Ask",
+   "level": 2
+  },
+  {
+   "type": "heading",
+   "text": "15.1 The ask",
+   "level": 3
+  },
+  {
+   "type": "paragraph",
+   "text": "We are raising $50,000 in pre-seed funding \u2014 a 12-month runway at a $4,200/month burn \u2014 to launch the product we have already built and take it from zero to ~750 paying subscribers ($180,000 ARR) within a year."
+  },
+  {
+   "type": "heading",
+   "text": "15.2 Revenue model & scenarios",
+   "level": 3
+  },
+  {
+   "type": "table",
+   "header": [
+    "Scenario",
+    "Subscribers",
+    "MRR (\u2248USD)",
+    "ARR (\u2248USD)",
+    "Net after fees & infra (\u2248/mo)"
+   ],
+   "rows": [
+    [
+     "S100",
+     100,
+     "$2,000",
+     "$24,000",
+     "$1,951"
+    ],
+    [
+     "S250",
+     250,
+     "$5,000",
+     "$60,000",
+     "$4,896"
+    ],
+    [
+     "S500",
+     500,
+     "$10,000",
+     "$120,000",
+     "$9,805"
+    ],
+    [
+     "S1000",
+     1000,
+     "$20,000",
+     "$240,000",
+     "$19,621"
+    ]
+   ],
+   "style": "Light Grid Accent 1",
+   "header_bold": true
+  },
+  {
+   "type": "paragraph",
+   "text": "Planning exchange rate: \u20a61,500/USD. Blended ARPU (60% Starter / 30% Pro / 10% Premium) = \u20a630,000 \u2248 $20/mo. Paystack local-card fee 1.5% + \u20a6100 per charge. Gross margin is structurally >98% because LLM tokens are the customer's own (BYOK)."
+  },
+  {
+   "type": "heading",
+   "text": "15.3 12-month ramp (conservative, community-led)",
+   "level": 3
+  },
+  {
+   "type": "table",
+   "header": [
+    "Month",
+    "Paying subs (EOM)",
+    "MRR (\u2248USD)",
+    "ARR (\u2248USD)"
+   ],
+   "rows": [
+    [
+     "M1",
+     25,
+     "$500",
+     "$6,000"
+    ],
+    [
+     "M2",
+     60,
+     "$1,200",
+     "$14,400"
+    ],
+    [
+     "M3",
+     110,
+     "$2,200",
+     "$26,400"
+    ],
+    [
+     "M4",
+     170,
+     "$3,400",
+     "$40,800"
+    ],
+    [
+     "M5",
+     240,
+     "$4,800",
+     "$57,600"
+    ],
+    [
+     "M6",
+     320,
+     "$6,400",
+     "$76,800"
+    ],
+    [
+     "M7",
+     400,
+     "$8,000",
+     "$96,000"
+    ],
+    [
+     "M8",
+     470,
+     "$9,400",
+     "$112,800"
+    ],
+    [
+     "M9",
+     540,
+     "$10,800",
+     "$129,600"
+    ],
+    [
+     "M10",
+     610,
+     "$12,200",
+     "$146,400"
+    ],
+    [
+     "M11",
+     680,
+     "$13,600",
+     "$163,200"
+    ],
+    [
+     "M12",
+     750,
+     "$15,000",
+     "$180,000"
+    ]
+   ],
+   "style": "Light Grid Accent 1",
+   "header_bold": true
+  },
+  {
+   "type": "paragraph",
+   "text": "Break-even: ~210 subscribers (\u2248$4,200 MRR) covers the $4,200/month burn \u2014 reached around month 5 on the ramp above."
+  },
+  {
+   "type": "heading",
+   "text": "15.4 Use of funds \u2014 $50,000 budget",
+   "level": 3
+  },
+  {
+   "type": "table",
+   "header": [
+    "Category",
+    "Share",
+    "Amount",
+    "What it buys"
+   ],
+   "rows": [
+    [
+     "Go-to-market & acquisition",
+     "40%",
+     "$20,000",
+     "Creator partnerships, trading-community campaigns, referral incentives, content engine"
+    ],
+    [
+     "Compliance, legal & entity",
+     "20%",
+     "$10,000",
+     "Registrant block, ToS/Privacy enforceability, data-protection (NDPR) posture, support infrastructure"
+    ],
+    [
+     "Product expansion",
+     "25%",
+     "$12,500",
+     "Phase 1 FastAPI + research governance, public API, mobile views, international billing (Stripe), admin 2FA"
+    ],
+    [
+     "Working capital & runway",
+     "15%",
+     "$7,500",
+     "Paystack settlement float, infra buffer at scale, contingency"
+    ]
+   ],
+   "style": "Light Grid Accent 1",
+   "header_bold": true
+  },
+  {
+   "type": "heading",
+   "text": "15.5 Unit economics summary",
+   "level": 3
+  },
+  {
+   "type": "table",
+   "header": [
+    "Metric",
+    "Value",
+    "Why it matters"
+   ],
+   "rows": [
+    [
+     "Gross margin",
+     ">98%",
+     "BYOK means no LLM COGS; the platform's margin is software margin"
+    ],
+    [
+     "LTV:CAC",
+     "35.7:1",
+     "Community-led GTM keeps CAC near-zero; healthy SaaS benchmark is \u22653:1"
+    ],
+    [
+     "Payback",
+     "0.4 months",
+     "Cash returned on acquisition in under half a month"
+    ],
+    [
+     "Infra cost per 1,000 users",
+     "\u2248$12\u201340/mo",
+     "Serverless stack scales cheaply; compute only grows with Phase 2 data"
+    ],
+    [
+     "Runway from raise",
+     "11.9 months",
+     "Room to reach break-even (~month {F['be_month']}) and iterate"
+    ]
+   ],
+   "style": "Light Grid Accent 1",
+   "header_bold": true
+  },
+  {
+   "type": "heading",
+   "text": "15.6 What the money is NOT for",
+   "level": 3
+  },
+  {
+   "type": "paragraph",
+   "text": "The engineering is done \u2014 the product is built, deployed, and verified. The raise funds distribution, compliance, and expansion \u2014 not further engineering of the core loop. That is the underwriting thesis: capital unlocks the company (distribution + compliance), not the product."
+  },
+  {
+   "type": "paragraph",
+   "runs": [
+    {
+     "text": "\"The engineering is done. The company is what the raise builds.\"",
+     "italic": true
+    }
+   ]
+  },
+  {
+   "type": "heading",
+   "text": "16. Why We Need Investors \u2014 Three Concrete Gaps",
+   "level": 2
+  },
+  {
+   "type": "bullet_list",
+   "items": [
+    "Distribution: a research product with zero marketing budget is undiscovered. Retail trading in Nigeria is won on the ground (creator channels, trading communities, referral loops) \u2014 that costs money before it compounds.",
+    "Compliance & entity cost: operating a paid financial-research service in Nigeria requires legal review, registrant identity (physical address, business name), data-protection posture (NDPR), support infrastructure. Fixed, non-optional costs.",
+    "Working capital & expansion: Paystack settlement float, compute scaling, public API, mobile views, international (Stripe) billing all need cash runway \u2014 not more engineering."
+   ]
+  },
+  {
+   "type": "heading",
+   "text": "Appendix A \u2014 Phased Delivery Record",
+   "level": 2
+  },
+  {
+   "type": "table",
+   "header": [
+    "Phase & deliverable",
+    "Status (2026-08-22)"
+   ],
+   "rows": [
+    [
+     "Phase 0\u20131: Auth, dashboard, agent launcher, run view",
+     "\u2713 SHIPPED"
+    ],
+    [
+     "Phase 2: Worker E2E (claim \u2192 subprocess \u2192 artifacts)",
+     "\u2713 SHIPPED & VERIFIED"
+    ],
+    [
+     "Phase 3: BYOK pivot (Vault, RPCs, worker decrypt)",
+     "\u2713 SHIPPED"
+    ],
+    [
+     "Phase 4: Swarm (30 presets, Pro/Premium gate) + attachments",
+     "\u2713 SHIPPED"
+    ],
+    [
+     "Phase 5: Realtime queue, progress streaming, billing Edge Functions, pricing, legal",
+     "\u2713 SHIPPED"
+    ],
+    [
+     "Phase 6: Admin dashboard (10 RPCs, suspension gate, audit trail)",
+     "\u2713 SHIPPED & LIVE"
+    ],
+    [
+     "Phase 7: Monitoring (Sentry, structured logs, /health)",
+     "\u2713 LIVE"
+    ],
+    [
+     "Paystack E2E (hermetic harness, webhook hardening)",
+     "\u2713 8/9 GREEN (test mode)"
+    ],
+    [
+     "Shadow Account (journal \u2192 profile \u2192 backtest \u2192 report)",
+     "\u2713 SHIPPED & LIVE (2026-08-22)"
+    ],
+    [
+     "Engine update 0.1.14+ + worker fixes (BUG-ENG-4/5)",
+     "\u2713 LIVE (2026-08-22)"
+    ],
+    [
+     "Cloudflare zone + SSL",
+     "\u2713 LIVE"
+    ],
+    [
+     "Railway worker deploy (production env)",
+     "\u2713 LIVE"
+    ],
+    [
+     "Keepalive + backup workflows",
+     "\u2713 SHIPPED (Actions + secret pending)"
+    ],
+    [
+     "Launch prep (Paystack live switch, emails, mailbox, legal, cleanup)",
+     "\u23f3 PENDING"
+    ]
+   ],
+   "style": "Light Grid Accent 1",
+   "header_bold": true
+  },
+  {
+   "type": "heading",
+   "text": "Appendix B \u2014 Cost Structure & Timeline",
+   "level": 2
+  },
+  {
+   "type": "heading",
+   "text": "B.1 Monthly infrastructure cost",
+   "level": 3
+  },
+  {
+   "type": "table",
+   "header": [
+    "Component",
+    "Plan",
+    "Cost"
+   ],
+   "rows": [
+    [
+     "Vercel (frontend)",
+     "Free",
+     "$0"
+    ],
+    [
+     "Supabase (Postgres, Auth, Storage, Vault, Realtime)",
+     "Free + keepalive",
+     "~$0 (free tier)"
+    ],
+    [
+     "Cloudflare (DNS, WAF, edge)",
+     "Free",
+     "$0"
+    ],
+    [
+     "Railway (worker container)",
+     "Starter",
+     "$5"
+    ],
+    [
+     "Paystack (billing)",
+     "Test \u2192 Live",
+     "$0 test + 1.5% + \u20a6100/txn live"
+    ],
+    [
+     "Resend (email, Phase 1)",
+     "Free (3,000/mo)",
+     "$0 \u2192 $20 at scale"
+    ],
+    [
+     "Sentry (monitoring)",
+     "Developer",
+     "$0 (free tier)"
+    ],
+    [
+     "Estimated total MVP",
+     "",
+     "~$12\u201315/mo before scale"
+    ]
+   ],
+   "style": "Light Grid Accent 1",
+   "header_bold": true
+  },
+  {
+   "type": "heading",
+   "text": "B.2 Timeline",
+   "level": 3
+  },
+  {
+   "type": "table",
+   "header": [
+    "Window",
+    "Milestone"
+   ],
+   "rows": [
+    [
+     "Now (2026-08-22)",
+     "Phase 0 complete; MVP production-live; Shadow Account live; run loop verified after BUG-ENG-4/5"
+    ],
+    [
+     "Weeks 1\u20132",
+     "Launch: Paystack live switch, charge-case E2E, support@ mailbox, legal review, acquisition cohort"
+    ],
+    [
+     "Weeks 3\u20138 (R1-Q1)",
+     "Monitor live: churn, CAC, support load; Phase 1 branch begins (FastAPI + research governance)"
+    ],
+    [
+     "Weeks 9\u201316",
+     "Phase 1 deployment (code + manual SQL); Phase 2 scoping (data lake, PIT, canonical schema)"
+    ],
+    [
+     "Q4 2026 onward",
+     "Phases 3\u201310: quant engine, research AI, ML/RL, paper, live, scale, expansion"
+    ]
+   ],
+   "style": "Light Grid Accent 1",
+   "header_bold": true
+  },
+  {
+   "type": "heading",
+   "text": "Appendix C \u2014 Cold Email (short, attention-grabbing)",
+   "level": 2
+  },
+  {
+   "type": "paragraph",
+   "text": "Subject: Africa's retail investors have execution but no research. We built the research layer."
+  },
+  {
+   "type": "paragraph",
+   "text": ""
+  },
+  {
+   "type": "paragraph",
+   "text": "Hi [Name],"
+  },
+  {
+   "type": "paragraph",
+   "text": "Africa's retail investors can buy stocks \u2014 but nothing helps them think. Every serious research tool is priced in USD and built for Western rails. We built the missing layer."
+  },
+  {
+   "type": "paragraph",
+   "text": "QuantLab is a production-grade, AI-native research platform for African retail traders \u2014 live today, with a verified run loop, Paystack billing, and a BYOK model that gives us >98% gross margin. Users bring their own API key; we sell the research product around it. No LLM COGS, ~$12/month infra, 12-month runway on a $50k pre-seed."
+  },
+  {
+   "type": "paragraph",
+   "text": "Would you have 20 minutes this week to see the product and the model? Happy to share the full brief."
+  },
+  {
+   "type": "paragraph",
+   "text": "Best,\nMusty \u2014 H~M Trading Institute \u00b7 hmtrade.business"
+  }
+ ]
+}
