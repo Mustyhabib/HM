@@ -418,18 +418,22 @@ def test_llm_routing_vars_injected_into_subprocess_env(fake_command, tmp_path):
     assert marker.read_text() == "deepseek|deepseek-v4-pro"
 
 
-def test_llm_routing_vars_respect_overrides(fake_command, tmp_path):
-    """Worker operators can point the engine elsewhere via env/config."""
+def test_ollama_byok_routing(fake_command, tmp_path):
+    """Ollama BYOK: when only an Ollama credential exists the engine is routed
+    via OLLAMA_BASE_URL + LANGCHAIN_PROVIDER=ollama + LANGCHAIN_MODEL_NAME=<model>."""
+    # Fetcher returns None for deepseek (no key) and a URL for ollama.
+    set_api_key_fetcher(
+        lambda uid, provider: "http://my-gpu:11434" if provider == "ollama" else None
+    )
     make_runner(
         fake_command,
         tmp_path,
         cleanup=False,
-        llm_provider="openrouter",
-        llm_model="deepseek/deepseek-v4-pro",
+        ollama_model="phi4:latest",
     ).execute(make_run("SUCCEED"), lambda: True, threading.Event())
     marker = tmp_path / "runs" / "run-x" / "llm_route.marker"
     assert marker.exists()
-    assert marker.read_text() == "openrouter|deepseek/deepseek-v4-pro"
+    assert marker.read_text() == "ollama|phi4:latest"
 
 
 def test_missing_key_fetcher_is_system_error(fake_command, tmp_path):

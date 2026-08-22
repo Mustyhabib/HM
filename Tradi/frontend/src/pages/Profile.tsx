@@ -15,6 +15,7 @@ import {
   Target,
   Award,
   KeyRound,
+  Globe,
   Loader2,
   Trash2,
 } from "lucide-react";
@@ -316,6 +317,222 @@ function ApiKeySection() {
   );
 }
 
+/* ─── Ollama BYOK section ──────────────────────────────────────────────
+ * Users who self-host Ollama can point H~M at their server by supplying
+ * the base URL (e.g. http://192.168.1.10:11434). The URL is encrypted in
+ * Supabase Vault exactly like a DeepSeek key. The worker resolves
+ * provider priority at run time: DeepSeek first, Ollama as fallback.
+ * `id="ollama-key"` lets deep-links work (/profile#ollama-key).
+ */
+function OllamaSection() {
+  const [status, setStatus] = useState<ApiKeyStatus | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [reloadCount, setReloadCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoaded(false);
+    setLoadError(null);
+    // Use the legacy single-provider RPC, scoped to ollama.
+    // getApiKeyStatus() only returns deepseek — call save_user_api_key via
+    // the supabase client directly with provider=ollama via saveApiKey / RPC.
+    // Cheaper: just call getApiKeyStatus narrowed to "ollama" by fetching all.
+    import("@/lib/apikeys")
+      .then(({ listApiKeyStatuses }) => listApiKeyStatuses())
+      .then((statuses) => {
+        if (cancelled) return;
+        setStatus(statuses.find((s) => s.provider === "ollama") ?? null);
+        setLoaded(true);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setLoadError(e instanceof Error ? e.message : "Failed to load Ollama status");
+        setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadCount]);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!draft.trim() || saving) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const next = await saveApiKey("ollama", draft);
+      setStatus(next);
+      setEditing(false);
+      setDraft("");
+      toast.success("Ollama URL saved");
+    } catch (saveErr) {
+      const message = saveErr instanceof Error ? saveErr.message : "Failed to save URL";
+      setSaveError(message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditing(false);
+    setDraft("");
+    setSaveError(null);
+  };
+
+  const confirmDelete = async () => {
+    setDeleting(true);
+    try {
+      await deleteApiKey("ollama");
+      setStatus(null);
+      setConfirmDeleteOpen(false);
+      toast.success("Ollama URL removed");
+    } catch (deleteErr) {
+      const message = deleteErr instanceof Error ? deleteErr.message : "Failed to remove URL";
+      toast.error(message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const showForm = loaded && !loadError && (status === null || editing);
+
+  return (
+    <section id="ollama-key" className="mt-4 scroll-mt-20 rounded-xl border border-border bg-card p-6">
+      <div className="flex items-center gap-2">
+        <h2 className="flex items-center gap-2 text-base font-semibold">
+          <Globe className="h-4 w-4 text-primary" />
+          Ollama
+        </h2>
+        <span className="inline-flex items-center rounded-full border border-border/60 bg-elevated px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+          Self-hosted
+        </span>
+      </div>
+      <p className="mt-1.5 text-sm text-muted-foreground">
+        Running Ollama locally or on a private server? Point H~M at it — no API key needed.
+        DeepSeek takes priority if both are configured.
+      </p>
+
+      {!loaded && (
+        <div className="mt-4 space-y-2">
+          <Skeleton className="h-10 w-full rounded-lg" />
+        </div>
+      )}
+
+      {loaded && loadError && (
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2.5">
+          <p className="text-xs text-danger">{loadError}</p>
+          <button
+            type="button"
+            onClick={() => setReloadCount((n) => n + 1)}
+            className="shrink-0 rounded-lg border border-border px-2.5 py-1 text-xs transition hover:bg-elevated"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {loaded && !loadError && status !== null && !editing && (
+        <>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-elevated px-3 py-2.5">
+            <span className="font-mono text-sm text-foreground">…{status.last4}</span>
+            <span className="text-xs text-muted-foreground">
+              Added {new Date(status.configured_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            </span>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="rounded-lg border border-border px-3 py-2 text-sm transition hover:bg-elevated"
+            >
+              Change
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmDeleteOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-danger transition hover:bg-danger/5"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Remove
+            </button>
+          </div>
+        </>
+      )}
+
+      {showForm && (
+        <form onSubmit={submit} className="mt-4 space-y-2">
+          <label htmlFor="profile-ollama-url" className="text-xs font-medium text-muted-foreground">
+            OLLAMA BASE URL
+          </label>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              id="profile-ollama-url"
+              type="url"
+              required
+              autoComplete="off"
+              spellCheck={false}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="http://localhost:11434"
+              className="w-full flex-1 rounded-lg border border-border bg-[var(--bg-input)] px-3 py-2.5 font-mono text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary/60 focus:ring-2 focus:ring-primary/15"
+            />
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="submit"
+                disabled={saving || !draft.trim()}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg gradient-bg glow-gradient px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Save
+              </button>
+              {status !== null && (
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  disabled={saving}
+                  className="rounded-lg border border-border px-3 py-2.5 text-sm transition hover:bg-elevated disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </div>
+          {saveError && <p className="text-xs text-danger">{saveError}</p>}
+          <p className="text-xs text-muted-foreground">
+            Make sure your Ollama server is reachable from the worker.{" "}
+            <a
+              href="https://ollama.com"
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary hover:underline"
+            >
+              ollama.com
+            </a>
+          </p>
+        </form>
+      )}
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        title="Remove Ollama URL?"
+        description="Runs will fall back to DeepSeek (if configured) or be blocked until a key is added."
+        confirmLabel={deleting ? "Removing…" : "Remove"}
+        cancelLabel="Cancel"
+        tone="destructive"
+        onConfirm={confirmDelete}
+        onCancel={() => setConfirmDeleteOpen(false)}
+      />
+    </section>
+  );
+}
+
 /* ─── Page ─── */
 export function Profile() {
   const [copied, setCopied] = useState(false);
@@ -417,6 +634,7 @@ export function Profile() {
       </div>
 
       <ApiKeySection />
+      <OllamaSection />
 
       {/* Stats grid */}
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">

@@ -205,15 +205,17 @@ class TradiRunner:
     worker owns the wall-clock timeout because Tradi has no overall-run timeout.
 
     BYOK pivot: before doing anything else, ``execute()`` resolves the run's
-    owner's DeepSeek key via the module-level ``_api_key_fetcher`` injection
+    owner's LLM credential via the module-level ``_api_key_fetcher`` injection
     point (same pattern as ``_attachment_downloader`` / ``_progress_push`` —
     registered by ``main.py``, ``None`` by default so StubRunner-only tests
-    don't need Supabase). The key is injected into the subprocess env as
-    ``DEEPSEEK_API_KEY`` in ``_build_env`` and is never logged.
+    don't need Supabase).  Provider resolution order: DeepSeek first, Ollama
+    fallback.  The credential is injected into the subprocess env in
+    ``_build_env`` (as ``DEEPSEEK_API_KEY`` or ``OLLAMA_BASE_URL``) and is
+    never logged.
 
     Outcome mapping (CLAUDE.md refund rule; unknown fault -> refund, D7):
       - exit 0 + ``{"status": "success"}``  -> RunResult
-      - no key configured for the user      -> MissingApiKey (not refunded)
+      - no key configured for any provider   -> MissingApiKey (not refunded)
       - wall-clock exceeded                 -> RunTimeout (refund)
       - worker shutdown mid-run             -> SystemError_ (refund)
       - claim lost (heartbeat False)        -> ClaimLost (row left untouched)
@@ -236,6 +238,7 @@ class TradiRunner:
         cleanup: bool = True,
         llm_provider: str = "deepseek",
         llm_model: str = "deepseek-v4-pro",
+        ollama_model: str = "qwen2.5:32b",
     ) -> None:
         self._command = shlex.split(command)
         self._runs_root = Path(runs_root)
@@ -245,6 +248,7 @@ class TradiRunner:
         self._cleanup = cleanup
         self._llm_provider = llm_provider
         self._llm_model = llm_model
+        self._ollama_model = ollama_model
 
     def execute(
         self,
@@ -261,17 +265,26 @@ class TradiRunner:
         stdout_path = run_dir / "stdout.log"
         stderr_path = run_dir / "stderr.log"
 
-        # 1. Fetch the user's DeepSeek key (BYOK pivot) before anything else —
+        # 1. Resolve the user's LLM credential (BYOK pivot) before anything else —
         #    attachments and the engine subprocess both cost real time/bandwidth,
         #    and there is no point spending either on a run that can never
         #    execute. A missing fetcher is a worker misconfiguration
         #    (SystemError_, refunded); a missing/never-configured key is the
         #    user's to fix (MissingApiKey, not refunded).
+        #
+        #    Resolution order: DeepSeek first (existing behaviour), Ollama as
+        #    fallback (URL-as-credential, no API key required on the server).
         if _api_key_fetcher is None:
             raise SystemError_("api key fetcher not registered")
+        resolved_provider = "deepseek"
         api_key = _api_key_fetcher(run.user_id, "deepseek")
         if not api_key:
-            raise MissingApiKey("no api key configured for provider 'deepseek'")
+            api_key = _api_key_fetcher(run.user_id, "ollama")
+            resolved_provider = "ollama"
+        if not api_key:
+            raise MissingApiKey(
+                "no api key configured for provider 'deepseek' or 'ollama'"
+            )
 
         # 2. Mount any Premium attachments into HOME/inputs/ before the engine boots.
         #    Failure to download is treated as SystemError_ (refunded) — the user
@@ -315,7 +328,7 @@ class TradiRunner:
                 proc = subprocess.Popen(
                     argv,
                     cwd=str(run_dir),
-                    env=self._build_env(run_dir, api_key),
+                    env=self._build_env(run_dir, resolved_provider, api_key),
                     stdout=out,
                     stderr=err,
                     text=True,
@@ -410,7 +423,9 @@ class TradiRunner:
             dest.write_bytes(bytes(data))
             log.info("run %s: mounted attachment %s (%d bytes)", run.id, safe_name, len(data))
 
-    def _build_env(self, run_dir: Path, api_key: str) -> dict[str, str]:
+    def _build_env(
+        self, run_dir: Path, provider: str, credential: str
+    ) -> dict[str, str]:
         # Inherit the worker's environment (PATH, locale, ...), then isolate all
         # engine state under the per-run directory. Broker / live-trading vars
         # are never set here, so Tradi's mandate gate keeps live trading off
@@ -420,18 +435,28 @@ class TradiRunner:
         env["HOME"] = str(run_dir)
         env["VIBE_TRADING_HOME"] = str(run_dir)
         env["VIBE_TRADING_ALLOWED_RUN_ROOTS"] = str(run_dir)
-        # BYOK pivot: the *user's own* key always wins, overriding anything the
-        # worker process itself might have inherited (e.g. a dev-only default in
-        # the worker's OS environment). Never logged — see execute()'s docstring.
-        env["DEEPSEEK_API_KEY"] = api_key
+
+        # BYOK pivot: inject provider-specific credential.  The user's own
+        # credential always wins over any value the worker process inherited
+        # (e.g. a dev-only default in the OS environment). Never logged.
+        #
         # BUG-ENG-4 (2026-08-22): upstream engine (>= 1907e47) hard-requires
         # LANGCHAIN_PROVIDER / LANGCHAIN_MODEL_NAME — the container ships no
-        # agent/.env, so without these every run dies at LLM construction
-        # ("LANGCHAIN_MODEL_NAME is not set"). Injected here (platform-level
-        # routing, not per-user), matching the provider catalog's DeepSeek
-        # defaults. Overridable via WORKER_LLM_PROVIDER / WORKER_LLM_MODEL.
-        env["LANGCHAIN_PROVIDER"] = self._llm_provider
-        env["LANGCHAIN_MODEL_NAME"] = self._llm_model
+        # agent/.env so without these every run dies at LLM construction.
+        if provider == "deepseek":
+            env["DEEPSEEK_API_KEY"] = credential
+            env["LANGCHAIN_PROVIDER"] = "deepseek"
+            env["LANGCHAIN_MODEL_NAME"] = self._llm_model
+        elif provider == "ollama":
+            # Ollama uses a base URL (no API key). The engine catalog entry
+            # (llm_providers.json: base_url_env=OLLAMA_BASE_URL) picks this up.
+            env["OLLAMA_BASE_URL"] = credential
+            env["LANGCHAIN_PROVIDER"] = "ollama"
+            env["LANGCHAIN_MODEL_NAME"] = self._ollama_model
+        else:
+            # Future providers: add branches above.
+            raise SystemError_(f"unsupported provider: {provider!r}")
+
         return env
 
     def _supervise(
