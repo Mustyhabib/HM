@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import {
   Send,
   Loader2,
@@ -112,7 +112,10 @@ function AttachIcon({ kind }: { kind: RunAttachment["kind"] }) {
 
 export function Agent() {
   const navigate = useNavigate();
-  const [input, setInput] = useState("");
+  const [searchParams] = useSearchParams();
+
+  // Pre-fill textarea from ?prompt= (set by dashboard suggestion chips)
+  const [input, setInput] = useState(() => searchParams.get("prompt") ?? "");
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
