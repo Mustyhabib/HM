@@ -336,7 +336,44 @@ plan. Attachments: CSV/XLSX/JSON → agent-uploads bucket, 50 MB cap, paths
 
 ## Sprint tracker — UPDATE AT END OF EVERY SESSION
 
-Sprint day : 9 of 30   Status: Week 2 — CI + ESLint + Stripe billing infrastructure
+Sprint day : 10 of 30  Status: Week 2 — PR #19 merged to main; Phase 2 data plane next
+
+## HANDOFF NOTE FOR NEXT AGENT (read before starting)
+
+**Last merged PR:** #19 (squash commit 5326683) — CI workflow + ESLint + Stripe billing
+  infrastructure + LSE market-data Edge Function + Layout test fix. All now on main.
+
+**Immediate next tasks (priority order):**
+
+1. **Open and merge Phase 2 data plane PR** (branch `feat/phase2-data-plane`):
+   The branch exists locally at `/home/user/HM` and all code is committed. Open a PR
+   against main, verify CI green, merge. Then:
+   • Railway will redeploy automatically with new worker deps (httpx, pyarrow, websockets).
+   • Run `hm-ingest --dry-run` on Railway (or locally with LSE_API_KEY) to validate LSE
+     API connectivity: confirms lse_adapter.py can reach the OHLCV endpoint.
+
+2. **Set LSE_API_KEY as a Supabase secret** (separate from Railway env var):
+   `supabase secrets set LSE_API_KEY=<key>` then deploy the Edge Function:
+   `supabase functions deploy market-data`
+   Until this is done, the Dashboard LiveMarketChart shows "Chart unavailable" (503).
+
+3. **Replace owner's invalid DeepSeek key** (last4 ca63, returns 401):
+   Profile → Settings → DeepSeek API key. Required for any real run to complete.
+
+4. **Paystack E2E smoke test**: use PAYSTACK_TEST_REFERENCE with a test card to confirm
+   the charge.success webhook activates a subscription end-to-end.
+
+5. **Email**: set up support@hmtrade.business mailbox + SMTP; activate Supabase Auth
+   email templates.
+
+6. **Pre-launch cleanup**: remove admin.tester / user.tester test accounts; purge stale
+   env vars from Vercel dashboard.
+
+**Do NOT start Phase 1 (FastAPI monolith)** until after launch. The invariant is:
+  the live run loop never breaks (ADR D16). Phase 1 builds BESIDE the live system.
+
+**Branch strategy**: new work goes on feature branches (feat/*, fix/*); never push
+  directly to main. Always open a PR, wait for CI green, then merge.
 
 Shipped (merged to main, live):
   ✅ MVP run loop VERIFIED end-to-end (prompt → queued → claim → engine → completed,
@@ -365,6 +402,14 @@ Shipped (merged to main, live):
   ✅ LSE IMPORT 2026-08-22 — London Strategic Edge formally adopted as product +
      data architecture reference; 7 patterns imported; docs committed (6b12d49).
      ADR D18 recorded: LSE promoted from reference to live Phase 2 data provider.
+  ✅ PR #19 MERGED 2026-08-22 (squash 5326683) — CI + ESLint + Stripe billing + LSE:
+     • .github/workflows/ci.yml: frontend (lint→build→test) + worker (pytest) CI
+     • ESLint v9 flat config (typescript-eslint, react-hooks, react-refresh)
+     • supabase/functions/stripe-init + stripe-webhook: entity-gated Stripe billing
+     • supabase/functions/market-data: auth-gated LSE OHLCV proxy (ADR D18)
+     • Dashboard.tsx LiveMarketChart: CoinGecko → LSE via Edge Function (BTC/USD etc.)
+     • Layout.tsx aria-labels + Layout.test.tsx rewrite for QuantLab nav (265/265 pass)
+     • billing.ts + BillingCallback.tsx: provider-agnostic Paystack/Stripe
 
 In progress / next:
   ✅ OLLAMA BYOK (2026-08-22) — MERGED to main (commit 411c973):
