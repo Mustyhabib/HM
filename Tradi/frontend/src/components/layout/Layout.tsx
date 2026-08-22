@@ -193,6 +193,7 @@ export function Layout() {
 
       {/* ─── Mobile: slide-in sidebar drawer ────────────────────────────── */}
       <aside
+        aria-label="Mobile navigation"
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border/60 bg-card",
           "transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] md:hidden",
@@ -255,6 +256,7 @@ export function Layout() {
 
       {/* ─── Desktop: persistent sidebar ────────────────────────────────── */}
       <aside
+        aria-label="Primary navigation"
         className={cn(
           "hidden md:flex flex-col shrink-0 border-r border-border/60 bg-card transition-all duration-200",
           collapsed ? "w-16" : "w-56",
