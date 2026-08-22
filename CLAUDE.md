@@ -108,9 +108,6 @@ HM/
  ├── UPGRADE_ROADMAP.md              Harmonized 10-phase migration plan
  ├── CLAUDE.md                       THIS FILE — source of truth (current live)
  ├── FOUNDATIONS.md                  Project identity + reference roles + 5-layer platform synthesis
- ├── Build_Plan.md                   SUPERSEDED MVP blueprint (reference only)
- ├── Design_Flow_Prompt.md           UI/UX design spec (User + Admin personas)
- ├── Session.md                      Session prompt templates
  ├── Tradi/                          Vendored Vibe-Trading engine (MIT)
  │   ├── agent/                      FastAPI server, CLI, ReAct agent, backtest engines
  │   ├── frontend/                   React 19 + Vite SPA (THE production frontend)

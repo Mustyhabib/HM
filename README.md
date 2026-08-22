@@ -113,8 +113,7 @@ HM/
 ├── SOUL.md · PROJECT.md · DATA.md · ARCHITECTURE.md · WORKFLOW.md   Constitution
 ├── UPGRADE_ROADMAP.md    Harmonized 10-phase migration plan
 ├── CLAUDE.md             Source of truth (current live system) + session rules
-├── Session.md            Session prompt templates
-├── Build_Plan.md         SUPERSEDED MVP blueprint (reference only)
+├── README.md            Project readme (brand, quick start)
 ├── Tradi/                Vendored Vibe-Trading engine (MIT)
 │   ├── agent/            FastAPI server, CLI, ReAct agent, backtest engines
 │   ├── frontend/         React 19 + Vite SPA (the production frontend)

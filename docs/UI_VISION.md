@@ -6,7 +6,8 @@
 > the design session. Companion docs: [[FOUNDATIONS.md]] (identity),
 > [[INFRASTRUCTURE.md]] (architecture), [[WORKFLOW.md]] (pipeline),
 > [[ARCHITECTURE.md]] (domains). MVP-era prompt (H~M brand, Vibe-Trading
-> surface) remains in `Design_Flow_Prompt.md` for reference — this supersedes it.
+> surface) is superseded by this document — the MVP-era prompt was removed
+> 2026-08-21 (see `docs/UNIFIED_SPEC.md` for the current source of truth).
 
 > **Design-system rule (locked):** ONE design system, ONE palette, ONE
 > typography. Never propose alternatives, never lighten the dark theme.
@@ -189,8 +190,7 @@ brand is **H~M Trading Institute** (never "Vibe-Trading"). Decision needed:
 is QuantLab the product/app name *within* the H~M Trading Institute brand
 (e.g. "H~M Trading Institute — QuantLab"), or a rename? UI tokens follow
 wiki [[design-system]] either way (dark navy, blue→violet gradient, Inter +
-JetBrains Mono). This affects the Design_Flow_Prompt.md brand block before
-any design work starts.
+JetBrains Mono). This affects the brand block before any design work starts.
 
 ## 4. Relationship to Existing Surface
 

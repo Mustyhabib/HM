@@ -5,7 +5,8 @@
 >
 > **Relationship to other docs:** `CLAUDE.md` remains the source of truth for the
 > *current live system* until each phase lands. This file owns the *target* and the
-> *migration path*. `Build_Plan.md` is the superseded MVP blueprint (kept for history).
+> *migration path*. Legacy MVP blueprint and pre-pivot planning docs were
+> removed 2026-08-21 (superseded by this roadmap + `docs/UNIFIED_SPEC.md`).
 > ADRs in `CLAUDE.md` are updated **only as a phase lands**, never ahead of it.
 >
 > **Synthesis note:** this roadmap is the harmonization of two inputs — the
