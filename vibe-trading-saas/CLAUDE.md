@@ -64,6 +64,11 @@ runner. Order matters; newest first:
 6. `2026_08_21_shadow_account.sql` — shadow run kind + start_shadow_run RPC
    (APPLIED to production 2026-08-22 via Management API; kind constraint had
    already been added, RPC was the missing piece — verified post-apply)
+7. `2026_08_22_phase2_data_plane.sql` — Phase 2 data plane (D18/D19)
+   (APPLIED to production 2026-08-22 via Management API; {"success":true})
+   Creates: dataset_registry table (22 fields, RLS), data_feeds table (service-role only),
+   hm-datalake storage bucket (500MB private), list_platform_datasets() RPC,
+   list_feed_status() RPC, updated_at triggers, lse-ohlcv-daily seed row.
 
 Do not edit applied migrations; write new numbered files. The admin migration's
 rollback block is a comment — copy it out if a rollback is ever needed.
