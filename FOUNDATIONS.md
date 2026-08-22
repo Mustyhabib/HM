@@ -60,12 +60,27 @@ Study:
 Role: Product/data architecture reference.
 
 **Source:** www.londonstrategicedge.com
+**Studied:** 2026-08-22. Full import: `docs/LSE_IMPORT.md`.
 
-Study:
-- data-centric research workflows
-- market intelligence
-- platform organization
-- user-facing research experience
+What LSE is: free open-source market data platform — 403B ticks, 22,851 instruments,
+27 asset classes, 208 countries, history since 1905. Parquet-first storage.
+One API key for history (HTTP) + live (WebSocket) + dataset exports.
+
+Concepts adopted into HM:
+- **Parquet-first** data lake (confirms R2 + Parquet plan)
+- **Three-layer data taxonomy**: Markets / Macro / Corporate & Alternative
+- **Dataset builder** as a product surface (instrument × date × resolution × indicators → Parquet)
+- **One-key access model**: single credential covers history + live + exports
+- **Deep history targets**: 2003+ minimum, crypto 2010+, FX 1971+
+- **Preview-in-place** before dataset download
+- **Data Assistant** (AI chat over the databank — Phase 4 Copilot integration)
+- **hm-data** open-source Python client (mirrors LSE's lse-data pattern)
+- **COT data** (Commitment of Traders) as alternative data source (Phase 3)
+- **Macro layer**: economic calendar, bond yields, inflation — first-class, not afterthought
+- **My Layouts / My Backtests / My Alerts** — user workspace concept (saved state per user)
+
+See `DATA.md` for the updated architecture patterns and `docs/LSE_IMPORT.md` for the
+full product surface map, adoption table, and what we explicitly do not copy.
 
 ## How We Relate to External Projects
 
