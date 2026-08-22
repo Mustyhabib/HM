@@ -57,6 +57,14 @@ class Config:
     tradi_command: str = "vibe-trading"
     runs_root: str = "/var/vibe-runs"
 
+    # BUG-ENG-4 (2026-08-22): upstream engine (>= 1907e47) hard-requires
+    # LANGCHAIN_PROVIDER / LANGCHAIN_MODEL_NAME and the container ships no
+    # agent/.env, so the worker must inject the LLM routing vars itself.
+    # DeepSeek defaults come from the engine's provider catalog
+    # (llm_providers.json: name=deepseek, default_model=deepseek-v4-pro).
+    llm_provider: str = "deepseek"
+    llm_model: str = "deepseek-v4-pro"
+
     # Phase 7 monitoring: both optional — absent means "off", not an error.
     # sentry_dsn: manual per-env setup in sentry.io (D-M1: DSN-driven, fail-open).
     # health_port: stdlib HTTP health endpoint (see health.py).
@@ -93,6 +101,8 @@ def load_config() -> Config:
         stub_duration_seconds=_int("WORKER_STUB_DURATION_SECONDS", 3),
         tradi_command=os.environ.get("WORKER_TRADI_COMMAND", "").strip() or "vibe-trading",
         runs_root=os.environ.get("WORKER_RUNS_ROOT", "").strip() or "/var/vibe-runs",
+        llm_provider=os.environ.get("WORKER_LLM_PROVIDER", "").strip() or "deepseek",
+        llm_model=os.environ.get("WORKER_LLM_MODEL", "").strip() or "deepseek-v4-pro",
         sentry_dsn=os.environ.get("SENTRY_DSN", "").strip() or None,
         health_host=os.environ.get("WORKER_HEALTH_HOST", "").strip() or "0.0.0.0",
         health_port=_int("WORKER_HEALTH_PORT", 9100),

@@ -43,11 +43,14 @@ real Tradi engine:
    WORKER_TRADI_COMMAND=/home/aurora/HM/Tradi/.venv/bin/vibe-trading
    WORKER_RUNS_ROOT=/tmp/vibe-runs   # must be WRITABLE; default /var/vibe-runs needs root
    ```
-3. **Configure the LLM in `Tradi/agent/.env`** — the engine's own env, loaded by
-   absolute path, so it's read even under the worker's isolated per-run `HOME`.
-   **Do NOT put LLM config (`LANGCHAIN_*`, `*_API_KEY`) in `worker/.env`** — the
-   engine loads `agent/.env` with `override=False`, so worker-env copies would
-   shadow it and win.
+3. **The worker injects LLM routing itself** (BUG-ENG-4, 2026-08-22) — since
+   upstream engine `1907e47` the engine hard-requires `LANGCHAIN_PROVIDER` /
+   `LANGCHAIN_MODEL_NAME`, and the Docker image ships no `agent/.env`, so
+   `TradiRunner._build_env()` sets both (defaults: `deepseek` /
+   `deepseek-v4-pro`, from the engine provider catalog) alongside the user's
+   BYOK `DEEPSEEK_API_KEY`. Override via `WORKER_LLM_PROVIDER` /
+   `WORKER_LLM_MODEL` in the worker env. A local `Tradi/agent/.env` is only
+   needed for standalone manual engine verification (next step).
 
 `TradiRunner` launches one subprocess per run with `HOME` / `VIBE_TRADING_HOME` /
 `VIBE_TRADING_ALLOWED_RUN_ROOTS` pointed at a fresh `<runs_root>/<run_id>` dir,

@@ -75,6 +75,7 @@ def set_api_key_fetcher(fn: Callable[[str, str], str | None] | None) -> None:
     global _api_key_fetcher
     _api_key_fetcher = fn
 
+
 log = logging.getLogger(__name__)
 
 #: Called periodically during a run to keep the claim alive. Returns False if
@@ -233,6 +234,8 @@ class TradiRunner:
         heartbeat_seconds: int,
         env: Mapping[str, str] | None = None,
         cleanup: bool = True,
+        llm_provider: str = "deepseek",
+        llm_model: str = "deepseek-v4-pro",
     ) -> None:
         self._command = shlex.split(command)
         self._runs_root = Path(runs_root)
@@ -240,6 +243,8 @@ class TradiRunner:
         self._heartbeat_every = max(1, heartbeat_seconds)
         self._extra_env = dict(env or {})
         self._cleanup = cleanup
+        self._llm_provider = llm_provider
+        self._llm_model = llm_model
 
     def execute(
         self,
@@ -285,7 +290,11 @@ class TradiRunner:
 
         log.info(
             "tradi run %s: kind=%s HOME=%s max_iter=%s attachments=%d",
-            run.id, run.kind, run_dir, run.max_iter, len(run.attachments),
+            run.id,
+            run.kind,
+            run_dir,
+            run.max_iter,
+            len(run.attachments),
         )
 
         # Start the trace tailer in a background thread — pushes progress lines
@@ -293,6 +302,7 @@ class TradiRunner:
         # missing (tests, stub runs).
         tailer: TraceTailer | None = None
         if _progress_push is not None:
+
             def _bound(message: str, iteration: int | None) -> None:
                 assert _progress_push is not None  # narrowed above
                 _progress_push(run.id, message, iteration)
@@ -312,7 +322,9 @@ class TradiRunner:
                 )
                 self._supervise(proc, run, heartbeat, stop)
             result = self._interpret(
-                proc.returncode, stdout_path.read_text(errors="replace"), stderr_path,
+                proc.returncode,
+                stdout_path.read_text(errors="replace"),
+                stderr_path,
                 is_swarm=run.kind == "swarm",
             )
             # Read artifacts into memory before the workspace is cleaned up.
@@ -349,9 +361,15 @@ class TradiRunner:
             # (analyze_trade_journal / extract_shadow_strategy / ...).
             return [
                 *self._command,
-                "--upload", str(journal),
-                "run", "-p", run.prompt,
-                "--json", "--no-rich", "--max-iter", str(run.max_iter),
+                "--upload",
+                str(journal),
+                "run",
+                "-p",
+                run.prompt,
+                "--json",
+                "--no-rich",
+                "--max-iter",
+                str(run.max_iter),
             ]
         return [
             *self._command,
@@ -406,6 +424,14 @@ class TradiRunner:
         # worker process itself might have inherited (e.g. a dev-only default in
         # the worker's OS environment). Never logged — see execute()'s docstring.
         env["DEEPSEEK_API_KEY"] = api_key
+        # BUG-ENG-4 (2026-08-22): upstream engine (>= 1907e47) hard-requires
+        # LANGCHAIN_PROVIDER / LANGCHAIN_MODEL_NAME — the container ships no
+        # agent/.env, so without these every run dies at LLM construction
+        # ("LANGCHAIN_MODEL_NAME is not set"). Injected here (platform-level
+        # routing, not per-user), matching the provider catalog's DeepSeek
+        # defaults. Overridable via WORKER_LLM_PROVIDER / WORKER_LLM_MODEL.
+        env["LANGCHAIN_PROVIDER"] = self._llm_provider
+        env["LANGCHAIN_MODEL_NAME"] = self._llm_model
         return env
 
     def _supervise(
@@ -522,7 +548,9 @@ class TradiRunner:
         if is_swarm:
             stderr_tail = self._tail(stderr_path)
             if returncode == EXIT_SUCCESS:
-                return RunResult(output=f"[swarm] exit=0 ({len(stdout_text.splitlines())} log lines)")
+                return RunResult(
+                    output=f"[swarm] exit=0 ({len(stdout_text.splitlines())} log lines)"
+                )
             if returncode == EXIT_USAGE_ERROR:
                 raise SystemError_(f"swarm preset rejected (exit 2): {stderr_tail}")
             raise SystemError_(f"swarm run failed (exit {returncode}): {stderr_tail}")

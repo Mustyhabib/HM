@@ -50,6 +50,7 @@ def _stub_api_key_fetcher():
     finally:
         set_api_key_fetcher(None)
 
+
 # A stand-in for `vibe-trading`. Receives `run -p <prompt> --json --no-rich
 # --max-iter N` and branches on the prompt. Writes a marker into HOME to prove
 # per-run isolation.
@@ -67,6 +68,13 @@ try:
     # the exact value flowed through without leaking it via stdout/stderr.
     (Path(os.environ["HOME"]) / "deepseek_key.marker").write_text(
         os.environ.get("DEEPSEEK_API_KEY", "MISSING")
+    )
+    # BUG-ENG-4: the engine routing vars must be injected too, or the real
+    # engine dies at LLM construction ("LANGCHAIN_MODEL_NAME is not set").
+    (Path(os.environ["HOME"]) / "llm_route.marker").write_text(
+        os.environ.get("LANGCHAIN_PROVIDER", "MISSING")
+        + "|"
+        + os.environ.get("LANGCHAIN_MODEL_NAME", "MISSING")
     )
 except Exception:
     pass
@@ -210,17 +218,24 @@ def test_lost_claim_aborts(fake_command, tmp_path):
 
 # ─── Swarm dispatch ─────────────────────────────────────────────────────────
 
+
 def make_swarm_run(preset: str, user_vars: dict | None = None) -> ClaimedRun:
     return ClaimedRun(
-        id="swarm-x", user_id="user-1", prompt="[swarm]", max_iter=50,
-        kind="swarm", preset_name=preset, user_vars=user_vars or {"market": "US"},
+        id="swarm-x",
+        user_id="user-1",
+        prompt="[swarm]",
+        max_iter=50,
+        kind="swarm",
+        preset_name=preset,
+        user_vars=user_vars or {"market": "US"},
     )
 
 
 def test_swarm_success_returns_result(fake_command, tmp_path):
     result = make_runner(fake_command, tmp_path).execute(
         make_swarm_run("equity_research_team"),
-        lambda: True, threading.Event(),
+        lambda: True,
+        threading.Event(),
     )
     assert isinstance(result, RunResult)
     assert "[swarm]" in result.output
@@ -229,7 +244,8 @@ def test_swarm_success_returns_result(fake_command, tmp_path):
 def test_swarm_invokes_swarm_run_flag(fake_command, tmp_path):
     make_runner(fake_command, tmp_path, cleanup=False).execute(
         make_swarm_run("equity_research_team", {"market": "US", "ticker": "AAPL"}),
-        lambda: True, threading.Event(),
+        lambda: True,
+        threading.Event(),
     )
     marker = tmp_path / "runs" / "swarm-x" / "swarm.marker"
     assert marker.exists()
@@ -243,7 +259,8 @@ def test_swarm_engine_failure_is_system_error(fake_command, tmp_path):
     with pytest.raises(SystemError_) as exc:
         make_runner(fake_command, tmp_path).execute(
             make_swarm_run("boom_preset"),
-            lambda: True, threading.Event(),
+            lambda: True,
+            threading.Event(),
         )
     assert exc.value.refundable is True
     assert "swarm run failed" in str(exc.value)
@@ -252,14 +269,17 @@ def test_swarm_engine_failure_is_system_error(fake_command, tmp_path):
 def test_swarm_missing_preset_is_system_error(fake_command, tmp_path):
     with pytest.raises(SystemError_) as exc:
         make_runner(fake_command, tmp_path).execute(
-            ClaimedRun(id="s2", user_id="u", prompt="[swarm]", max_iter=5,
-                       kind="swarm", preset_name=None),
-            lambda: True, threading.Event(),
+            ClaimedRun(
+                id="s2", user_id="u", prompt="[swarm]", max_iter=5, kind="swarm", preset_name=None
+            ),
+            lambda: True,
+            threading.Event(),
         )
     assert "missing preset_name" in str(exc.value)
 
 
 # ─── Attachment mounting ────────────────────────────────────────────────────
+
 
 def test_attachments_are_downloaded_into_inputs(fake_command, tmp_path):
     """Attachments should land under HOME/inputs/ before the subprocess runs."""
@@ -273,12 +293,23 @@ def test_attachments_are_downloaded_into_inputs(fake_command, tmp_path):
     set_attachment_downloader(fake_downloader)
     try:
         run = ClaimedRun(
-            id="run-att", user_id="u", prompt="SUCCEED", max_iter=5,
-            attachments=(Attachment(name="prices.csv", path="u/2026-08-11/aaa-prices.csv",
-                                    size=len(fake_content), kind="csv"),),
+            id="run-att",
+            user_id="u",
+            prompt="SUCCEED",
+            max_iter=5,
+            attachments=(
+                Attachment(
+                    name="prices.csv",
+                    path="u/2026-08-11/aaa-prices.csv",
+                    size=len(fake_content),
+                    kind="csv",
+                ),
+            ),
         )
         make_runner(fake_command, tmp_path, cleanup=False).execute(
-            run, lambda: True, threading.Event(),
+            run,
+            lambda: True,
+            threading.Event(),
         )
     finally:
         set_attachment_downloader(None)
@@ -295,12 +326,17 @@ def test_attachment_download_failure_is_refundable(fake_command, tmp_path):
     set_attachment_downloader(broken_downloader)
     try:
         run = ClaimedRun(
-            id="r-brk", user_id="u", prompt="SUCCEED", max_iter=5,
+            id="r-brk",
+            user_id="u",
+            prompt="SUCCEED",
+            max_iter=5,
             attachments=(Attachment(name="x.csv", path="u/x.csv", size=1, kind="csv"),),
         )
         with pytest.raises(SystemError_) as exc:
             make_runner(fake_command, tmp_path).execute(
-                run, lambda: True, threading.Event(),
+                run,
+                lambda: True,
+                threading.Event(),
             )
         assert exc.value.refundable is True
         assert "Failed to stage attachments" in str(exc.value)
@@ -310,16 +346,25 @@ def test_attachment_download_failure_is_refundable(fake_command, tmp_path):
 
 def test_attachment_filename_is_sanitized(fake_command, tmp_path):
     """A malicious name like '../../etc/passwd' must not escape HOME/inputs/."""
-    def d(_p: str) -> bytes: return b"x"
+
+    def d(_p: str) -> bytes:
+        return b"x"
+
     set_attachment_downloader(d)
     try:
         run = ClaimedRun(
-            id="r-esc", user_id="u", prompt="SUCCEED", max_iter=5,
-            attachments=(Attachment(name="../../etc/passwd",
-                                    path="u/legit.csv", size=1, kind="csv"),),
+            id="r-esc",
+            user_id="u",
+            prompt="SUCCEED",
+            max_iter=5,
+            attachments=(
+                Attachment(name="../../etc/passwd", path="u/legit.csv", size=1, kind="csv"),
+            ),
         )
         make_runner(fake_command, tmp_path, cleanup=False).execute(
-            run, lambda: True, threading.Event(),
+            run,
+            lambda: True,
+            threading.Event(),
         )
     finally:
         set_attachment_downloader(None)
@@ -351,6 +396,7 @@ def test_collects_artifacts_from_workspace(fake_command, tmp_path):
 
 # ─── BYOK: api key fetch + injection ────────────────────────────────────────
 
+
 def test_api_key_injected_into_subprocess_env(fake_command, tmp_path):
     """The stub fetcher's value must land in the subprocess as DEEPSEEK_API_KEY."""
     make_runner(fake_command, tmp_path, cleanup=False).execute(
@@ -359,6 +405,31 @@ def test_api_key_injected_into_subprocess_env(fake_command, tmp_path):
     marker = tmp_path / "runs" / "run-x" / "deepseek_key.marker"
     assert marker.exists()
     assert marker.read_text() == STUB_KEY_VALUE
+
+
+def test_llm_routing_vars_injected_into_subprocess_env(fake_command, tmp_path):
+    """BUG-ENG-4: LANGCHAIN_PROVIDER/MODEL_NAME must reach the engine, or every
+    run dies at LLM construction (\"LANGCHAIN_MODEL_NAME is not set\")."""
+    make_runner(fake_command, tmp_path, cleanup=False).execute(
+        make_run("SUCCEED"), lambda: True, threading.Event()
+    )
+    marker = tmp_path / "runs" / "run-x" / "llm_route.marker"
+    assert marker.exists()
+    assert marker.read_text() == "deepseek|deepseek-v4-pro"
+
+
+def test_llm_routing_vars_respect_overrides(fake_command, tmp_path):
+    """Worker operators can point the engine elsewhere via env/config."""
+    make_runner(
+        fake_command,
+        tmp_path,
+        cleanup=False,
+        llm_provider="openrouter",
+        llm_model="deepseek/deepseek-v4-pro",
+    ).execute(make_run("SUCCEED"), lambda: True, threading.Event())
+    marker = tmp_path / "runs" / "run-x" / "llm_route.marker"
+    assert marker.exists()
+    assert marker.read_text() == "openrouter|deepseek/deepseek-v4-pro"
 
 
 def test_missing_key_fetcher_is_system_error(fake_command, tmp_path):
@@ -397,12 +468,17 @@ def test_key_fetcher_called_before_attachment_download(fake_command, tmp_path):
     set_attachment_downloader(tracking_downloader)
     try:
         run = ClaimedRun(
-            id="r-order", user_id="u", prompt="SUCCEED", max_iter=5,
+            id="r-order",
+            user_id="u",
+            prompt="SUCCEED",
+            max_iter=5,
             attachments=(Attachment(name="x.csv", path="u/x.csv", size=1, kind="csv"),),
         )
         with pytest.raises(MissingApiKey):
             make_runner(fake_command, tmp_path).execute(
-                run, lambda: True, threading.Event(),
+                run,
+                lambda: True,
+                threading.Event(),
             )
     finally:
         set_attachment_downloader(None)

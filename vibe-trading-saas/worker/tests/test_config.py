@@ -65,3 +65,26 @@ def test_worker_id_is_generated_when_unset(monkeypatch):
     monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "key")
 
     assert load_config().worker_id
+
+
+def test_llm_routing_defaults(monkeypatch):
+    """BUG-ENG-4: DeepSeek routing vars default to the provider catalog values."""
+    monkeypatch.setenv("SUPABASE_URL", "https://test.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "key")
+
+    config = load_config()
+
+    assert config.llm_provider == "deepseek"
+    assert config.llm_model == "deepseek-v4-pro"
+
+
+def test_llm_routing_env_overrides(monkeypatch):
+    monkeypatch.setenv("SUPABASE_URL", "https://test.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "key")
+    monkeypatch.setenv("WORKER_LLM_PROVIDER", "openrouter")
+    monkeypatch.setenv("WORKER_LLM_MODEL", "deepseek/deepseek-v4-pro")
+
+    config = load_config()
+
+    assert config.llm_provider == "openrouter"
+    assert config.llm_model == "deepseek/deepseek-v4-pro"
