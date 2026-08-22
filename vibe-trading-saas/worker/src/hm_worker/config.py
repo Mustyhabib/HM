@@ -62,8 +62,14 @@ class Config:
     # agent/.env, so the worker must inject the LLM routing vars itself.
     # DeepSeek defaults come from the engine's provider catalog
     # (llm_providers.json: name=deepseek, default_model=deepseek-v4-pro).
+    # WORKER_LLM_PROVIDER is unused at runtime — provider is resolved per-user
+    # from user_api_keys (deepseek first, ollama fallback). Kept for observability.
     llm_provider: str = "deepseek"
     llm_model: str = "deepseek-v4-pro"
+    # Ollama BYOK: model name injected as LANGCHAIN_MODEL_NAME when the user's
+    # resolved provider is ollama. Must be a model tag the user has pulled on
+    # their Ollama server. Default matches the engine's ollama catalog entry.
+    ollama_model: str = "qwen2.5:32b"
 
     # Phase 7 monitoring: both optional — absent means "off", not an error.
     # sentry_dsn: manual per-env setup in sentry.io (D-M1: DSN-driven, fail-open).
@@ -111,6 +117,7 @@ def load_config() -> Config:
         runs_root=os.environ.get("WORKER_RUNS_ROOT", "").strip() or "/var/vibe-runs",
         llm_provider=os.environ.get("WORKER_LLM_PROVIDER", "").strip() or "deepseek",
         llm_model=os.environ.get("WORKER_LLM_MODEL", "").strip() or "deepseek-v4-pro",
+        ollama_model=os.environ.get("WORKER_OLLAMA_MODEL", "").strip() or "qwen2.5:32b",
         sentry_dsn=os.environ.get("SENTRY_DSN", "").strip() or None,
         health_host=os.environ.get("WORKER_HEALTH_HOST", "").strip() or "0.0.0.0",
         health_port=_int("WORKER_HEALTH_PORT", 9100),
