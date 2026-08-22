@@ -352,6 +352,18 @@ In progress / next:
   ✅ Shadow Account migration 2026_08_21_shadow_account.sql — APPLIED to Supabase
      2026-08-22 (Management API; kind constraint already present, start_shadow_run
      RPC created + grants verified: PUBLIC execute only, no anon row).
+  ✅ BUG-ENG-4 (2026-08-22) — engine >= 1907e47 hard-requires LANGCHAIN_PROVIDER/
+     LANGCHAIN_MODEL_NAME but the worker only injected DEEPSEEK_API_KEY and the
+     container ships no agent/.env → every run failed "LANGCHAIN_MODEL_NAME is
+     not set" since 2026-08-19. Fixed: worker injects both (deepseek /
+     deepseek-v4-pro, env-overridable). VERIFIED LIVE via smoke run (claimed,
+     engine started).
+  ✅ BUG-ENG-5 (2026-08-22) — start_shadow_run stores attachments as a plain
+     string array but ClaimedRun.from_row only accepted dicts → "missing journal
+     attachment". Fixed: worker accepts both shapes. VERIFIED LIVE.
+  ⏳ SMOKE TEST NOTE (2026-08-22): worker path proven E2E; owner's DeepSeek BYOK
+     key (last4 ca63) is INVALID per api.deepseek.com (401) — replace in Profile
+     → Settings before any real run can complete. Test row/artifacts cleaned.
   ⏳ Paystack charge.success E2E with test card (PAYSTACK_TEST_REFERENCE); swap to live
      plans + key at launch.
   ⏳ Stripe: onboarding (entity/Atlas) + stripe-init/stripe-webhook Edge Functions + plans.
