@@ -1,404 +1,359 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import {
   Bot,
   ArrowRight,
   TrendingUp,
-  Target,
-  DollarSign,
-  ArrowUpRight,
+  TrendingDown,
   BarChart3,
-  Activity,
-  Copy,
-  Sparkles,
+  ShieldCheck,
+  FlaskConical,
+  Minus,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-store";
+import { supabase } from "@/lib/supabase";
+import type { AgentRun } from "@/lib/runs";
 
-/* ─── Pine Script sample ─── */
-const PINE_SCRIPT = `// @version=5
-strategy("H~Mltd AI Strategy", overlay=true,
-  initial_capital=100000, default_qty_type=strategy.percent,
-  default_qty_value=10)
+// ─── Greeting helper ────────────────────────────────────────────────────────
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
 
-// === Inputs ===
-fastLen = input.int(10, "Fast EMA Length")
-slowLen = input.int(21, "Slow EMA Length")
-rsiLen  = input.int(14, "RSI Length")
-rsiThresh = input.int(50, "RSI Threshold")
-
-// === Indicators ===
-fastEMA = ta.ema(close, fastLen)
-slowEMA = ta.ema(close, slowLen)
-rsi = ta.rsi(close, rsiLen)
-
-// === Conditions ===
-longCond  = ta.crossover(fastEMA, slowEMA) and rsi > rsiTh\\
-resh
-shortCond = ta.crossunder(fastEMA, slowEMA) and rsi < (10\\
-0 - rsiThresh)
-
-// === Strategy Execution ===
-if (longCond)
-    strategy.entry("Long", strategy.long)
-    strategy.exit("Long Exit", "Long", stop=low, limit=high
-
-if (shortCond)
-    strategy.entry("Short", strategy.short)
-    strategy.exit("Short Exit", "Short", stop=high, limit=l\\
-ow)
-
-// === Plotting ===
-plot(fastEMA, color=color.blue, title="Fast EMA")
-plot(slowEMA, color=color.orange, title="Slow EMA")
-hline(rsiThresh, "RSI Threshold", color=color.gray,
-  linestyle=hline.style_dotted)
-
-bgcolor(longCond ? color.new(color.green, 90) :
-  shortCond ? color.new(color.red, 90) : na)`;
-
-/* ─── Metrics data ─── */
-const METRICS = [
-  { label: "Sharpe Ratio", value: "1.82", icon: TrendingUp, color: "text-primary" },
-  { label: "Win Rate",     value: "64%",  icon: Target,      color: "text-secondary" },
-  { label: "Net Profit",   value: "+18.4%", icon: DollarSign, color: "text-success", positive: true },
-];
-
-const BOTTOM_STATS = [
-  { label: "Total Trades",      value: "152" },
-  { label: "Profitable Trades", value: "97" },
-  { label: "Max Drawdown",      value: "-11.2%", negative: true },
-  { label: "Profit Factor",     value: "2.34" },
-];
-
-/* ─── Equity curve SVG ─── */
-function EquityCurve() {
-  const points = [
-    10, 12, 11, 15, 14, 18, 17, 22, 20, 25, 23, 28, 30, 27,
-    32, 35, 33, 38, 40, 37, 42, 45, 43, 48, 50, 47, 52, 55,
-    53, 58, 60, 57, 63, 65, 62, 68, 70, 67, 73, 75,
-  ];
-  const max = Math.max(...points);
-  const min = Math.min(...points);
-  const w = 600;
-  const h = 160;
-  const pad = 4;
-
-  const pathD = points
-    .map((p, i) => {
-      const x = pad + (i / (points.length - 1)) * (w - pad * 2);
-      const y = h - pad - ((p - min) / (max - min)) * (h - pad * 2);
-      return `${i === 0 ? "M" : "L"}${x},${y}`;
-    })
-    .join(" ");
-
-  const areaD = `${pathD} L${w - pad},${h} L${pad},${h} Z`;
-
+function displayName(user: { email?: string; user_metadata?: Record<string, string> } | null) {
+  if (!user) return "";
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-full" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="eq-gradient" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#F43F5E" />
-          <stop offset="100%" stopColor="#D946EF" />
-        </linearGradient>
-        <linearGradient id="eq-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#D946EF" stopOpacity="0.2" />
-          <stop offset="100%" stopColor="#D946EF" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {[0.25, 0.5, 0.75].map((f) => (
-        <line
-          key={f}
-          x1={pad}
-          y1={h * f}
-          x2={w - pad}
-          y2={h * f}
-          stroke="var(--border)"
-          strokeWidth="0.5"
-          strokeDasharray="4 4"
-        />
-      ))}
-      <path d={areaD} fill="url(#eq-fill)" />
-      <path d={pathD} fill="none" stroke="url(#eq-gradient)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-        className="sparkline-draw" style={{ '--sl-len': '820' } as React.CSSProperties} />
-    </svg>
+    user.user_metadata?.display_name ||
+    user.user_metadata?.full_name ||
+    user.email?.split("@")[0] ||
+    "there"
   );
 }
 
-/* ─── Pine Script Viewer ─── */
-function PineScriptPanel() {
-  const [copied, setCopied] = useState(false);
+// ─── Stat card ───────────────────────────────────────────────────────────────
+function StatCard({
+  label,
+  value,
+  sub,
+  trend,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  trend?: "up" | "down" | "neutral";
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 flex flex-col gap-1">
+      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+        {label}
+      </span>
+      <span className="font-mono text-xl font-bold tracking-tight text-foreground">
+        {value}
+      </span>
+      {sub && (
+        <span
+          className={cn(
+            "flex items-center gap-1 text-xs",
+            trend === "up"   && "text-success",
+            trend === "down" && "text-danger",
+            (!trend || trend === "neutral") && "text-muted-foreground",
+          )}
+        >
+          {trend === "up"   && <TrendingUp   className="h-3 w-3" />}
+          {trend === "down" && <TrendingDown className="h-3 w-3" />}
+          {(!trend || trend === "neutral") && <Minus className="h-3 w-3" />}
+          {sub}
+        </span>
+      )}
+    </div>
+  );
+}
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(PINE_SCRIPT).catch(() => {});
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+// ─── Empty panel placeholder ─────────────────────────────────────────────────
+function PhasePlaceholder({
+  icon: Icon,
+  title,
+  phase,
+  description,
+}: {
+  icon: typeof BarChart3;
+  title: string;
+  phase: string;
+  description: string;
+}) {
+  return (
+    <div className="flex h-full min-h-[140px] flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card p-5 text-center">
+      <Icon className="h-7 w-7 text-muted-foreground/30" />
+      <p className="text-xs font-medium text-foreground/60">{title}</p>
+      <p className="text-[11px] text-muted-foreground">{description}</p>
+      <span className="mt-1 rounded-full border border-border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/50">
+        {phase}
+      </span>
+    </div>
+  );
+}
+
+// ─── Recent Research (live from agent_runs) ──────────────────────────────────
+function RecentResearch() {
+  const [runs, setRuns] = useState<AgentRun[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase
+      .from("agent_runs")
+      .select("id,prompt,status,created_at,completed_at")
+      .in("status", ["completed", "running", "queued"])
+      .order("created_at", { ascending: false })
+      .limit(4)
+      .then(({ data }) => {
+        setRuns((data as AgentRun[]) ?? []);
+        setLoading(false);
+      });
+  }, []);
+
+  return (
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="border-b border-border px-4 py-3">
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
+          Recent Research
+        </h3>
+      </div>
+      <div className="divide-y divide-border">
+        {loading && (
+          <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-xs">Loading…</span>
+          </div>
+        )}
+        {!loading && runs.length === 0 && (
+          <div className="py-8 text-center text-xs text-muted-foreground">
+            No research runs yet.{" "}
+            <Link to="/agent" className="text-primary hover:underline">
+              Start a run →
+            </Link>
+          </div>
+        )}
+        {runs.map((run) => (
+          <Link
+            key={run.id}
+            to={`/run/${run.id}`}
+            className="flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-elevated"
+          >
+            <span
+              className={cn(
+                "mt-0.5 h-2 w-2 shrink-0 rounded-full",
+                run.status === "completed" && "bg-success",
+                run.status === "running"   && "bg-primary animate-pulse",
+                run.status === "queued"    && "bg-warning animate-pulse",
+              )}
+            />
+            <span className="flex-1 truncate text-foreground/80">{run.prompt}</span>
+            <span className="shrink-0 text-[10px] text-muted-foreground font-mono">
+              {new Date(run.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+            </span>
+          </Link>
+        ))}
+      </div>
+      {runs.length > 0 && (
+        <div className="border-t border-border px-4 py-2.5">
+          <Link
+            to="/agent"
+            className="text-xs text-primary hover:underline"
+          >
+            View all →
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── AI Research Copilot panel ───────────────────────────────────────────────
+function ResearchCopilot() {
+  const SUGGESTIONS = [
+    "Analyze BTC momentum signals",
+    "Find mean-reversion opportunities",
+    "Build a multi-factor strategy",
+    "Run SPY factor research",
+  ];
 
   return (
     <div className="flex h-full flex-col rounded-xl border border-border bg-card overflow-hidden">
-      {/* Window chrome */}
-      <div className="flex items-center justify-between border-b border-border bg-[var(--bg-panel)] px-4 py-2.5">
+      <div className="border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5">
-            <div className="h-2.5 w-2.5 rounded-full bg-danger/60" />
-            <div className="h-2.5 w-2.5 rounded-full bg-warning/60" />
-            <div className="h-2.5 w-2.5 rounded-full bg-success/60" />
-          </div>
-          <span className="ml-2 font-mono text-[11px] text-muted-foreground">
-            strategy.pine
-          </span>
+          <Bot className="h-4 w-4 text-primary" />
+          <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
+            AI Research Copilot
+          </h3>
         </div>
-        <div className="flex items-center gap-1">
-          <button className="rounded-md px-2.5 py-1 text-[11px] text-muted-foreground transition hover:bg-elevated hover:text-foreground">
-            Save
-          </button>
-          <button
-            onClick={handleCopy}
-            className="flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] text-muted-foreground transition hover:bg-elevated hover:text-foreground"
+      </div>
+      <div className="flex-1 p-4 space-y-2">
+        <p className="text-xs text-muted-foreground mb-3">
+          What would you like to research?
+        </p>
+        {SUGGESTIONS.map((s) => (
+          <Link
+            key={s}
+            to={`/agent?prompt=${encodeURIComponent(s)}`}
+            className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-primary/30 hover:bg-elevated hover:text-foreground"
           >
-            <Copy className="h-3 w-3" />
-            {copied ? "✓ strategy.pine" : "Copy"}
-          </button>
-          <button className="rounded-md gradient-bg glow-gradient px-2.5 py-1 text-[11px] font-medium text-white transition hover:opacity-90">
-            Run Backtest
-          </button>
-        </div>
+            <ArrowRight className="h-3 w-3 shrink-0 text-primary" />
+            {s}
+          </Link>
+        ))}
       </div>
-
-      {/* Code */}
-      <div className="flex-1 overflow-auto p-4">
-        <pre className="text-xs leading-relaxed">
-          <code>
-            {PINE_SCRIPT.split("\n").map((line, i) => (
-              <div key={i} className="flex">
-                <span className="mr-4 inline-block w-6 shrink-0 text-right text-muted-foreground/40 select-none font-mono">
-                  {i + 1}
-                </span>
-                <span className="flex-1 font-mono">
-                  <PineScriptLine line={line} />
-                </span>
-              </div>
-            ))}
-          </code>
-        </pre>
-      </div>
-
-      {/* Status bar */}
-      <div className="flex items-center justify-between border-t border-border bg-[var(--bg-panel)] px-4 py-1.5 text-[10px] font-mono text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-success" />
-          No errors
-        </span>
-        <span>Ln 1, Col 1 · Pine Script v5</span>
+      <div className="border-t border-border p-3">
+        <Link
+          to="/agent"
+          className="flex w-full items-center justify-center gap-2 rounded-lg gradient-bg glow-gradient px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+        >
+          <Bot className="h-4 w-4" />
+          Open Research
+          <ArrowRight className="h-4 w-4" />
+        </Link>
       </div>
     </div>
   );
 }
 
-/** Basic Pine Script syntax coloring */
-function PineScriptLine({ line }: { line: string }) {
-  if (line.trimStart().startsWith("//")) {
-    return <span className="text-emerald-500/70">{line}</span>;
-  }
-
-  const keywords = /\b(strategy|input|ta|plot|bgcolor|hline|if|and|or|not|true|false|na)\b/g;
-  const strings  = /(".*?")/g;
-  const numbers  = /\b(\d+\.?\d*)\b/g;
-  const funcs    = /\b(int|float|string|bool|color|ema|crossover|crossunder|rsi|entry|exit|new)\b/g;
-
-  const tokens: { start: number; end: number; cls: string }[] = [];
-
-  for (const match of line.matchAll(strings)) {
-    tokens.push({ start: match.index!, end: match.index! + match[0].length, cls: "text-amber-400" });
-  }
-  for (const match of line.matchAll(keywords)) {
-    if (!tokens.some((t) => match.index! >= t.start && match.index! < t.end)) {
-      tokens.push({ start: match.index!, end: match.index! + match[0].length, cls: "text-violet-400" });
-    }
-  }
-  for (const match of line.matchAll(funcs)) {
-    if (!tokens.some((t) => match.index! >= t.start && match.index! < t.end)) {
-      tokens.push({ start: match.index!, end: match.index! + match[0].length, cls: "text-blue-400" });
-    }
-  }
-  for (const match of line.matchAll(numbers)) {
-    if (!tokens.some((t) => match.index! >= t.start && match.index! < t.end)) {
-      tokens.push({ start: match.index!, end: match.index! + match[0].length, cls: "text-cyan-400" });
-    }
-  }
-
-  tokens.sort((a, b) => a.start - b.start);
-
-  if (tokens.length === 0) {
-    return <span className="text-foreground/90">{line}</span>;
-  }
-
-  const elements: React.ReactNode[] = [];
-  let cursor = 0;
-  tokens.forEach((tok, i) => {
-    if (tok.start > cursor) {
-      elements.push(<span key={`t-${i}`} className="text-foreground/90">{line.slice(cursor, tok.start)}</span>);
-    }
-    elements.push(<span key={`h-${i}`} className={tok.cls}>{line.slice(tok.start, tok.end)}</span>);
-    cursor = tok.end;
-  });
-  if (cursor < line.length) {
-    elements.push(<span key="rest" className="text-foreground/90">{line.slice(cursor)}</span>);
-  }
-
-  return <>{elements}</>;
+// ─── Strategy Monitor ────────────────────────────────────────────────────────
+function StrategyMonitor() {
+  return (
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="border-b border-border px-4 py-3">
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
+          Strategy Monitor
+        </h3>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-border bg-elevated/40">
+              {["Strategy", "Asset", "Mode", "Signal", "P&L", "Status"].map((h) => (
+                <th
+                  key={h}
+                  className="px-4 py-2.5 text-left font-semibold uppercase tracking-wider text-muted-foreground/50"
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                No strategies running.{" "}
+                <Link to="/agent" className="text-primary hover:underline">
+                  Run a research agent →
+                </Link>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
-/* ─── Dashboard page ─── */
+// ─── Dashboard page ───────────────────────────────────────────────────────────
 export function Dashboard() {
+  const { user } = useAuth();
+  const name = displayName(user);
+
   return (
-    <div className="flex h-full">
-      {/* ─── Left: Strategy Studio ─── */}
-      <div className="flex-1 overflow-auto">
-        <div className="mx-auto max-w-4xl p-6 space-y-6 msg-enter">
-          {/* Header */}
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight">Strategy Studio</h1>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-success/25 bg-success/10 px-2.5 py-1 text-[11px] font-medium text-success">
-                <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
-                Market Open
-              </span>
-            </div>
-            <p className="mt-1.5 text-sm text-muted-foreground">
-              Create, test, and optimize quantitative strategies with H~Mltd.
-            </p>
+    <div className="h-full overflow-auto">
+      <div className="mx-auto max-w-6xl space-y-6 p-6 msg-enter">
+
+        {/* ── Header ── */}
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {greeting()}{name ? `, ${name.charAt(0).toUpperCase() + name.slice(1)}` : ""}.
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Here's what's happening across your research &amp; portfolio.
+          </p>
+        </div>
+
+        {/* ── Stat cards ── */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatCard
+            label="Portfolio"
+            value="—"
+            sub="Paper account required"
+            trend="neutral"
+          />
+          <StatCard
+            label="Today P&L"
+            value="—"
+            sub="No active positions"
+            trend="neutral"
+          />
+          <StatCard
+            label="Sharpe Ratio"
+            value="—"
+            sub="Run a backtest first"
+            trend="neutral"
+          />
+          <StatCard
+            label="Drawdown"
+            value="—"
+            sub="No open trades"
+            trend="neutral"
+          />
+        </div>
+
+        {/* ── Market chart + AI Research Copilot ── */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+          {/* Market chart — Phase 2 placeholder */}
+          <div className="lg:col-span-3">
+            <PhasePlaceholder
+              icon={BarChart3}
+              title="Live Market Chart"
+              phase="Phase 2 · Data Plane"
+              description="Real-time candlestick charts, 1D–1Y ranges, and market streaming arrive in the Data Plane phase."
+            />
           </div>
 
-          {/* Agent launcher */}
-          <div className="gradient-border glow-pulse rounded-2xl">
-            <div className="flex flex-col gap-4 rounded-2xl bg-card p-5 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-4 min-w-0">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl gradient-bg glow-gradient">
-                  <Sparkles className="h-5 w-5 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <h2 className="text-sm font-semibold text-foreground">
-                    Research with the H~Mltd Agent
-                  </h2>
-                  <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
-                    Ask trading questions, run backtests, and launch agent swarms from one prompt.
-                  </p>
-                </div>
-              </div>
-              <Link
-                to="/agent"
-                className="group inline-flex shrink-0 items-center justify-center gap-2 rounded-lg gradient-bg glow-gradient px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 active:scale-[0.98]"
-              >
-                <Bot className="h-4 w-4" />
-                Open Agent
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-              </Link>
-            </div>
-          </div>
-
-          {/* Performance metrics */}
-          <div>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-sm font-semibold">
-                <Activity className="h-4 w-4 text-primary" />
-                Strategy Performance
-              </h2>
-              <span className="text-[11px] text-muted-foreground">Last 30 days</span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              {METRICS.map(({ label, value, icon: Icon, color, positive }, i) => (
-                <div
-                  key={label}
-                  className="rounded-xl border border-border bg-card p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-lg hover:shadow-primary/5"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      {label}
-                    </span>
-                    <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg bg-elevated", color)}>
-                      <Icon className="h-3.5 w-3.5" />
-                    </div>
-                  </div>
-                  <div className="mt-3 flex items-end gap-2">
-                    <span
-                      className="font-mono text-2xl font-bold tracking-tight count-in"
-                      style={{ animationDelay: `${i * 120}ms` }}
-                    >{value}</span>
-                    {positive !== undefined && (
-                      <span className="mb-1 flex items-center text-xs text-success">
-                        <ArrowUpRight className="h-3 w-3" />
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Equity Curve */}
-          <div>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-sm font-semibold">
-                <BarChart3 className="h-4 w-4 text-primary" />
-                Equity Curve
-              </h2>
-              <div className="flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
-                {["1M", "3M", "6M", "1Y", "ALL"].map((period) => (
-                  <button
-                    key={period}
-                    className={cn(
-                      "rounded-md px-2.5 py-1 text-[11px] font-mono font-medium transition",
-                      period === "1Y"
-                        ? "gradient-bg text-white"
-                        : "text-muted-foreground hover:bg-elevated hover:text-foreground",
-                    )}
-                  >
-                    {period}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="rounded-xl border border-border bg-card p-5">
-              <div className="h-40">
-                <EquityCurve />
-              </div>
-              <div className="mt-3 flex justify-between text-[10px] font-mono text-muted-foreground/60 px-1">
-                {["May '25", "Jul '25", "Sep '25", "Nov '25", "Jan '26", "Mar '26", "May '26"].map((m) => (
-                  <span key={m}>{m}</span>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom stats */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {BOTTOM_STATS.map(({ label, value, negative }) => (
-              <div
-                key={label}
-                className="rounded-xl border border-border bg-card p-4"
-              >
-                <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  {label}
-                </div>
-                <div
-                  className={cn(
-                    "mt-1.5 font-mono text-lg font-bold tracking-tight",
-                    negative ? "text-danger" : "text-foreground",
-                  )}
-                >
-                  {value}
-                </div>
-              </div>
-            ))}
+          {/* AI Research Copilot — live today via /agent */}
+          <div className="lg:col-span-2">
+            <ResearchCopilot />
           </div>
         </div>
-      </div>
 
-      {/* ─── Right: Pine Script Panel ─── */}
-      <div className="hidden w-[420px] shrink-0 border-l border-border p-4 lg:block">
-        <PineScriptPanel />
+        {/* ── Strategy Monitor ── */}
+        <StrategyMonitor />
+
+        {/* ── Risk Monitor + Market Regime ── */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <PhasePlaceholder
+            icon={ShieldCheck}
+            title="Risk Monitor"
+            phase="Phase 6 · Risk Engine"
+            description="Exposure, daily loss limits, max drawdown tracking, and emergency stop arrive with the Risk Engine."
+          />
+          <PhasePlaceholder
+            icon={TrendingUp}
+            title="Market Regime"
+            phase="Phase 2 · Data Plane"
+            description="Regime classification, volatility signals, and confidence scores arrive with the Data Plane."
+          />
+        </div>
+
+        {/* ── Recent Research + ML/RL Experiments ── */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <RecentResearch />
+          <PhasePlaceholder
+            icon={FlaskConical}
+            title="ML / RL Experiments"
+            phase="Phase 5 · ML · Phase 7 · RL"
+            description="Model training progress, XGBoost/PPO experiment tracking, and evaluation status arrive in Phase 5 and 7."
+          />
+        </div>
+
       </div>
     </div>
   );
