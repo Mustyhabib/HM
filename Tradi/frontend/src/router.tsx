@@ -23,9 +23,12 @@ const Privacy = lazy(() => import("@/pages/Privacy").then((m) => ({ default: m.P
 const Login = lazy(() => import("@/pages/Login").then((m) => ({ default: m.Login })));
 const Signup = lazy(() => import("@/pages/Signup").then((m) => ({ default: m.Signup })));
 const Dashboard = lazy(() => import("@/pages/Dashboard").then((m) => ({ default: m.Dashboard })));
-const SaasSettings = lazy(() => import("@/pages/SaasSettings").then((m) => ({ default: m.SaasSettings })));
+// AccountSettings replaces the old Profile + SaasSettings split —
+// both /profile and /settings now render the same unified page.
+const AccountSettings = lazy(() =>
+  import("@/pages/AccountSettings").then((m) => ({ default: m.AccountSettings })),
+);
 const Signals = lazy(() => import("@/pages/Signals").then((m) => ({ default: m.Signals })));
-const Profile = lazy(() => import("@/pages/Profile").then((m) => ({ default: m.Profile })));
 const RunView = lazy(() => import("@/pages/RunView").then((m) => ({ default: m.RunView })));
 const BillingCallback = lazy(() =>
   import("@/pages/BillingCallback").then((m) => ({ default: m.BillingCallback })),
@@ -145,9 +148,9 @@ export const router = createBrowserRouter([
           { path: "/runtime", element: wrap(Runtime) },
           { path: "/scheduled", element: wrap(Scheduled) },
           { path: "/reports", element: wrap(Reports) },
-          { path: "/settings", element: wrap(SaasSettings) },
+          { path: "/settings", element: wrap(AccountSettings) },
           { path: "/signals", element: wrap(Signals) },
-          { path: "/profile", element: wrap(Profile) },
+          { path: "/profile", element: wrap(AccountSettings) },
           { path: "/settings/engine", element: wrap(Settings) },
           { path: "/runs/:runId", element: wrap(RunDetail) },
           { path: "/compare", element: wrap(Compare) },
