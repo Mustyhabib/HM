@@ -7,6 +7,10 @@ dependencies = [
     "supabase>=2.10",
     "python-dotenv>=1.0",
     "sentry-sdk>=2.0",
+    # Phase 2 — data plane
+    "httpx>=0.27",          # LSE HTTP API calls (lse_adapter.py)
+    "pyarrow>=17.0",        # Parquet serialisation
+    "websockets>=13.0",     # LSE WebSocket skeleton (live in Phase 6)
 ]
 
 [project.optional-dependencies]
@@ -19,6 +23,7 @@ dev = [
 
 [project.scripts]
 hm-worker = "hm_worker.main:main"
+hm-ingest = "hm_worker.ingestion:main"   # Phase 2: LSE OHLCV ingestion CLI
 
 [build-system]
 requires = ["setuptools>=68"]

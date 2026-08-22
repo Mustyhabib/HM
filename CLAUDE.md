@@ -231,6 +231,13 @@ delete_user_api_key(p_provider)
 worker_get_user_api_key(p_user_id, p_provider)     # service_role ONLY — decrypts for the worker
 upsert_subscription(p_user_id, p_plan_id, p_provider_subscription_id, p_status, p_period_start, p_period_end)
                                                    # service_role ONLY — called by webhook handlers
+# Phase 2 — data plane RPCs (SECURITY DEFINER, search_path = public)
+list_platform_datasets(p_asset_class TEXT DEFAULT NULL, p_frequency TEXT DEFAULT NULL)
+  Returns platform datasets from dataset_registry WHERE is_platform_dataset = TRUE.
+  GRANT to authenticated. Authenticated users can call directly.
+list_feed_status()
+  Returns sanitised rows from data_feeds (name, provider, status, last_run_at, last_error,
+  config jsonb). GRANT to authenticated. Service-role manages data_feeds rows.
 
 ## Security rules — enforce in EVERY feature, no exceptions
 
@@ -295,6 +302,10 @@ poll/backoff/heartbeat/timeout tunables / LOG_LEVEL / SENTRY_DSN / WORKER_HEALTH
 # Engine (Tradi/agent/.env — local dev only; production is BYOK)
 DEEPSEEK_API_KEY
 
+# Phase 2 — data plane (Railway HM service; NOT per-user BYOK)
+LSE_API_KEY                                    # London Strategic Edge platform API key (required by hm-ingest)
+LSE_API_BASE                                   # optional override; default https://api.londonstrategicedge.com
+
 ## Billing flows
 
 ### Paystack (live, test mode)
@@ -324,7 +335,7 @@ plan. Attachments: CSV/XLSX/JSON → agent-uploads bucket, 50 MB cap, paths
 
 ## Sprint tracker — UPDATE AT END OF EVERY SESSION
 
-Sprint day : 8 of 30   Status: Week 2 in progress + Quant Research OS upgrade planning
+Sprint day : 8 of 30   Status: Week 2 in progress — Phase 2 data plane in flight
 
 Shipped (merged to main, live):
   ✅ MVP run loop VERIFIED end-to-end (prompt → queued → claim → engine → completed,
@@ -347,6 +358,12 @@ Shipped (merged to main, live):
      source of truth) + docs/RECONCILIATION.md (18 conflicts resolved) +
      docs/REQUIREMENTS.md (81 requirements before build). D17 WebSocket-first
      recorded. Brand locked: H~M Trading Institute + QuantLab/QuantLab Admin.
+  ✅ QUANTLAB DASHBOARD REDESIGN 2026-08-22 — renamed Agent→Research in nav, full
+     grouped sidebar (5 sections), dashboard with live agent_runs + Research Copilot,
+     Phase 2–8 feature stubs wired. PR #14 merged (ae16b53).
+  ✅ LSE IMPORT 2026-08-22 — London Strategic Edge formally adopted as product +
+     data architecture reference; 7 patterns imported; docs committed (6b12d49).
+     ADR D18 recorded: LSE promoted from reference to live Phase 2 data provider.
 
 In progress / next:
   ✅ Shadow Account migration 2026_08_21_shadow_account.sql — APPLIED to Supabase
@@ -361,6 +378,19 @@ In progress / next:
   ✅ BUG-ENG-5 (2026-08-22) — start_shadow_run stores attachments as a plain
      string array but ClaimedRun.from_row only accepted dicts → "missing journal
      attachment". Fixed: worker accepts both shapes. VERIFIED LIVE.
+  ⏳ PHASE 2 DATA PLANE (2026-08-22) — branch feat/phase2-data-plane, PR pending:
+     • Migration 2026_08_22_phase2_data_plane.sql APPLIED to Supabase: dataset_registry
+       table, data_feeds table (lse-ohlcv-daily seed row), hm-datalake bucket,
+       list_platform_datasets() + list_feed_status() RPCs, full RLS.
+     • Worker: httpx + pyarrow + websockets deps; hm-ingest CLI entry point; config.py
+       with lse_api_key/lse_api_base; lse_adapter.py (HTTP OHLCV → Parquet →
+       hm-datalake); lse_ws.py (WebSocket skeleton, Phase 6 target); ingestion.py.
+     • Frontend: DataCatalog.tsx (/data — real dataset registry + feed health page),
+       lazy-loaded in router.tsx; DataPage stub retired.
+     • LSE_API_KEY added to Railway HM service (platform-managed; NOT per-user BYOK).
+     • Tests: 74/74 worker pass, frontend build clean.
+     NEXT: open PR → merge → Railway redeploys with new deps → run hm-ingest --dry-run
+     to validate LSE API connectivity; replace DeepSeek key (last4 ca63 is invalid).
   ⏳ SMOKE TEST NOTE (2026-08-22): worker path proven E2E; owner's DeepSeek BYOK
      key (last4 ca63) is INVALID per api.deepseek.com (401) — replace in Profile
      → Settings before any real run can complete. Test row/artifacts cleaned.
@@ -403,6 +433,15 @@ D17 — **WebSocket-first architecture commitment (unified spec §18/§51)**: ma
       orders, fills, P&L, job progress, notifications over WS channels
       (/ws/markets, /ws/portfolio, /ws/orders, /ws/strategies, /ws/jobs…);
       REST stays request/response. Implementation Phase 6; recorded 2026-08-21.
+D18 — **LSE (London Strategic Edge) as Phase 2 primary data provider** (overrides R2-Q7
+      which said "reuse engine loaders OKX/Binance/CCXT"). One API key covers HTTP
+      historical OHLCV + WebSocket live. Platform-managed key (LSE_API_KEY in Railway HM
+      service — NOT per-user BYOK). WebSocket skeleton wired in Phase 2, productionized
+      in Phase 6 per D17. Direct httpx calls — no `lse-data` PyPI package dependency.
+D19 — **Phase 2 Path B** — dataset_registry schema built directly in Supabase SQL
+      (not gated on Phase 1 FastAPI monolith). Strangler-fig: FastAPI can sit in front
+      later without touching the data layer. hm-ingest is a separate CLI entry point —
+      the live agent-run poll loop never changes (D16 invariant preserved).
 
 ## Testing requirements
 

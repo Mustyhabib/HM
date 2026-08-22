@@ -7,8 +7,12 @@ import { AdminGuard } from "@/components/auth/AdminGuard";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import {
   Markets, Strategies, MLStudio, RLStudio, Backtests,
-  Paper, Portfolio, DataPage, Models, Live,
+  Paper, Portfolio, Models, Live,
 } from "@/pages/stubs";
+// Phase 2: DataCatalog replaces the DataPage stub — real registry view
+const DataCatalog = lazy(() =>
+  import("@/pages/DataCatalog").then((m) => ({ default: m.DataCatalog })),
+);
 
 // --- Public / SaaS pages ---
 const Landing = lazy(() => import("@/pages/Landing").then((m) => ({ default: m.Landing })));
@@ -160,7 +164,7 @@ export const router = createBrowserRouter([
           { path: "/backtests",    element: <Backtests /> },
           { path: "/paper",        element: <Paper /> },
           { path: "/portfolio",    element: <Portfolio /> },
-          { path: "/data",         element: <DataPage /> },
+          { path: "/data",         element: wrap(DataCatalog) },
           { path: "/models",       element: <Models /> },
           { path: "/live",         element: <Live /> },
         ],

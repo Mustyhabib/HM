@@ -72,7 +72,13 @@ class Config:
     health_host: str = "0.0.0.0"
     health_port: int = 9100
 
-    def __repr__(self) -> str:  # pragma: no cover - defensive, keeps the key out of logs
+    # Phase 2 — data plane: optional, only required by hm-ingest (not the run loop).
+    # LSE (London Strategic Edge) is the Phase 2 primary data provider.
+    # Platform-managed key: one key covers history + WebSocket, no BYOK per user.
+    lse_api_key: str | None = None
+    lse_api_base: str = "https://api.londonstrategicedge.com"
+
+    def __repr__(self) -> str:  # pragma: no cover - defensive, keeps secrets out of logs
         return (
             f"Config(supabase_url={self.supabase_url!r}, worker_id={self.worker_id!r}, "
             f"poll_interval_seconds={self.poll_interval_seconds}, "
@@ -80,6 +86,8 @@ class Config:
             f"execute_tradi={self.execute_tradi}, health_host={self.health_host}, "
             f"health_port={self.health_port}, "
             f"sentry_dsn={'<redacted>' if self.sentry_dsn else None}, "
+            f"lse_api_key={'<redacted>' if self.lse_api_key else None}, "
+            f"lse_api_base={self.lse_api_base!r}, "
             f"service_role_key=<redacted>)"
         )
 
@@ -106,4 +114,6 @@ def load_config() -> Config:
         sentry_dsn=os.environ.get("SENTRY_DSN", "").strip() or None,
         health_host=os.environ.get("WORKER_HEALTH_HOST", "").strip() or "0.0.0.0",
         health_port=_int("WORKER_HEALTH_PORT", 9100),
+        lse_api_key=os.environ.get("LSE_API_KEY", "").strip() or None,
+        lse_api_base=os.environ.get("LSE_API_BASE", "").strip() or "https://api.londonstrategicedge.com",
     )

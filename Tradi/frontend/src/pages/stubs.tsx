@@ -4,7 +4,8 @@
  * Each stub shows what phase the feature arrives in and what it will include.
  */
 import type { LucideIcon } from "lucide-react";
-import { Lock, Globe, TrendingUp, Brain, Dna, FlaskConical, ScrollText, Briefcase, Database, Layers, Radio } from "lucide-react";
+import { Lock, Globe, TrendingUp, Brain, Dna, FlaskConical, ScrollText, Briefcase, Layers, Radio } from "lucide-react";
+// Note: DataPage removed — replaced by DataCatalog.tsx (real Phase 2 registry view)
 
 function Stub({
   icon: Icon, title, phase, description, capabilities,
@@ -79,12 +80,6 @@ export function Portfolio() {
   return <Stub icon={Briefcase} title="Portfolio" phase="Phase 6 · Risk + OMS"
     description="Paper and live account P&L, position ledger, trade journal, and portfolio-level risk attribution."
     capabilities={["Portfolio P&L (paper + live)", "Position ledger with realized / unrealized breakdown", "Trade journal and attribution", "Drawdown waterfall and Sharpe time-series"]} />;
-}
-
-export function DataPage() {
-  return <Stub icon={Database} title="Data" phase="Phase 2 · Data Plane"
-    description="Canonical dataset registry with versioned OHLCV, fundamentals, and alternative data — all point-in-time and provider-agnostic."
-    capabilities={["Dataset registry: provider, venue, coverage, version", "R2 + Parquet data lake with DuckDB query layer", "Ingestion pipeline: Raw → Validated → Normalized → Feature", "Feed health monitor and gap detection"]} />;
 }
 
 export function Models() {
