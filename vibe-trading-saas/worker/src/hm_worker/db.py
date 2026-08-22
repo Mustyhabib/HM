@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import threading
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable
 
 from supabase import Client, create_client
@@ -60,23 +61,37 @@ class ClaimedRun:
                 raw_atts = _json.loads(raw_atts)
             except _json.JSONDecodeError:
                 raw_atts = []
-        atts = tuple(
-            Attachment(
-                name=str(a.get("name", "")),
-                path=str(a.get("path", "")),
-                size=int(a.get("size", 0)),
-                kind=str(a.get("kind", "")),
-            )
-            for a in (raw_atts if isinstance(raw_atts, list) else [])
-            if isinstance(a, dict) and a.get("path")
-        )
+        atts = []
+        for a in (raw_atts if isinstance(raw_atts, list) else []):
+            if isinstance(a, dict) and a.get("path"):
+                # Legacy shape: {name, path, size, kind} (start_agent_run / swarm).
+                atts.append(
+                    Attachment(
+                        name=str(a.get("name", "")),
+                        path=str(a["path"]),
+                        size=int(a.get("size", 0)),
+                        kind=str(a.get("kind", "")),
+                    )
+                )
+            elif isinstance(a, str) and a.strip():
+                # Shadow shape (BUG-ENG-5, 2026-08-22): start_shadow_run stores
+                # p_journal_paths verbatim — a plain JSON array of Storage object
+                # paths. The filename suffix is the safest available name.
+                atts.append(
+                    Attachment(
+                        name=Path(a).name or "journal.csv",
+                        path=a.strip(),
+                        size=0,
+                        kind="",
+                    )
+                )
         return cls(
             id=row["run_id"],
             user_id=row["run_user_id"],
             prompt=row["run_prompt"],
             max_iter=row["run_max_iter"],
             kind=str(row.get("run_kind") or "single"),
-            attachments=atts,
+            attachments=tuple(atts),
             preset_name=row.get("run_preset_name") or None,
             user_vars=row.get("run_user_vars") or None,
         )

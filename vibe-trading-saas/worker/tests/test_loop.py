@@ -71,9 +71,7 @@ class FakeQueue:
         return True
 
     def fail(self, run_id, error, *, status="failed", refund=False) -> bool:
-        self.failed.append(
-            {"run_id": run_id, "error": error, "status": status, "refund": refund}
-        )
+        self.failed.append({"run_id": run_id, "error": error, "status": status, "refund": refund})
         return True
 
 
@@ -92,6 +90,52 @@ class ScriptedRunner:
 @pytest.fixture
 def run() -> ClaimedRun:
     return ClaimedRun(id="run-1", user_id="user-1", prompt="backtest AAPL", max_iter=10)
+
+
+def test_from_row_accepts_legacy_dict_attachments():
+    """{name,path,...} dicts (start_agent_run / swarm) parse as before."""
+    run = ClaimedRun.from_row(
+        {
+            "run_id": "r1",
+            "run_user_id": "u1",
+            "run_prompt": "p",
+            "run_max_iter": 5,
+            "run_kind": "single",
+            "run_attachments": [
+                {
+                    "name": "prices.csv",
+                    "path": "u1/2026-08-11/a-prices.csv",
+                    "size": 12,
+                    "kind": "csv",
+                },
+            ],
+            "run_preset_name": None,
+            "run_user_vars": None,
+        }
+    )
+    assert run.attachments[0].path == "u1/2026-08-11/a-prices.csv"
+    assert run.attachments[0].name == "prices.csv"
+
+
+def test_from_row_accepts_shadow_string_attachments():
+    """BUG-ENG-5: start_shadow_run stores p_journal_paths as a plain string
+    array; the worker must not drop it (else 'missing journal attachment')."""
+    run = ClaimedRun.from_row(
+        {
+            "run_id": "r2",
+            "run_user_id": "u1",
+            "run_prompt": "analyze my journal",
+            "run_max_iter": 50,
+            "run_kind": "shadow",
+            "run_attachments": ["u1/2026-08-22/abc-journal.csv"],
+            "run_preset_name": None,
+            "run_user_vars": None,
+        }
+    )
+    assert len(run.attachments) == 1
+    assert run.attachments[0].path == "u1/2026-08-22/abc-journal.csv"
+    assert run.attachments[0].name == "abc-journal.csv"
+    assert run.kind == "shadow"
 
 
 def test_successful_run_is_completed(run):
