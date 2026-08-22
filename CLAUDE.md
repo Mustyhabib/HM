@@ -414,6 +414,11 @@ In progress / next:
      react-hooks + react-refresh. `npm run lint` / `npm run lint:fix` scripts added.
      Packages added to devDependencies: eslint, typescript-eslint, eslint-plugin-react-hooks,
      eslint-plugin-react-refresh, @eslint/js.
+  ✅ LAYOUT TEST FIX (2026-08-22) — PR #19 fix/domain-ci-eslint-stripe driving to green:
+     • Desktop <aside> aria-label="Primary navigation"; mobile drawer aria-label="Mobile navigation"
+     • Layout.test.tsx rewritten: NAV updated (Dashboard/Research); getByRole("complementary")
+       → labelled variant; brand link uses getAllByRole (BrandLogo renders "H~Mltd" in all 3
+       sidebar/topbar elements); active-link scoped via within(primaryNav). 265/265 pass.
   ✅ STRIPE BILLING INFRASTRUCTURE (2026-08-22):
      • Migration 2026_08_22_stripe_schema.sql: plans.stripe_price_id + subscriptions.provider.
        (NOT yet applied — apply after Stripe entity/Atlas onboarding is complete.)
