@@ -55,7 +55,7 @@ http {
         # Allow Vercel production + preview + local dev.
         # Update CORS_ALLOWED_ORIGINS env var to add custom domain.
         set $cors "";
-        if ($http_origin ~* "^https://(.*\.vercel\.app|hmtrade-business\.com)$") {
+        if ($http_origin ~* "^https://(.*\.vercel\.app|hmtrade\.business)$") {
             set $cors $http_origin;
         }
         if ($http_origin = "http://localhost:5899") {
