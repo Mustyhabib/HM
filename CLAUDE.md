@@ -336,7 +336,7 @@ plan. Attachments: CSV/XLSX/JSON → agent-uploads bucket, 50 MB cap, paths
 
 ## Sprint tracker — UPDATE AT END OF EVERY SESSION
 
-Sprint day : 8 of 30   Status: Week 2 in progress — Ollama BYOK + landing page v2 on branch, pending merge
+Sprint day : 8 of 30   Status: Week 2 in progress — Ollama BYOK + landing page v2 merged to main
 
 Shipped (merged to main, live):
   ✅ MVP run loop VERIFIED end-to-end (prompt → queued → claim → engine → completed,
@@ -367,21 +367,16 @@ Shipped (merged to main, live):
      ADR D18 recorded: LSE promoted from reference to live Phase 2 data provider.
 
 In progress / next:
-  ✅ OLLAMA BYOK (2026-08-22) — branch feat/landing-page-v2, commit 51be48f:
-     • DB migration 2026_08_22_ollama_byok.sql — expand provider CHECK on
-       user_api_keys + agent_runs; URL validation in save_user_api_key; new
-       list_user_api_key_statuses() RPC; updated start_*_run gates (deepseek|ollama).
-       ⚠ NOT YET APPLIED to Supabase — apply before this branch lands.
-     • Worker: ollama_model field (WORKER_OLLAMA_MODEL, default qwen2.5:32b);
+  ✅ OLLAMA BYOK (2026-08-22) — MERGED to main (commit 411c973):
+     • DB migration 2026_08_22_ollama_byok.sql APPLIED to Supabase 2026-08-22.
+       provider CHECK (deepseek|ollama) on user_api_keys + agent_runs; URL validation
+       in save_user_api_key; list_user_api_key_statuses() RPC; start_*_run gates updated.
+     • Worker: ollama_model (WORKER_OLLAMA_MODEL env, default qwen2.5:32b);
        execute() resolves deepseek-first/ollama-fallback; _build_env() provider-aware.
-     • Frontend apikeys.ts: Provider = 'deepseek'|'ollama'; URL pattern validation;
-       listApiKeyStatuses() RPC; Profile.tsx OllamaSection (Globe icon, type=url input).
-     • Tests: 83/83 pass; frontend build clean.
-     NEXT: apply migration → merge PR → (optionally) add WORKER_OLLAMA_MODEL to Railway.
-  ✅ Landing page v2 (2026-08-22) — branch feat/landing-page-v2, PR #18:
+     • Frontend: Provider = 'deepseek'|'ollama'; listApiKeyStatuses() RPC;
+       Profile.tsx OllamaSection (Globe icon, type=url). Tests: 83/83 pass.
+  ✅ Landing page v2 (2026-08-22) — MERGED to main:
      trading-chart.mp4 hero video, Quant Research OS positioning, institutional copy.
-     ⚠ Not yet merged to main (same branch as Ollama BYOK).
-     NEXT: apply Supabase migration → merge this branch.
   ✅ Shadow Account migration 2026_08_21_shadow_account.sql — APPLIED to Supabase
      2026-08-22 (Management API; kind constraint already present, start_shadow_run
      RPC created + grants verified: PUBLIC execute only, no anon row).

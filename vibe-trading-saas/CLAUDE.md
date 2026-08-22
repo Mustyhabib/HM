@@ -69,6 +69,11 @@ runner. Order matters; newest first:
    Creates: dataset_registry table (22 fields, RLS), data_feeds table (service-role only),
    hm-datalake storage bucket (500MB private), list_platform_datasets() RPC,
    list_feed_status() RPC, updated_at triggers, lse-ohlcv-daily seed row.
+8. `2026_08_22_ollama_byok.sql` — Ollama as second BYOK provider
+   (APPLIED to production 2026-08-22 via Supabase MCP; {"success":true})
+   Expands provider CHECK (deepseek|ollama) on user_api_keys + agent_runs;
+   updates save_user_api_key with URL validation; adds list_user_api_key_statuses()
+   RPC; updates start_agent_run/start_swarm_run/start_shadow_run gates.
 
 Do not edit applied migrations; write new numbered files. The admin migration's
 rollback block is a comment — copy it out if a rollback is ever needed.
