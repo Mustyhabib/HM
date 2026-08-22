@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-store";
 import { supabase } from "@/lib/supabase";
 import type { AgentRun } from "@/lib/runs";
+import { CandlestickChart } from "@/components/charts/CandlestickChart";
+import type { PriceBar } from "@/lib/api";
 
 // ─── Greeting helper ────────────────────────────────────────────────────────
 function greeting() {
@@ -93,6 +95,139 @@ function PhasePlaceholder({
       <span className="mt-1 rounded-full border border-border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/50">
         {phase}
       </span>
+    </div>
+  );
+}
+
+// ─── Live Market Chart (LSE — London Strategic Edge via Edge Function) ────────
+// ADR D18: LSE is the Phase 2 primary data provider (platform-managed API key).
+// ADR D17: WebSocket live feed is Phase 6; HTTP OHLCV (historical) is Phase 2.
+// The LSE_API_KEY stays server-side — the browser calls the market-data Edge
+// Function which proxies to LSE and returns normalised PriceBar[].
+const COINS = [
+  { lseSymbol: "BTC/USD", symbol: "BTC", label: "Bitcoin"  },
+  { lseSymbol: "ETH/USD", symbol: "ETH", label: "Ethereum" },
+  { lseSymbol: "SOL/USD", symbol: "SOL", label: "Solana"   },
+] as const;
+
+const RANGES = [
+  { label: "7D",  days: 7  },
+  { label: "30D", days: 30 },
+  { label: "90D", days: 90 },
+] as const;
+
+function LiveMarketChart() {
+  const [coin, setCoin]   = useState<(typeof COINS)[number]>(COINS[0]);
+  const [range, setRange] = useState<(typeof RANGES)[number]>(RANGES[0]);
+  const [data, setData]   = useState<PriceBar[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    const to   = new Date();
+    const from = new Date(to);
+    from.setDate(from.getDate() - range.days);
+    const fmt = (d: Date) => d.toISOString().split("T")[0];
+
+    supabase.functions
+      .invoke<{ bars: PriceBar[] }>("market-data", {
+        body: {
+          symbol:     coin.lseSymbol,
+          resolution: "1d",
+          from:       fmt(from),
+          to:         fmt(to),
+        },
+      })
+      .then(({ data: resp, error: fnErr }) => {
+        if (cancelled) return;
+        if (fnErr) { setError(fnErr.message); setLoading(false); return; }
+        setData(resp?.bars ?? []);
+        setLoading(false);
+      })
+      .catch((e: Error) => {
+        if (cancelled) return;
+        setError(e.message);
+        setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [coin.lseSymbol, range.days]);
+
+  return (
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      {/* Header */}
+      <div className="border-b border-border px-4 py-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="h-4 w-4 text-primary" />
+          <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">
+            Live Market Chart
+          </h3>
+          <span className="rounded-full border border-border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/50">
+            {coin.symbol}/USD
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Coin selector */}
+          <div className="flex gap-0.5">
+            {COINS.map((c) => (
+              <button
+                key={c.lseSymbol}
+                onClick={() => setCoin(c)}
+                className={cn(
+                  "px-2 py-0.5 rounded text-[10px] font-mono font-semibold transition-colors",
+                  coin.lseSymbol === c.lseSymbol
+                    ? "bg-primary/15 text-primary"
+                    : "text-muted-foreground/50 hover:text-muted-foreground",
+                )}
+              >
+                {c.symbol}
+              </button>
+            ))}
+          </div>
+          <div className="w-px h-3 bg-border/40" />
+          {/* Range selector */}
+          <div className="flex gap-0.5">
+            {RANGES.map((r) => (
+              <button
+                key={r.label}
+                onClick={() => setRange(r)}
+                className={cn(
+                  "px-1.5 py-0.5 rounded text-[10px] font-mono transition-colors",
+                  range.label === r.label
+                    ? "bg-primary/15 text-primary font-medium"
+                    : "text-muted-foreground/50 hover:text-muted-foreground",
+                )}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Chart body */}
+      <div className="p-3">
+        {loading && (
+          <div className="flex h-[280px] items-center justify-center gap-2 text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-xs">Loading {coin.label}…</span>
+          </div>
+        )}
+        {!loading && error && (
+          <div className="flex h-[280px] flex-col items-center justify-center gap-2 text-center">
+            <BarChart3 className="h-7 w-7 text-muted-foreground/30" />
+            <p className="text-xs text-muted-foreground">Chart unavailable</p>
+            <p className="text-[10px] text-muted-foreground/50">{error}</p>
+          </div>
+        )}
+        {!loading && !error && data.length > 0 && (
+          <CandlestickChart data={data} height={280} />
+        )}
+      </div>
     </div>
   );
 }
@@ -306,16 +441,11 @@ export function Dashboard() {
           />
         </div>
 
-        {/* ── Market chart + AI Research Copilot ── */}
+        {/* ── Live Market Chart + AI Research Copilot ── */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-          {/* Market chart — Phase 2 placeholder */}
+          {/* Live BTC/ETH/SOL candlestick chart via CoinGecko public API */}
           <div className="lg:col-span-3">
-            <PhasePlaceholder
-              icon={BarChart3}
-              title="Live Market Chart"
-              phase="Phase 2 · Data Plane"
-              description="Real-time candlestick charts, 1D–1Y ranges, and market streaming arrive in the Data Plane phase."
-            />
+            <LiveMarketChart />
           </div>
 
           {/* AI Research Copilot — live today via /agent */}

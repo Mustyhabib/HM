@@ -1,20 +1,20 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { Layout } from "../Layout";
 
-// The current sidebar is the H~Mltd SaaS shell: a fixed set of top-level
-// destinations plus a collapse toggle whose preference persists to
-// localStorage under "hm-sidebar". (The richer session sidebar — sessions,
-// rename, language switcher, i18n landmarks — belonged to the pre-redesign
-// Vibe-Trading layout and was intentionally removed.)
+// Sidebar nav (current QuantLab design): two unlocked items at the top
+// (Dashboard, Research), the rest locked/coming-soon.
+// Bottom section: Settings, Profile.
+//
+// Two <aside> elements are rendered in the DOM at all times:
+//   aria-label="Mobile navigation"   — slide-in drawer (md:hidden in CSS)
+//   aria-label="Primary navigation"  — desktop persistent sidebar
+// Tests that care about collapse state or active-link styling must scope
+// to the labelled desktop aside so they are unambiguous.
 
-const NAV = [
-  { label: "Home", href: "/dashboard" },
-  { label: "Agent", href: "/agent" },
-  { label: "Signals", href: "/signals" },
-  { label: "Usage", href: "/usage" },
-  { label: "Settings", href: "/settings" },
-  { label: "Wallet", href: "/wallet" },
+const UNLOCKED_NAV = [
+  { label: "Dashboard", href: "/dashboard" },
+  { label: "Research", href: "/agent" },
 ] as const;
 
 function renderLayout(initialPath = "/agent") {
@@ -22,8 +22,8 @@ function renderLayout(initialPath = "/agent") {
     <MemoryRouter initialEntries={[initialPath]}>
       <Routes>
         <Route element={<Layout />}>
-          <Route path="/agent" element={<div>Agent content</div>} />
-          <Route path="/signals" element={<div>Signals content</div>} />
+          <Route path="/agent" element={<div>Research content</div>} />
+          <Route path="/dashboard" element={<div>Dashboard content</div>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -38,35 +38,49 @@ describe("Layout", () => {
   it("renders the brand link and every primary navigation destination", () => {
     renderLayout();
 
-    // Brand mark returns to the dashboard.
-    expect(screen.getByRole("link", { name: /H~Mltd/ })).toHaveAttribute(
-      "href",
-      "/dashboard",
+    // BrandLogo renders "H~Mltd" in the desktop sidebar, mobile drawer, and
+    // mobile top-bar — all three brand links point to /dashboard.
+    const brandLinks = screen.getAllByRole("link", { name: /H~Mltd/ });
+    expect(brandLinks.length).toBeGreaterThanOrEqual(1);
+    brandLinks.forEach((link) =>
+      expect(link).toHaveAttribute("href", "/dashboard"),
     );
 
-    for (const { label, href } of NAV) {
-      expect(screen.getByRole("link", { name: label })).toHaveAttribute("href", href);
+    // Each unlocked nav item renders in both sidebars → getAllByRole.
+    for (const { label, href } of UNLOCKED_NAV) {
+      const links = screen.getAllByRole("link", { name: label });
+      expect(links.length).toBeGreaterThanOrEqual(1);
+      expect(links[0]).toHaveAttribute("href", href);
     }
   });
 
   it("highlights the destination matching the current route", () => {
     renderLayout("/agent");
 
-    expect(screen.getByRole("link", { name: "Agent" })).toHaveClass("text-primary");
-    expect(screen.getByRole("link", { name: "Signals" })).not.toHaveClass(
+    // Scope to the desktop sidebar to get a single element per link.
+    const primaryNav = screen.getByRole("complementary", {
+      name: "Primary navigation",
+    });
+
+    expect(within(primaryNav).getByRole("link", { name: "Research" })).toHaveClass(
       "text-primary",
     );
+    expect(
+      within(primaryNav).getByRole("link", { name: "Dashboard" }),
+    ).not.toHaveClass("text-primary");
   });
 
   it("renders routed content through the main outlet", () => {
     renderLayout("/agent");
 
-    expect(screen.getByText("Agent content")).toBeInTheDocument();
+    expect(screen.getByText("Research content")).toBeInTheDocument();
   });
 
   it("collapses the sidebar and persists the preference", () => {
     renderLayout();
-    const sidebar = screen.getByRole("complementary");
+    const sidebar = screen.getByRole("complementary", {
+      name: "Primary navigation",
+    });
     expect(sidebar).toHaveClass("w-56");
 
     fireEvent.click(screen.getByTitle("Collapse sidebar"));
@@ -79,7 +93,9 @@ describe("Layout", () => {
     window.localStorage.setItem("hm-sidebar", "collapsed");
     renderLayout();
 
-    expect(screen.getByRole("complementary")).toHaveClass("w-16");
+    expect(
+      screen.getByRole("complementary", { name: "Primary navigation" }),
+    ).toHaveClass("w-16");
   });
 
   it("does not crash when localStorage access is blocked", () => {

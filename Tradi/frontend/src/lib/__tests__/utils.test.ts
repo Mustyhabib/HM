@@ -10,7 +10,8 @@ describe("cn", () => {
   });
 
   it("handles conditional classes via clsx", () => {
-    expect(cn("base", false && "hidden", "end")).toBe("base end");
+    const condition = false; // use a variable so ESLint doesn't flag the expression as a constant
+    expect(cn("base", condition && "hidden", "end")).toBe("base end");
   });
 
   it("handles undefined and null inputs", () => {
