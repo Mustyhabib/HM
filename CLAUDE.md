@@ -419,6 +419,17 @@ In progress / next:
      • Layout.test.tsx rewritten: NAV updated (Dashboard/Research); getByRole("complementary")
        → labelled variant; brand link uses getAllByRole (BrandLogo renders "H~Mltd" in all 3
        sidebar/topbar elements); active-link scoped via within(primaryNav). 265/265 pass.
+  ✅ LSE MARKET DATA EDGE FUNCTION (2026-08-22):
+     • supabase/functions/market-data/index.ts — auth-gated Edge Function that proxies
+       LSE HTTP OHLCV endpoint (GET /v1/market/candles) using LSE_API_KEY stored as a
+       Supabase secret. Key never reaches the browser. Returns 503 when key not set.
+       Handles all LSE response shapes ({"data":[...]}, {"candles":[...]}, bare [...]).
+     • Dashboard.tsx LiveMarketChart updated — replaced CoinGecko fetch() with
+       supabase.functions.invoke("market-data", { body: { symbol, resolution, from, to } }).
+       COINS updated to LSE symbol format (BTC/USD, ETH/USD, SOL/USD).
+     Activation: set LSE_API_KEY as a Supabase secret (separate from the Railway env var
+     used by hm-ingest). WebSocket live feed is Phase 6 per ADR D17.
+     265/265 frontend tests pass, build clean.
   ✅ STRIPE BILLING INFRASTRUCTURE (2026-08-22):
      • Migration 2026_08_22_stripe_schema.sql: plans.stripe_price_id + subscriptions.provider.
        (NOT yet applied — apply after Stripe entity/Atlas onboarding is complete.)

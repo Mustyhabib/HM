@@ -99,11 +99,15 @@ function PhasePlaceholder({
   );
 }
 
-// ─── Live Market Chart (CoinGecko public OHLC — free, no key, CORS-enabled) ──
+// ─── Live Market Chart (LSE — London Strategic Edge via Edge Function) ────────
+// ADR D18: LSE is the Phase 2 primary data provider (platform-managed API key).
+// ADR D17: WebSocket live feed is Phase 6; HTTP OHLCV (historical) is Phase 2.
+// The LSE_API_KEY stays server-side — the browser calls the market-data Edge
+// Function which proxies to LSE and returns normalised PriceBar[].
 const COINS = [
-  { id: "bitcoin",  symbol: "BTC", label: "Bitcoin"  },
-  { id: "ethereum", symbol: "ETH", label: "Ethereum" },
-  { id: "solana",   symbol: "SOL", label: "Solana"   },
+  { lseSymbol: "BTC/USD", symbol: "BTC", label: "Bitcoin"  },
+  { lseSymbol: "ETH/USD", symbol: "ETH", label: "Ethereum" },
+  { lseSymbol: "SOL/USD", symbol: "SOL", label: "Solana"   },
 ] as const;
 
 const RANGES = [
@@ -124,22 +128,24 @@ function LiveMarketChart() {
     setLoading(true);
     setError(null);
 
-    fetch(
-      `https://api.coingecko.com/api/v3/coins/${coin.id}/ohlc?vs_currency=usd&days=${range.days}`,
-    )
-      .then((r) => {
-        if (!r.ok) throw new Error(`CoinGecko ${r.status}`);
-        return r.json() as Promise<[number, number, number, number, number][]>;
+    const to   = new Date();
+    const from = new Date(to);
+    from.setDate(from.getDate() - range.days);
+    const fmt = (d: Date) => d.toISOString().split("T")[0];
+
+    supabase.functions
+      .invoke<{ bars: PriceBar[] }>("market-data", {
+        body: {
+          symbol:     coin.lseSymbol,
+          resolution: "1d",
+          from:       fmt(from),
+          to:         fmt(to),
+        },
       })
-      .then((raw) => {
+      .then(({ data: resp, error: fnErr }) => {
         if (cancelled) return;
-        // Deduplicate by date (keep last bar per day)
-        const byDate = new Map<string, PriceBar>();
-        for (const [ts, open, high, low, close] of raw) {
-          const date = new Date(ts).toISOString().split("T")[0];
-          byDate.set(date, { time: date, open, high, low, close, volume: 0 });
-        }
-        setData([...byDate.values()]);
+        if (fnErr) { setError(fnErr.message); setLoading(false); return; }
+        setData(resp?.bars ?? []);
         setLoading(false);
       })
       .catch((e: Error) => {
@@ -149,7 +155,7 @@ function LiveMarketChart() {
       });
 
     return () => { cancelled = true; };
-  }, [coin.id, range.days]);
+  }, [coin.lseSymbol, range.days]);
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -169,11 +175,11 @@ function LiveMarketChart() {
           <div className="flex gap-0.5">
             {COINS.map((c) => (
               <button
-                key={c.id}
+                key={c.lseSymbol}
                 onClick={() => setCoin(c)}
                 className={cn(
                   "px-2 py-0.5 rounded text-[10px] font-mono font-semibold transition-colors",
-                  coin.id === c.id
+                  coin.lseSymbol === c.lseSymbol
                     ? "bg-primary/15 text-primary"
                     : "text-muted-foreground/50 hover:text-muted-foreground",
                 )}
