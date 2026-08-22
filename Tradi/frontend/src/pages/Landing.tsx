@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { ArrowRight, Bot, BarChart3, Shield, Zap } from "lucide-react";
+import { ArrowRight, Bot, BarChart3, Shield, FlaskConical, TrendingUp } from "lucide-react";
 
 /* ─── Market ticker data ─── */
 const TICKER_ITEMS = [
@@ -16,7 +16,7 @@ const TICKER_ITEMS = [
 ];
 
 function TickerStrip() {
-  const items = [...TICKER_ITEMS, ...TICKER_ITEMS]; // duplicate for seamless loop
+  const items = [...TICKER_ITEMS, ...TICKER_ITEMS];
   return (
     <div className="ticker-wrap border-y border-border/50 bg-[var(--bg-panel)] py-2.5">
       <div className="ticker-inner">
@@ -35,65 +35,45 @@ function TickerStrip() {
 const FEATURES = [
   {
     icon: Bot,
-    title: "AI-Powered Research",
-    desc: "Ask questions in plain English. The agent researches, analyzes, and backtests — so you don't have to.",
+    title: "AI Research Agent",
+    desc: "Ask any trading question in plain English. The agent hypothesizes, sources data, backtests, and generates a full research report — no code required.",
+    tags: ["NLP hypothesis", "Strategy synthesis", "Auto-backtest", "Report generation"],
   },
   {
     icon: BarChart3,
     title: "Quantitative Backtesting",
-    desc: "462 alphas, 8 backtest engines, cross-market data. Real quant analysis without writing code.",
+    desc: "462 alpha factors, 8 backtest engines, cross-market coverage. Real quant-grade analysis without a single line of Python.",
+    tags: [],
+  },
+  {
+    icon: FlaskConical,
+    title: "Experiment Registry",
+    desc: "Every run is logged, versioned, and replayable. Compare strategies side-by-side and promote winners through validation gates.",
+    tags: [],
+  },
+  {
+    icon: TrendingUp,
+    title: "Research-to-Paper Workflow",
+    desc: "From idea to validated paper trade — the full promotion ladder with walk-forward validation, drawdown gates, and risk checks.",
+    tags: [],
   },
   {
     icon: Shield,
-    title: "No Live Trading Risk",
-    desc: "Research and analysis only. Your money stays in your account — we never touch your broker.",
-  },
-  {
-    icon: Zap,
-    title: "Ready in Seconds",
-    desc: "No Python setup, no API keys to manage, no local install. Sign up and start researching.",
+    title: "Research Only — By Design",
+    desc: "No live trading at MVP. Your capital stays in your broker account. We never touch it, hold it, or proxy it.",
+    tags: [],
   },
 ];
 
 const STEPS = [
-  { step: "1", title: "Sign up", desc: "Create an account and pick a plan." },
-  { step: "2", title: "Ask a question", desc: "Describe what you want to research in plain English." },
-  { step: "3", title: "Agent runs", desc: "The AI agent researches, analyzes, and generates a report." },
-  { step: "4", title: "Get results", desc: "View your report with charts, data, and actionable insights." },
+  { step: "1", title: "Ask your question", desc: "Describe a strategy, market hypothesis, or asset to research in plain English." },
+  { step: "2", title: "Data is sourced", desc: "The platform pulls canonical, point-in-time market data from the institutional feed." },
+  { step: "3", title: "Agent experiments", desc: "The AI agent runs backtests, applies alpha factors, and stress-tests the idea." },
+  { step: "4", title: "Get your report", desc: "View a full research report — equity curve, metrics, risk breakdown, and next steps." },
 ];
 
-/** Abstract equity curve SVG — represents the product's output domain */
-function EquityPreview() {
-  const pts = [8,10,9,13,12,16,15,19,18,23,21,26,28,25,30,33,31,36,38,35,40,43,41,46,48,45,50,53,51,56];
-  const max = Math.max(...pts), min = Math.min(...pts);
-  const W = 320, H = 90, P = 4;
-  const path = pts.map((v, i) => {
-    const x = P + (i / (pts.length - 1)) * (W - P * 2);
-    const y = H - P - ((v - min) / (max - min)) * (H - P * 2);
-    return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(" ");
-  const area = `${path} L${W - P},${H} L${P},${H} Z`;
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="lp-line" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#F43F5E" />
-          <stop offset="100%" stopColor="#D946EF" />
-        </linearGradient>
-        <linearGradient id="lp-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#F43F5E" stopOpacity="0.18" />
-          <stop offset="100%" stopColor="#D946EF" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={area} fill="url(#lp-fill)" />
-      <path d={path} fill="none" stroke="url(#lp-line)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-        className="sparkline-draw" style={{ '--sl-len': '500' } as React.CSSProperties} />
-    </svg>
-  );
-}
-
-/** Terminal-style product preview panel */
-function TerminalPreview() {
+/** Hero preview: terminal chrome + trading chart video */
+function ChartPreview() {
   return (
     <div className="relative rounded-2xl border border-border bg-card shadow-2xl shadow-primary/10 overflow-hidden glass">
       {/* Window chrome */}
@@ -110,35 +90,45 @@ function TerminalPreview() {
         </span>
       </div>
 
-      {/* Chart area */}
-      <div className="p-4">
-        <div className="h-[90px] w-full">
-          <EquityPreview />
-        </div>
+      {/* Chart video with metrics overlay */}
+      <div className="relative overflow-hidden" style={{ height: "270px" }}>
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 h-full w-full object-cover object-center"
+        >
+          <source src="/trading-chart.mp4" type="video/mp4" />
+        </video>
 
-        {/* Metrics row — single accent (Sharpe, the hero metric); neutral for the rest */}
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          {[
-            { label: "Sharpe",   value: "1.82",   accent: true  },
-            { label: "Win Rate", value: "64%",    accent: false },
-            { label: "Return",   value: "+23.4%", accent: false },
-          ].map(({ label, value, accent }) => (
-            <div
-              key={label}
-              className={
-                accent
-                  ? "rounded-lg border border-primary/25 bg-primary/8 px-3 py-2 text-center"
-                  : "rounded-lg border border-border bg-elevated px-3 py-2 text-center"
-              }
-            >
-              <div className={`font-mono text-sm font-bold ${accent ? "gradient-text" : "text-foreground"}`}>{value}</div>
-              <div className="mt-0.5 text-[10px] text-muted-foreground">{label}</div>
-            </div>
-          ))}
+        {/* Bottom gradient + floating metrics */}
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-card via-card/70 to-transparent px-4 pb-4 pt-10">
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { label: "Sharpe",   value: "1.82",   accent: true  },
+              { label: "Win Rate", value: "64%",    accent: false },
+              { label: "Return",   value: "+23.4%", accent: false },
+            ].map(({ label, value, accent }) => (
+              <div
+                key={label}
+                className={
+                  accent
+                    ? "rounded-lg border border-primary/30 bg-primary/20 px-3 py-2 text-center backdrop-blur-md"
+                    : "rounded-lg border border-border/60 bg-card/70 px-3 py-2 text-center backdrop-blur-md"
+                }
+              >
+                <div className={`font-mono text-sm font-bold ${accent ? "gradient-text" : "text-foreground"}`}>{value}</div>
+                <div className="mt-0.5 text-[10px] text-muted-foreground">{label}</div>
+              </div>
+            ))}
+          </div>
         </div>
+      </div>
 
-        {/* AI output snippet */}
-        <div className="mt-3 rounded-lg border border-border/50 bg-[var(--bg-panel)] px-3 py-3">
+      {/* AI output snippet */}
+      <div className="border-t border-border/50 px-4 py-3">
+        <div className="rounded-lg border border-border/50 bg-[var(--bg-panel)] px-3 py-3">
           <div className="font-mono text-[11px] leading-relaxed text-muted-foreground">
             <span className="text-primary">▶</span>
             {" "}The 10/21 EMA crossover shows consistent alpha in trending regimes.
@@ -148,21 +138,6 @@ function TerminalPreview() {
             <span className="text-muted-foreground/50">; Profit Factor </span>
             <span className="text-foreground">2.34</span>
             <span className="text-primary cursor-blink">▌</span>
-          </div>
-        </div>
-
-        {/* Bottom ticker — animated marquee */}
-        <div className="mt-3 border-t border-border/40 pt-2.5 overflow-hidden"
-          style={{ WebkitMaskImage: 'linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent)',
-                   maskImage: 'linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent)' }}>
-          <div className="ticker-inner" style={{ animationDuration: '18s' }}>
-            {[...TICKER_ITEMS, ...TICKER_ITEMS].map(({ sym, val, pos }, i) => (
-              <span key={i} className="flex shrink-0 items-center gap-1 whitespace-nowrap">
-                <span className="font-mono text-[10px] font-semibold text-foreground/60">{sym}</span>
-                <span className={`font-mono text-[10px] ${pos ? "text-success" : "text-danger"}`}>{val}</span>
-                <span className="mx-1 h-2 w-px bg-border/50" />
-              </span>
-            ))}
           </div>
         </div>
       </div>
@@ -176,10 +151,9 @@ export function Landing() {
 
       {/* ─── Hero ─── */}
       <section className="relative overflow-hidden grid-bg">
-        {/* Ambient orbs — cyan/blue signal palette */}
+        {/* Ambient orbs */}
         <div className="pointer-events-none absolute -top-24 left-1/4 h-96 w-96 rounded-full bg-cyan-500/8 blur-3xl float-y" />
         <div className="pointer-events-none absolute top-32 right-1/5 h-64 w-64 rounded-full bg-blue-600/8 blur-3xl float-y-slow" />
-        {/* Ghosted equity curves drifting across the bottom — domain motif */}
         <div className="pointer-events-none absolute inset-0 signal-lines opacity-40" />
 
         <div className="mx-auto flex min-h-[calc(100svh-3.5rem)] max-w-6xl flex-col items-center justify-center gap-14 px-4 py-20 sm:px-6 lg:flex-row lg:items-center lg:gap-16 lg:py-0">
@@ -188,15 +162,16 @@ export function Landing() {
           <div className="flex max-w-lg flex-col items-start msg-enter">
             <span className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/8 px-3 py-1 text-xs font-medium text-primary">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-              AI Trading Research
+              Quant Research OS
             </span>
 
             <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-[3.35rem] lg:leading-[1.06]">
-              Your AI trading<br />research agent
+              Research-grade<br />quant analysis,<br />on demand
             </h1>
 
             <p className="mt-5 max-w-[44ch] text-base text-muted-foreground sm:text-lg leading-relaxed">
-              Ask any trading question. Get quantitative research, backtesting, and analysis — delivered as a report.
+              Institutional market data, 462 alpha factors, and an AI research agent —
+              all in one platform. From idea to validated strategy, without writing code.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -215,11 +190,11 @@ export function Landing() {
             </div>
 
             {/* Trust stats */}
-            <div className="mt-10 flex items-center gap-6 border-t border-border/50 pt-6">
+            <div className="mt-10 flex flex-wrap items-center gap-6 border-t border-border/50 pt-6">
               {[
-                { value: "462", label: "Alpha factors" },
-                { value: "8",   label: "Backtest engines" },
-                { value: "24",  label: "Data sources" },
+                { value: "403B+", label: "Market ticks" },
+                { value: "462",   label: "Alpha factors" },
+                { value: "8",     label: "Backtest engines" },
               ].map(({ value, label }, i) => (
                 <div key={label} className="flex items-center gap-6">
                   {i > 0 && <div className="h-8 w-px bg-border" />}
@@ -232,9 +207,9 @@ export function Landing() {
             </div>
           </div>
 
-          {/* Right — terminal preview */}
+          {/* Right — chart preview */}
           <div className="w-full max-w-md flex-shrink-0 lg:max-w-none lg:w-[420px] fade-up-in" style={{ animationDelay: "120ms" }}>
-            <TerminalPreview />
+            <ChartPreview />
           </div>
         </div>
       </section>
@@ -246,14 +221,13 @@ export function Landing() {
       <section className="border-t border-border/50 py-20">
         <div className="mx-auto max-w-5xl px-4 sm:px-6">
           <div className="mb-12 text-center">
-            <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">From question to insight in minutes</h2>
-            <p className="mt-2 text-sm text-muted-foreground">No setup, no code, no waiting</p>
+            <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">From question to validated insight</h2>
+            <p className="mt-2 text-sm text-muted-foreground">Institutional workflow. Zero setup. No Python.</p>
           </div>
 
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {STEPS.map(({ step, title, desc }, i) => (
               <div key={step} className="relative flex flex-col">
-                {/* Connector line (desktop only) */}
                 {i < STEPS.length - 1 && (
                   <div className="absolute right-0 top-6 hidden h-px w-6 -translate-y-1/2 bg-gradient-to-r from-border to-transparent lg:block" style={{ right: "-1.5rem" }} />
                 )}
@@ -271,10 +245,10 @@ export function Landing() {
       {/* ─── Features bento ─── */}
       <section className="border-t border-border/50 py-20 reveal-on-scroll">
         <div className="mx-auto max-w-5xl px-4 sm:px-6">
-          <h2 className="mb-8 text-2xl font-bold tracking-tight sm:text-3xl">Built for serious research</h2>
+          <h2 className="mb-8 text-2xl font-bold tracking-tight sm:text-3xl">The full research stack</h2>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {/* Wide card */}
+            {/* Wide card — AI agent */}
             <div className="flex items-start gap-5 rounded-xl border border-border bg-card p-6 sm:col-span-2">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl gradient-bg/15 border border-primary/20">
                 <Bot className="h-6 w-6 text-primary" />
@@ -283,7 +257,7 @@ export function Landing() {
                 <h3 className="font-semibold text-foreground">{FEATURES[0].title}</h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{FEATURES[0].desc}</p>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {["NLP research", "Strategy synthesis", "Auto-backtest", "Report generation"].map((tag) => (
+                  {FEATURES[0].tags.map((tag) => (
                     <span key={tag} className="rounded-full border border-border bg-elevated px-2.5 py-1 text-[11px] text-muted-foreground">
                       {tag}
                     </span>
@@ -292,7 +266,7 @@ export function Landing() {
               </div>
             </div>
 
-            {/* Regular cards */}
+            {/* Regular feature cards */}
             {FEATURES.slice(1).map(({ icon: Icon, title, desc }) => (
               <div key={title} className="rounded-xl border border-border bg-card p-6 transition hover:border-border/80 hover:bg-elevated/50">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-elevated border border-border">
@@ -306,12 +280,45 @@ export function Landing() {
         </div>
       </section>
 
+      {/* ─── Data plane callout ─── */}
+      <section className="border-t border-border/50 py-20 reveal-on-scroll">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-8 sm:p-10">
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-10">
+              <div className="flex-1">
+                <span className="text-xs font-medium text-primary uppercase tracking-wide">Phase 2 · Now Live</span>
+                <h3 className="mt-2 text-xl font-bold text-foreground">Institutional data plane, open to all</h3>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                  Our five-layer canonical pipeline (RAW → VALIDATED → NORMALIZED → DERIVED → FEATURES)
+                  delivers point-in-time, bias-free data to every research run.
+                  Powered by 403B+ ticks across 27 asset classes — the same quality foundation
+                  institutional desks build on.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-4 sm:shrink-0 sm:grid-cols-1">
+                {[
+                  { value: "403B+", label: "Market ticks" },
+                  { value: "27",    label: "Asset classes" },
+                  { value: "5",     label: "Canonical layers" },
+                  { value: "PIT",   label: "Point-in-time safe" },
+                ].map(({ value, label }) => (
+                  <div key={label} className="text-center sm:text-left">
+                    <div className="font-mono text-lg font-bold gradient-text">{value}</div>
+                    <div className="text-[11px] text-muted-foreground">{label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ─── CTA ─── */}
       <section className="border-t border-border/50 py-20 reveal-on-scroll">
         <div className="mx-auto max-w-2xl px-4 text-center sm:px-6">
           <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Ready to start researching?</h2>
           <p className="mt-4 text-muted-foreground">
-            Plans from <span className="font-mono font-semibold text-foreground">₦70,000/month</span>. No credit card required to sign up.
+            Plans from <span className="font-mono font-semibold text-foreground">₦20,000/month</span>. No credit card required to sign up.
           </p>
           <Link
             to="/signup"
@@ -320,7 +327,7 @@ export function Landing() {
             Create Your Account <ArrowRight className="h-4 w-4" />
           </Link>
           <p className="mt-4 text-xs text-muted-foreground/60">
-            Cancel any time. Unused runs do not roll over.
+            Cancel any time. BYOK model — bring your own DeepSeek API key.
           </p>
         </div>
       </section>
