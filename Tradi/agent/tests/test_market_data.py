@@ -369,7 +369,9 @@ def test_fetch_auto_india_walks_india_chain() -> None:
 
 
 def test_fetch_auto_us_still_walks_us_chain() -> None:
-    """US routing is unchanged by the market-aware chain selection."""
+    """US routing walks the market-aware chain. Auto-detect pins ``yahoo``
+    first (symbol-format routing), then the chain order follows: LSE (HM
+    primary) before the remaining legacy public sources."""
     from backtest.loaders.base import NoAvailableSourceError
 
     attempts: list[str] = []
@@ -387,7 +389,7 @@ def test_fetch_auto_us_still_walks_us_chain() -> None:
         source="auto",
         loader_resolver=resolver,
     )
-    assert attempts[:2] == ["yahoo", "stooq"]
+    assert attempts[:3] == ["yahoo", "lse", "stooq"]
     assert "_unresolved" not in out
     assert "AAPL.US" in out
 

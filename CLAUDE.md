@@ -178,7 +178,7 @@ agent_runs      id UUID PK | user_id FK→profiles | usage_period_id FK NULL
 agent_artifacts id UUID PK | agent_run_id FK→agent_runs
                 kind TEXT | storage_path TEXT | created_at
 
-user_api_keys   id UUID PK | user_id FK→profiles | provider TEXT (open — any llm_providers.json name)
+user_api_keys   id UUID PK | user_id FK→profiles | provider FK→llm_provider_catalog
                 secret_id UUID (→ vault.secrets, NOT a FK)
                 key_last4 TEXT (4 chars) | configured_at | updated_at
                 UNIQUE(user_id, provider)
@@ -196,6 +196,16 @@ usage_events    id UUID PK | usage_period_id FK→usage_periods
 webhook_events  id UUID PK | provider_event_id TEXT UNIQUE
                 type TEXT | payload JSONB | processed_at | created_at
                 # RLS enabled, zero policies. Service-role only.
+
+llm_provider_catalog  name TEXT PK | label | api_key_env | base_url_env
+                      default_model | default_base_url | base_url_options JSONB
+                      provider_type CHECK ('key','url') | auth_type | login_command
+                      sort_order INT | enabled BOOL | created_at
+                      # 23 providers seeded. Single source of truth for BYOK.
+
+user_llm_prefs        user_id UUID PK FK→profiles | selected_provider TEXT FK→catalog
+                      updated_at
+                      # Per-user active provider selection.
 
 admin_users / audit_logs    Admin dashboard (2026_08_17_admin_dashboard.sql)
 
@@ -220,14 +230,19 @@ Safety net: 30 runs/rolling hour/user soft rate limit (not a business quota).
 ## Key RPCs (SECURITY DEFINER, search_path pinned to 'public')
 
 start_agent_run(p_prompt, p_max_iter, p_idempotency_key, p_attachments)
-  Gates: authenticated → active subscription → ANY provider key configured → 30/hr rate limit
+  Gates: authenticated → active subscription → resolve_run_provider (catalog) → 30/hr rate limit
   Returns: run UUID | Errors: not_authenticated, no_active_subscription, no_api_key, rate_limited
 start_swarm_run(p_preset_name, p_user_vars, p_idempotency_key)
   Gates: same as above + plan_id IN ('pro','premium') | Errors: same + plan_gate
-start_shadow_run(p_journal_file...)   # shadow account kind (2026_08_21_shadow_account.sql)
-save_user_api_key(p_provider, p_api_key)          # Vault encrypt, upsert, never returns plaintext
-get_user_api_key_status()                          # {provider, last4, configured_at} | null  (deepseek only — backward compat)
-list_user_api_key_statuses()                       # [{provider, last4, configured_at}] all providers (2026_08_22_ollama_byok)
+start_shadow_run(p_prompt, p_idempotency_key, p_journal_paths)
+  Gates: same as above + plan_id = 'premium' | Errors: same + plan_gate
+resolve_run_provider(p_user_id)                    # selected provider → first configured fallback → NULL
+save_user_api_key(p_provider, p_api_key)           # Vault encrypt, catalog-validated, upsert, never returns plaintext
+list_supported_llm_providers()                     # catalog entries (name, label, type, env vars, model, sort)
+get_selected_provider()                            # {selected_provider, configured} for current user
+set_selected_provider(p_provider)                  # set active provider (must be in catalog)
+get_user_api_key_status()                          # {provider, last4, configured_at} | null  (backward compat)
+list_user_api_key_statuses()                       # [{provider, last4, configured_at}] all providers
 delete_user_api_key(p_provider)
 worker_get_user_api_key(p_user_id, p_provider)     # service_role ONLY — decrypts for the worker
 upsert_subscription(p_user_id, p_plan_id, p_provider_subscription_id, p_status, p_period_start, p_period_end)
@@ -336,46 +351,41 @@ plan. Attachments: CSV/XLSX/JSON → agent-uploads bucket, 50 MB cap, paths
 
 ## Sprint tracker — UPDATE AT END OF EVERY SESSION
 
-Sprint day : 11 of 30  Status: Week 2 — multi-provider BYOK PR #13 open; migration applied
-
-## HANDOFF NOTE FOR NEXT AGENT (read before starting)
-
-**Last merged PR:** #19 (squash commit 5326683) — CI workflow + ESLint + Stripe billing
-  infrastructure + LSE market-data Edge Function + Layout test fix. All now on main.
-
-**Immediate next tasks (priority order):**
-
-1. **Open and merge Phase 2 data plane PR** (branch `feat/phase2-data-plane`):
-   The branch exists locally at `/home/user/HM` and all code is committed. Open a PR
-   against main, verify CI green, merge. Then:
-   • Railway will redeploy automatically with new worker deps (httpx, pyarrow, websockets).
-   • Run `hm-ingest --dry-run` on Railway (or locally with LSE_API_KEY) to validate LSE
-     API connectivity: confirms lse_adapter.py can reach the OHLCV endpoint.
-
-2. **Set LSE_API_KEY as a Supabase secret** (separate from Railway env var):
-   `supabase secrets set LSE_API_KEY=<key>` then deploy the Edge Function:
-   `supabase functions deploy market-data`
-   Until this is done, the Dashboard LiveMarketChart shows "Chart unavailable" (503).
-
-3. **Replace owner's invalid DeepSeek key** (last4 ca63, returns 401):
-   Profile → Settings → DeepSeek API key. Required for any real run to complete.
-
-4. **Paystack E2E smoke test**: use PAYSTACK_TEST_REFERENCE with a test card to confirm
-   the charge.success webhook activates a subscription end-to-end.
-
-5. **Email**: set up support@hmtrade.business mailbox + SMTP; activate Supabase Auth
-   email templates.
-
-6. **Pre-launch cleanup**: remove admin.tester / user.tester test accounts; purge stale
-   env vars from Vercel dashboard.
-
-**Do NOT start Phase 1 (FastAPI monolith)** until after launch. The invariant is:
-  the live run loop never breaks (ADR D16). Phase 1 builds BESIDE the live system.
-
-**Branch strategy**: new work goes on feature branches (feat/*, fix/*); never push
-  directly to main. Always open a PR, wait for CI green, then merge.
+Sprint day : 11 of 30   Status: Week 2 in progress — LSE primary data source + multi-provider BYOK live
 
 Shipped (merged to main, live):
+  ✅ LSE PRIMARY DATA SOURCE (2026-08-23, commit cd9f83f) — London Strategic
+     Edge now LEADS the engine fallback chains for crypto, us_equity, fund
+     (ETFs) and forex (after mt5); indices/options/macro unchanged (no LSE
+     coverage — verified live). New loader Tradi/agent/backtest/loaders/
+     lse_loader.py built from a LIVE-PROBED contract: GET /v1/candles,
+     x-api-key auth (NOT Bearer), dates inclusive, timeframes 1m..1d only.
+     Hardened for the commercial loop: sub-daily windows chunked into <=14d
+     slices (huge minute responses die mid-stream), daily bars floored to
+     midnight UTC (equity dailies stamp at session open — merge hazard),
+     verified error taxonomy (401 bad key / 403 rate-limit / 404 not-listed /
+     422 bad params), thread-safe process-wide throttle (concurrent user runs
+     share one key), retry_with_budget + wall-clock budget, validate_ohlc at
+     the boundary. USDT pairs map to USD (no USDT coverage on LSE).
+     Worker lse_adapter.py corrected to the same contract. LSE_API_KEY lives
+     in Railway HM service variables. 35 new tests; live E2E: SOL 65d of 1m
+     chunked (86k bars), AAPL daily midnight-normalized, SPY 6.5y daily.
+     NOTE: source="auto" still pins yahoo first for .US symbols via
+     detect_source() symbol-format routing; LSE follows immediately in the
+     chain. Flip detect_source if LSE-first routing is wanted.
+
+  ✅ PER-PROVIDER MODEL OVERRIDE (2026-08-23, commit 41d32a2) — users pin
+     WHICH model their runs call per provider. Migration
+     2026_08_23_model_override.sql APPLIED to production (Management API):
+     user_llm_prefs.selected_model + agent_runs.model (auditable per-run
+     provider+model pair) + resolve_run_prefs() + claim_agent_run returns
+     run_model (drop+recreate — Postgres can't alter a table-function's
+     return type in place). Worker: ClaimedRun.model; LANGCHAIN_MODEL_NAME
+     priority = run model > WORKER_OLLAMA_MODEL (url-type) > catalog
+     default. Frontend: Model field on the active provider card
+     (ProviderByok), placeholder = catalog default, Pin/Reset. Tests green,
+     frontend build clean.
+
   ✅ MVP run loop VERIFIED end-to-end (prompt → queued → claim → engine → completed,
      24 artifacts, progress streamed). Fixed en route: [BUG-ENG-1] reasoning_content
      echo, [BUG-ENG-2] usage_events NULL crash, [BUG-ENG-3] realtime sync noise.
@@ -449,6 +459,18 @@ In progress / next:
   ✅ BUG-ENG-5 (2026-08-22) — start_shadow_run stores attachments as a plain
      string array but ClaimedRun.from_row only accepted dicts → "missing journal
      attachment". Fixed: worker accepts both shapes. VERIFIED LIVE.
+  ✅ MULTI-PROVIDER BYOK (2026-08-23) — migration APPLIED to Supabase (3 parts):
+     • DB: llm_provider_catalog (23 providers seeded), user_llm_prefs, 9 RPCs
+       (list_supported_llm_providers, save_user_api_key rewrite, get/set_selected_provider,
+       resolve_run_provider, start_agent_run/swarm/shadow rewrite, claim_agent_run
+       with run_provider). FK expansions replace old CHECK constraints.
+     • Worker: catalog.py (ProviderCatalog cached at boot), runner.py catalog-driven
+       _build_env (LANGCHAIN_PROVIDER + provider-specific env var), main.py wires
+       catalog + resolver + fetcher at boot. Tests: all pass.
+     • Frontend: ProviderByok.tsx (visible provider rows with inline key/URL form),
+       apikeys.ts (catalog-driven API layer), AccountSettings credentials tab,
+       Agent.tsx gate uses getSelectedProvider(). Build: clean.
+     Branch: feat/account-settings-unified. NEXT: deploy Railway + Vercel.
   ⏳ PHASE 2 DATA PLANE (2026-08-22) — branch feat/phase2-data-plane, PR pending:
      • Migration 2026_08_22_phase2_data_plane.sql APPLIED to Supabase: dataset_registry
        table, data_feeds table (lse-ohlcv-daily seed row), hm-datalake bucket,
@@ -529,11 +551,11 @@ D8  — **Paystack (NGN, Nigeria launch) + Stripe (international, entity-gated, 
       provider-agnostic subscriptions; webhooks signed + idempotent
 D9  — Auth store sets session synchronously (fixed signup/login race)
 D10 — One metered prompt box on Agent page (not a chat-style multi-turn UI)
-D11 — BYOK pivot: users supply their own LLM credential for any of 23 supported
-      providers (llm_providers.json catalog — openai-codex excluded, requires OAuth).
-      API-key providers store a key; base-URL providers (ollama, copilot) store a URL.
-      All encrypted in Supabase Vault. Worker resolves provider per-user at run time
-      by iterating the catalog in priority order (DeepSeek first, base-URL last).
+D11 — BYOK pivot: users supply their own LLM credential for any of 23
+      catalog-driven providers (key-type: OpenAI, DeepSeek, Anthropic, Gemini,
+      etc.; url-type: Ollama). Encrypted in Supabase Vault. Worker resolves
+      provider per-user via resolve_run_provider (selected → first configured).
+      llm_provider_catalog is the single source of truth (DB, worker, frontend).
 D12 — Supabase Vault for key storage (not AES-256-GCM with app-managed key)
 D13 — Edge Functions for payment webhooks (not a FastAPI backend at MVP)
 D14 — No Celery/Redis — Python polling loop is simpler and sufficient for MVP scale
@@ -555,6 +577,22 @@ D19 — **Phase 2 Path B** — dataset_registry schema built directly in Supabas
       (not gated on Phase 1 FastAPI monolith). Strangler-fig: FastAPI can sit in front
       later without touching the data layer. hm-ingest is a separate CLI entry point —
       the live agent-run poll loop never changes (D16 invariant preserved).
+D20 — **LSE is a DATA SOURCE, not an execution model; no external backtest framework**
+      (2026-08-23). Loaders (where bars come from) and engines (how trades execute:
+      fees, lots, T+1, margin) are deliberately orthogonal — LSE feeds bars into the
+      EXISTING market engines via FALLBACK_CHAINS; a "LSE engine" would duplicate every
+      market engine for zero behavioral gain. Likewise Backtrader/zipline/vectorbt stay
+      OUT: our BaseEngine family already provides per-market exchange rules (CN T+1,
+      price limits, funding, margin, lot rounding), cross-market CompositeEngine,
+      vectorized numpy fast-paths, sandboxed subprocess isolation for hostile
+      user-supplied strategy code, and fill-level audit artifacts — adopting an external
+      framework would lose the security sandbox, re-port 8 markets' rule nuances, and
+      add dependency risk on a commercial platform. Revisit ONLY if tick-level order-book
+      replay or RL training environments are needed (roadmap-phase decision, not MVP).
+D21 — **Per-provider model override** (2026-08-23): users pin WHICH model each provider
+      calls (user_llm_prefs.selected_model), recorded per-run on agent_runs.model for
+      auditable (provider, model) provenance; worker injects priority run model >
+      WORKER_OLLAMA_MODEL (url-type) > catalog default_model.
 
 ## Testing requirements
 

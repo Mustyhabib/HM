@@ -54,6 +54,7 @@ VALID_SOURCES: set[str] = {
     "pykrx",
     "longbridge",
     "mt5",
+    "lse",
     "tickerall",
     "local",
     "auto",
@@ -105,6 +106,7 @@ def _ensure_registered() -> None:
         "backtest.loaders.pykrx_loader",
         "backtest.loaders.longbridge",
         "backtest.loaders.mt5_loader",
+        "backtest.loaders.lse_loader",
         "backtest.loaders.tickerall_loader",
         "backtest.loaders.local_loader",
     ]
@@ -131,14 +133,17 @@ _NO_NETWORK_FALLBACK_SOURCES: frozenset[str] = frozenset({"local", "qveris", "ti
 # Fallback chains: market_type -> ordered list of source names
 # ---------------------------------------------------------------------------
 
-# Chains are ordered by IP-ban risk first (lighter, throttle-tolerant public
-# endpoints lead; key-gated REST and rate-limit-prone sources trail), then by
-# data quality. Eastmoney/Sina/Stooq/Yahoo are unauthenticated public sources
-# that must be politely throttled; Finnhub/AlphaVantage/Tiingo/FMP are key-gated
-# REST fallbacks placed deeper in the chain.
+# Chains are ordered by HM data policy (2026-08-23): London Strategic Edge
+# (``lse``) LEADS for US equities, ETFs/funds, crypto and forex — it is the
+# platform's contracted primary source (ADR D18) and serves near-real-time
+# bars. When LSE lacks a listing (indices, options, macro, exotic symbols)
+# or the key is unset, ``is_available()``/fetch degrades and the legacy
+# chain below takes over unchanged. Legacy order within each market keeps
+# the original IP-ban-risk rationale: light public endpoints lead; key-gated
+# REST and rate-limit-prone sources trail.
 FALLBACK_CHAINS: dict[str, list[str]] = {
     "a_share":   ["tencent", "mootdx", "eastmoney", "baostock", "akshare", "tushare", "local"],
-    "us_equity": ["yahoo", "stooq", "sina", "eastmoney", "yfinance", "tiingo", "fmp", "finnhub", "alphavantage", "longbridge", "akshare", "local"],
+    "us_equity": ["lse", "yahoo", "stooq", "sina", "eastmoney", "yfinance", "tiingo", "fmp", "finnhub", "alphavantage", "longbridge", "akshare", "local"],
     # HK: tencent leads (no observed IP ban); akshare (Eastmoney-backed)
     # precedes the Yahoo-SDK family, which is blocked from mainland IPs;
     # tushare hk_daily is key-gated.
@@ -150,14 +155,18 @@ FALLBACK_CHAINS: dict[str, list[str]] = {
     # Vietnam (.VN): Yahoo lists HOSE only — HNX and UPCOM are unsupported,
     # so those two are reachable only through the user's local files.
     "vietnam_equity": ["yahoo", "yfinance", "local"],
-    # OKX first (native), then dedicated Binance, then generic CCXT / Yahoo.
-    "crypto":    ["okx", "binance", "ccxt", "yfinance", "local"],
+    # LSE first (contracted primary; near-real-time), then OKX (native),
+    # then dedicated Binance, then generic CCXT / Yahoo.
+    "crypto":    ["lse", "okx", "binance", "ccxt", "yfinance", "local"],
     "futures":   ["tushare", "akshare", "local"],
-    "fund":      ["tushare", "akshare", "local"],
+    # ETFs/funds ride the us_equity-style chain: LSE serves SPY/QQQ/IWM/TLT
+    # class listings bare-ticker, tushare/akshare remain for CN funds.
+    "fund":      ["lse", "tushare", "akshare", "local"],
     "macro":     ["akshare", "tushare", "local"],
     # mt5 leads when a local MetaTrader 5 terminal is attached (Windows-only,
     # broker feed); otherwise it reports unavailable and the chain proceeds.
-    "forex":     ["mt5", "akshare", "yfinance", "local"],
+    # LSE second: EUR/USD-class majors verified live.
+    "forex":     ["mt5", "lse", "akshare", "yfinance", "local"],
 }
 
 

@@ -150,19 +150,29 @@ class TestFallbackChains:
             assert len(chain) > 0, f"Fallback chain for {market} is empty"
 
     def test_crypto_chain_includes_yfinance_fallback(self) -> None:
-        """yfinance is a fallback for crypto when OKX, Binance and CCXT fail."""
+        """yfinance is a fallback for crypto when LSE, OKX, Binance and CCXT fail."""
         assert "yfinance" in FALLBACK_CHAINS["crypto"]
-        # OKX, Binance and CCXT should be preferred in that order
-        assert FALLBACK_CHAINS["crypto"][:3] == ["okx", "binance", "ccxt"]
+        # LSE leads (HM primary source); OKX, Binance and CCXT follow in order.
+        assert FALLBACK_CHAINS["crypto"][1:4] == ["okx", "binance", "ccxt"]
+
+    def test_lse_leads_hm_priority_markets(self) -> None:
+        """HM data policy (2026-08-23): London Strategic Edge is the contracted
+        primary source and leads the chains for US equities, funds/ETFs and
+        crypto; forex places it after mt5's local-terminal feed."""
+        assert FALLBACK_CHAINS["us_equity"][0] == "lse"
+        assert FALLBACK_CHAINS["fund"][0] == "lse"
+        assert FALLBACK_CHAINS["crypto"][0] == "lse"
+        forex = FALLBACK_CHAINS["forex"]
+        assert forex.index("lse") < forex.index("akshare")
 
     def test_chains_ordered_by_ip_ban_risk(self) -> None:
-        """Equity chains lead with throttle-tolerant public sources and trail
-        with key-gated REST fallbacks, in the exact reviewed order."""
+        """Equity chains lead with HM's primary source then throttle-tolerant
+        public sources and trail with key-gated REST fallbacks."""
         assert FALLBACK_CHAINS["a_share"] == [
             "tencent", "mootdx", "eastmoney", "baostock", "akshare", "tushare", "local",
         ]
         assert FALLBACK_CHAINS["us_equity"] == [
-            "yahoo", "stooq", "sina", "eastmoney", "yfinance", "tiingo", "fmp",
+            "lse", "yahoo", "stooq", "sina", "eastmoney", "yfinance", "tiingo", "fmp",
             "finnhub", "alphavantage", "longbridge", "akshare", "local",
         ]
         assert FALLBACK_CHAINS["hk_equity"] == [
@@ -182,14 +192,15 @@ class TestFallbackChains:
         assert "baostock" in FALLBACK_CHAINS["a_share"]
 
     def test_unchanged_chains_preserved(self) -> None:
-        """crypto/futures/fund/macro/forex chains must be left untouched."""
-        assert FALLBACK_CHAINS["crypto"] == ["okx", "binance", "ccxt", "yfinance", "local"]
+        """futures/macro keep their legacy chains; crypto/fund/forex change only
+        by LSE's insertion (HM primary source, 2026-08-23)."""
+        assert FALLBACK_CHAINS["crypto"] == ["lse", "okx", "binance", "ccxt", "yfinance", "local"]
         assert FALLBACK_CHAINS["futures"] == ["tushare", "akshare", "local"]
-        assert FALLBACK_CHAINS["fund"] == ["tushare", "akshare", "local"]
+        assert FALLBACK_CHAINS["fund"] == ["lse", "tushare", "akshare", "local"]
         assert FALLBACK_CHAINS["macro"] == ["akshare", "tushare", "local"]
-        # mt5 heads the forex chain (terminal feed when attached), degrading to
-        # the previous chain unchanged.
-        assert FALLBACK_CHAINS["forex"] == ["mt5", "akshare", "yfinance", "local"]
+        # mt5 heads the forex chain (terminal feed when attached), then LSE,
+        # degrading to the previous chain unchanged.
+        assert FALLBACK_CHAINS["forex"] == ["mt5", "lse", "akshare", "yfinance", "local"]
 
     def test_tickerall_is_explicit_only_never_a_fallback(self) -> None:
         """TickerAll is a valid explicit source but must NEVER join an automatic

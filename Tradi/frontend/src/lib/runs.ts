@@ -222,6 +222,50 @@ export async function getRunArtifacts(runId: string): Promise<RunArtifact[]> {
 }
 
 /**
+ * List the caller's recent runs (any status) — newest first. Powers the
+ * hanging "past chats" panel on the Agent page. RLS-scoped: the user only
+ * ever sees their own rows.
+ */
+export async function getRunHistory(limit = 40): Promise<AgentRun[]> {
+  const { data, error } = await supabase
+    .from("agent_runs")
+    .select("id,prompt,status,max_iter,error_message,refunded,created_at,completed_at,progress_message,progress_iter,progress_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  return (data as AgentRun[]) ?? [];
+}
+
+/**
+ * Subscribe to INSERT + UPDATE on agent_runs for the caller (RLS-scoped).
+ * Powers live lists (Agent page chat-history rail). Returns an unsubscribe
+ * function. Best-effort: failures surface via console only.
+ */
+export function subscribeToRunList(
+  onInsert: (row: unknown) => void,
+  onUpdate?: (row: unknown) => void,
+): () => void {
+  const channel = supabase
+    .channel("run-list")
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "agent_runs" },
+      (payload) => { if (payload.new) onInsert(payload.new); },
+    );
+  if (onUpdate) {
+    channel.on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "agent_runs" },
+      (payload) => { if (payload.new) onUpdate(payload.new); },
+    );
+  }
+  channel.subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+/**
  * List the caller's currently active (queued or running) runs — ordered by
  * newest first. Powers the sidebar queue viewer on the RunView page.
  * RLS-scoped: the user only ever sees their own rows.

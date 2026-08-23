@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from hm_worker.catalog import ProviderCatalog, ProviderSpec, set_catalog
 from hm_worker.db import Attachment, ClaimedRun
 from hm_worker.runner import (
     ClaimLost,
@@ -36,15 +37,40 @@ STUB_KEY_VALUE = "deepseek-stub-test-only"
 
 @pytest.fixture(autouse=True)
 def _stub_api_key_fetcher():
-    """Autouse: register a stub key fetcher before every test, tear down after.
+    """Autouse: register a stub key fetcher + catalog before every test.
 
     The BYOK pivot made a registered fetcher a hard precondition of
     ``TradiRunner.execute()``; without this fixture every test in this
     module would raise ``SystemError_: api key fetcher not registered``.
     Tests that want to exercise the fetcher-missing / key-missing paths
     call ``set_api_key_fetcher(...)`` themselves inside the test body.
+
+    We also register an in-memory catalog (deepseek + ollama + openai)
+    so the catalog-driven provider resolution has something to resolve
+    against — the real worker loads this from Supabase at boot.
     """
     set_api_key_fetcher(lambda uid, provider: STUB_KEY_VALUE)
+    # Build a tiny frozen catalog matching the engine's shape.
+    cat = ProviderCatalog()
+    cat._by_name = {
+        "deepseek": ProviderSpec(
+            name="deepseek", label="DeepSeek", provider_type="key",
+            api_key_env="DEEPSEEK_API_KEY", base_url_env="DEEPSEEK_BASE_URL",
+            default_model="deepseek-v4-pro", default_base_url="https://api.deepseek.com/v1",
+        ),
+        "ollama": ProviderSpec(
+            name="ollama", label="Ollama", provider_type="url",
+            api_key_env=None, base_url_env="OLLAMA_BASE_URL",
+            default_model="qwen2.5:32b", default_base_url="http://localhost:11434",
+        ),
+        "openai": ProviderSpec(
+            name="openai", label="OpenAI", provider_type="key",
+            api_key_env="OPENAI_API_KEY", base_url_env="OPENAI_BASE_URL",
+            default_model="gpt-5.5", default_base_url="https://api.openai.com",
+        ),
+    }
+    cat._loaded = True
+    set_catalog(cat)
     try:
         yield
     finally:
@@ -68,6 +94,10 @@ try:
     # the exact value flowed through without leaking it via stdout/stderr.
     (Path(os.environ["HOME"]) / "deepseek_key.marker").write_text(
         os.environ.get("DEEPSEEK_API_KEY", "MISSING")
+    )
+    # OpenAI BYOK marker (tests the catalog generalization path).
+    (Path(os.environ["HOME"]) / "openai_key.marker").write_text(
+        os.environ.get("OPENAI_API_KEY", "MISSING")
     )
     # BUG-ENG-4: the engine routing vars must be injected too, or the real
     # engine dies at LLM construction ("LANGCHAIN_MODEL_NAME is not set").
@@ -130,8 +160,9 @@ def fake_command(tmp_path: Path) -> str:
     return f"{sys.executable} {script}"
 
 
-def make_run(prompt: str) -> ClaimedRun:
-    return ClaimedRun(id="run-x", user_id="user-1", prompt=prompt, max_iter=5)
+def make_run(prompt: str, provider: str = "deepseek") -> ClaimedRun:
+    return ClaimedRun(id="run-x", user_id="user-1", prompt=prompt, max_iter=5,
+                      provider=provider)
 
 
 def make_runner(fake_command: str, tmp_path: Path, **overrides) -> TradiRunner:
@@ -419,12 +450,10 @@ def test_llm_routing_vars_injected_into_subprocess_env(fake_command, tmp_path):
 
 
 def test_ollama_byok_routing(fake_command, tmp_path):
-    """Ollama BYOK: when only an Ollama credential exists the engine is routed
+    """Ollama BYOK: when the run's provider is ollama the engine is routed
     via OLLAMA_BASE_URL + LANGCHAIN_PROVIDER=ollama + LANGCHAIN_MODEL_NAME=<model>.
-
-    The model is taken from the providers catalog (qwen2.5:32b for ollama).
-    """
-    # Fetcher returns None for all providers except ollama.
+    The fetcher returns the Ollama URL for the ollama provider."""
+    # Fetcher returns a URL for ollama.
     set_api_key_fetcher(
         lambda uid, provider: "http://my-gpu:11434" if provider == "ollama" else None
     )
@@ -432,24 +461,31 @@ def test_ollama_byok_routing(fake_command, tmp_path):
         fake_command,
         tmp_path,
         cleanup=False,
-    ).execute(make_run("SUCCEED"), lambda: True, threading.Event())
+        ollama_model="phi4:latest",
+    ).execute(make_run("SUCCEED", provider="ollama"), lambda: True, threading.Event())
     marker = tmp_path / "runs" / "run-x" / "llm_route.marker"
     assert marker.exists()
-    assert marker.read_text() == "ollama|qwen2.5:32b"
+    assert marker.read_text() == "ollama|phi4:latest"
 
 
-def test_multi_provider_resolution_openai(fake_command, tmp_path):
-    """Multi-provider BYOK: when a user has only an OpenAI key configured,
-    the resolution loop skips deepseek and picks openai."""
+def test_key_provider_env_injection(fake_command, tmp_path):
+    """Catalog generalization: an arbitrary key provider (openai) injects its
+    own api_key + LANGCHAIN_PROVIDER, using the catalog's default model."""
     set_api_key_fetcher(
-        lambda uid, provider: "sk-openai-fake-key-1234" if provider == "openai" else None
+        lambda uid, provider: "sk-openai-stub" if provider == "openai" else None
     )
-    make_runner(fake_command, tmp_path, cleanup=False).execute(
-        make_run("SUCCEED"), lambda: True, threading.Event()
-    )
-    marker = tmp_path / "runs" / "run-x" / "llm_route.marker"
-    assert marker.exists()
-    assert marker.read_text() == "openai|gpt-5.5"
+    # Extend the fake CLI marker to also echo the provider's api_key_env.
+    make_runner(
+        fake_command, tmp_path, cleanup=False,
+    ).execute(make_run("SUCCEED", provider="openai"), lambda: True, threading.Event())
+    route = tmp_path / "runs" / "run-x" / "llm_route.marker"
+    assert route.exists()
+    assert route.read_text() == "openai|gpt-5.5"
+    # The openai key must have been injected under OPENAI_API_KEY.
+    key_marker = tmp_path / "runs" / "run-x" / "openai_key.marker"
+    assert key_marker.exists()
+    assert key_marker.read_text() == "sk-openai-stub"
+
 
 
 def test_missing_key_fetcher_is_system_error(fake_command, tmp_path):
@@ -472,7 +508,7 @@ def test_missing_key_is_user_input_error(fake_command, tmp_path):
             make_run("SUCCEED"), lambda: True, threading.Event()
         )
     assert exc.value.refundable is False
-    assert "no api key configured for any provider" in str(exc.value)
+    assert "no api key configured" in str(exc.value)
 
 
 def test_key_fetcher_called_before_attachment_download(fake_command, tmp_path):

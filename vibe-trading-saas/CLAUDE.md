@@ -74,6 +74,28 @@ runner. Order matters; newest first:
    Expands provider CHECK (deepseek|ollama) on user_api_keys + agent_runs;
    updates save_user_api_key with URL validation; adds list_user_api_key_statuses()
    RPC; updates start_agent_run/start_swarm_run/start_shadow_run gates.
+9. `2026_08_23_multi_provider_byok.sql` — Multi-provider BYOK (catalog-driven)
+   (APPLIED to production 2026-08-23 via Supabase MCP execute_sql, 3 parts)
+   Opens web BYOK to all 23 key/URL providers from the engine's
+   llm_providers.json (excludes the 2 OAuth/gh_cli providers: openai-codex,
+   copilot). Adds llm_provider_catalog table + list_supported_llm_providers() RPC
+   (single source of truth for worker + frontend); expands both provider FKs
+   (replaces old CHECK constraints); rewrites save_user_api_key with generic
+   catalog-driven validation (non-empty secret for key-type, http(s) URL for
+   url-type); adds user_llm_prefs + get/set_selected_provider RPCs (per-user
+   active provider); adds resolve_run_provider() helper; start_*_run gates
+   resolve + record the selected provider on agent_runs.provider;
+   claim_agent_run now returns run_provider. Worker: catalog.py + generalized
+   _build_env + provider resolver wired in main.py. Frontend: catalog-driven
+   ProviderByok component replaces the hardcoded DeepSeek/Ollama sections in
+   AccountSettings; Agent gate uses getSelectedProvider().
 
 Do not edit applied migrations; write new numbered files. The admin migration's
 rollback block is a comment — copy it out if a rollback is ever needed.
+10. `2026_08_23_model_override.sql` — Per-provider model override
+   (APPLIED to production 2026-08-23 via Management API; HTTP 201)
+   user_llm_prefs.selected_model (null = catalog default); agent_runs.model
+   recorded at enqueue; resolve_run_prefs() -> (provider, model);
+   claim_agent_run returns run_model (drop+recreate — return-type change);
+   set_selected_provider gains optional p_model. Worker injects priority:
+   run model > WORKER_OLLAMA_MODEL (url-type) > catalog default_model.

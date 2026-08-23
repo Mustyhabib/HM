@@ -25,10 +25,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Protocol
 
+from .catalog import get_catalog, _provider_resolver
 from .db import Attachment, ClaimedRun
 from .logging_config import set_run_id
 from .progress import TraceTailer
-from .providers import RESOLUTION_ORDER, get_provider
 
 # Optional injection point for the storage downloader — set by main.py when the
 # worker boots. Kept as a module-level callable so the Runner protocol stays
@@ -209,16 +209,14 @@ class TradiRunner:
     owner's LLM credential via the module-level ``_api_key_fetcher`` injection
     point (same pattern as ``_attachment_downloader`` / ``_progress_push`` —
     registered by ``main.py``, ``None`` by default so StubRunner-only tests
-    don't need Supabase).  Provider resolution order is defined by the
-    ``providers`` module catalog (deepseek first, then popular API-key
-    providers, base-URL providers last).  The credential is injected into the
-    subprocess env in ``_build_env`` using the catalog's ``api_key_env`` /
-    ``base_url_env`` fields and is never logged.
+    don't need Supabase).  Provider resolution order: DeepSeek first, Ollama
+    fallback.  The credential is injected into the subprocess env in
+    ``_build_env`` (as ``DEEPSEEK_API_KEY`` or ``OLLAMA_BASE_URL``) and is
+    never logged.
 
     Outcome mapping (CLAUDE.md refund rule; unknown fault -> refund, D7):
       - exit 0 + ``{"status": "success"}``  -> RunResult
       - no key configured for any provider   -> MissingApiKey (not refunded)
-      - unknown provider in catalog         -> SystemError_ (refund)
       - wall-clock exceeded                 -> RunTimeout (refund)
       - worker shutdown mid-run             -> SystemError_ (refund)
       - claim lost (heartbeat False)        -> ClaimLost (row left untouched)
@@ -239,6 +237,9 @@ class TradiRunner:
         heartbeat_seconds: int,
         env: Mapping[str, str] | None = None,
         cleanup: bool = True,
+        llm_provider: str = "deepseek",
+        llm_model: str = "deepseek-v4-pro",
+        ollama_model: str = "qwen2.5:32b",
     ) -> None:
         self._command = shlex.split(command)
         self._runs_root = Path(runs_root)
@@ -246,6 +247,9 @@ class TradiRunner:
         self._heartbeat_every = max(1, heartbeat_seconds)
         self._extra_env = dict(env or {})
         self._cleanup = cleanup
+        self._llm_provider = llm_provider
+        self._llm_model = llm_model
+        self._ollama_model = ollama_model
 
     def execute(
         self,
@@ -269,24 +273,30 @@ class TradiRunner:
         #    (SystemError_, refunded); a missing/never-configured key is the
         #    user's to fix (MissingApiKey, not refunded).
         #
-        #    Resolution: iterate through all providers in the catalog's
-        #    priority order (deepseek first, base-URL providers last).
-        #    The first provider for which the user has a configured credential
-        #    wins. See providers.py for the full resolution order.
+        #    Provider resolution is catalog-driven: the selected provider
+        #    (user_llm_prefs, via the resolver hook wired in main.py) wins;
+        #    the start_*_run RPCs already resolved it to a configured provider
+        #    and recorded it on agent_runs.provider, so the worker trusts that
+        #    value when present otherwise it asks the resolver hook. Either
+        #    way the worker fetches the credential for exactly that provider.
         if _api_key_fetcher is None:
             raise SystemError_("api key fetcher not registered")
-        resolved_provider: str | None = None
-        api_key: str | None = None
-        for provider_name in RESOLUTION_ORDER:
-            credential = _api_key_fetcher(run.user_id, provider_name)
-            if credential:
-                resolved_provider = provider_name
-                api_key = credential
-                break
-        if not api_key or not resolved_provider:
+        catalog = get_catalog()
+        # Prefer the provider recorded on the run row (set by start_*_run),
+        # else defer to the per-user resolver hook.
+        resolved_provider = getattr(run, "provider", None) or (
+            _provider_resolver(run.user_id) if _provider_resolver else None
+        )
+        if not resolved_provider or resolved_provider not in catalog:
+            # Fail closed: do not guess. The run row should always carry a
+            # valid provider from the DB gate; a mismatch means data drift.
             raise MissingApiKey(
-                "no api key configured for any provider — "
-                "add one on your Profile page"
+                f"no usable provider resolved for run {run.id}"
+            )
+        api_key = _api_key_fetcher(run.user_id, resolved_provider)
+        if not api_key:
+            raise MissingApiKey(
+                f"no api key configured for provider '{resolved_provider}'"
             )
 
         # 2. Mount any Premium attachments into HOME/inputs/ before the engine boots.
@@ -331,7 +341,7 @@ class TradiRunner:
                 proc = subprocess.Popen(
                     argv,
                     cwd=str(run_dir),
-                    env=self._build_env(run_dir, resolved_provider, api_key),
+                    env=self._build_env(run_dir, resolved_provider, api_key, run.model),
                     stdout=out,
                     stderr=err,
                     text=True,
@@ -427,7 +437,8 @@ class TradiRunner:
             log.info("run %s: mounted attachment %s (%d bytes)", run.id, safe_name, len(data))
 
     def _build_env(
-        self, run_dir: Path, provider: str, credential: str
+        self, run_dir: Path, provider: str, credential: str,
+        model_override: str | None = None,
     ) -> dict[str, str]:
         # Inherit the worker's environment (PATH, locale, ...), then isolate all
         # engine state under the per-run directory. Broker / live-trading vars
@@ -439,35 +450,51 @@ class TradiRunner:
         env["VIBE_TRADING_HOME"] = str(run_dir)
         env["VIBE_TRADING_ALLOWED_RUN_ROOTS"] = str(run_dir)
 
-        # Look up the provider in the catalog. Unknown provider is a bug —
-        # execute() resolved it from the catalog, so this should never fail.
-        entry = get_provider(provider)
-        if entry is None:
-            raise SystemError_(f"unknown provider: {provider!r}")
-
+        # BYOK pivot: inject provider-specific credential from the catalog.
+        # The user's own credential always wins over any value the worker
+        # process inherited (e.g. a dev-only default in the OS environment).
+        # Never logged.
+        #
         # BUG-ENG-4 (2026-08-22): upstream engine (>= 1907e47) hard-requires
         # LANGCHAIN_PROVIDER / LANGCHAIN_MODEL_NAME — the container ships no
         # agent/.env so without these every run dies at LLM construction.
-        env["LANGCHAIN_PROVIDER"] = provider
-        env["LANGCHAIN_MODEL_NAME"] = entry.default_model
+        catalog = get_catalog()
+        spec = catalog.get(provider)
+        if spec is None:
+            # Fail closed — a provider not in the catalog is a misconfig.
+            raise SystemError_(f"unsupported provider: {provider!r}")
 
-        # BYOK pivot: inject the user's credential into the provider's env var.
-        # Never logged. The user's own credential always wins over any value
-        # the worker process inherited (e.g. a dev-only default).
-        if entry.is_base_url_provider:
-            # Base-URL providers (ollama, copilot): the credential IS the URL.
-            if entry.base_url_env:
-                env[entry.base_url_env] = credential
+        # Route the engine to the right provider + model. A user-pinned
+        # model (agent_runs.model, resolved at enqueue time) wins; then the
+        # worker's url-type env override; then the catalog default.
+        env["LANGCHAIN_PROVIDER"] = provider
+        env["LANGCHAIN_MODEL_NAME"] = model_override or self._model_for(spec)
+
+        if spec.is_url_type:
+            # url-type provider (e.g. self-hosted Ollama): the credential IS
+            # the base URL; inject it into the provider's base_url_env.
+            if spec.base_url_env:
+                env[spec.base_url_env] = credential
         else:
-            # API-key providers: inject the key.
-            if entry.api_key_env:
-                env[entry.api_key_env] = credential
-            # Set the base URL from the catalog so the engine doesn't have to
-            # discover it (covers providers with non-standard base URLs).
-            if entry.base_url_env and entry.default_base_url:
-                env[entry.base_url_env] = entry.default_base_url
+            # key-type provider: inject the API key into the provider's
+            # api_key_env (e.g. OPENAI_API_KEY, DEEPSEEK_API_KEY). The engine
+            # falls back to its bundled catalog for the base URL if the
+            # base_url_env is unset.
+            if spec.api_key_env:
+                env[spec.api_key_env] = credential
 
         return env
+
+    def _model_for(self, spec) -> str:
+        """Pick the model to inject for a provider.
+
+        url-type (Ollama) uses the worker's ollama_model override when set,
+        since the model tag must match what the user pulled locally. key-type
+        providers use the catalog default_model.
+        """
+        if spec.is_url_type and self._ollama_model:
+            return self._ollama_model
+        return spec.default_model
 
     def _supervise(
         self,

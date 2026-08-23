@@ -47,6 +47,16 @@ class ClaimedRun:
     attachments: tuple[Attachment, ...] = ()
     preset_name: str | None = None
     user_vars: dict | None = None
+    # Worker-side default. The DB start_*_run gates resolve + record the
+    # real provider on the run row (agent_runs.provider); this default only
+    # matters for legacy/synthetic ClaimedRuns built without one (tests,
+    # old code paths). deepseek is the canonical fallback so a run without
+    # an explicit provider still resolves through the catalog.
+    provider: str | None = "deepseek"
+    # Model pinned by the user for this run (agent_runs.model, resolved at
+    # enqueue time). NULL = use the catalog default_model (or the worker's
+    # url-type env override, e.g. WORKER_OLLAMA_MODEL).
+    model: str | None = None
 
     @classmethod
     def from_row(cls, row: dict) -> "ClaimedRun":
@@ -94,6 +104,8 @@ class ClaimedRun:
             attachments=tuple(atts),
             preset_name=row.get("run_preset_name") or None,
             user_vars=row.get("run_user_vars") or None,
+            provider=row.get("run_provider") or None,
+            model=row.get("run_model") or None,
         )
 
 

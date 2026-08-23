@@ -22,6 +22,7 @@ import {
   type AgentRun,
   type RunArtifact,
 } from "@/lib/runs";
+import { RunResults } from "@/components/runs/RunResults";
 import { cn } from "@/lib/utils";
 import { LEGAL_NAME, SUPPORT_EMAIL } from "@/lib/company";
 
@@ -709,15 +710,7 @@ export function RunView() {
                 )}
               </div>
               <div className="p-6">
-                {answer ? (
-                  <div className="hm-report whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-                    {answer}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No readable report was produced for this run.
-                  </p>
-                )}
+                <RunResults artifacts={artifacts} report={answer} />
               </div>
             </div>
           )}
