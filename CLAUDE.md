@@ -354,6 +354,18 @@ plan. Attachments: CSV/XLSX/JSON → agent-uploads bucket, 50 MB cap, paths
 Sprint day : 9 of 30   Status: Week 2 in progress — Multi-provider BYOK (23 providers) applied + deployed
 
 Shipped (merged to main, live):
+  ✅ PER-PROVIDER MODEL OVERRIDE (2026-08-23, commit 41d32a2) — users pin
+     WHICH model their runs call per provider. Migration
+     2026_08_23_model_override.sql APPLIED to production (Management API):
+     user_llm_prefs.selected_model + agent_runs.model (auditable per-run
+     provider+model pair) + resolve_run_prefs() + claim_agent_run returns
+     run_model (drop+recreate — Postgres can't alter a table-function's
+     return type in place). Worker: ClaimedRun.model; LANGCHAIN_MODEL_NAME
+     priority = run model > WORKER_OLLAMA_MODEL (url-type) > catalog
+     default. Frontend: Model field on the active provider card
+     (ProviderByok), placeholder = catalog default, Pin/Reset. Tests green,
+     frontend build clean.
+
   ✅ MVP run loop VERIFIED end-to-end (prompt → queued → claim → engine → completed,
      24 artifacts, progress streamed). Fixed en route: [BUG-ENG-1] reasoning_content
      echo, [BUG-ENG-2] usage_events NULL crash, [BUG-ENG-3] realtime sync noise.

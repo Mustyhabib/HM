@@ -92,3 +92,10 @@ runner. Order matters; newest first:
 
 Do not edit applied migrations; write new numbered files. The admin migration's
 rollback block is a comment — copy it out if a rollback is ever needed.
+10. `2026_08_23_model_override.sql` — Per-provider model override
+   (APPLIED to production 2026-08-23 via Management API; HTTP 201)
+   user_llm_prefs.selected_model (null = catalog default); agent_runs.model
+   recorded at enqueue; resolve_run_prefs() -> (provider, model);
+   claim_agent_run returns run_model (drop+recreate — return-type change);
+   set_selected_provider gains optional p_model. Worker injects priority:
+   run model > WORKER_OLLAMA_MODEL (url-type) > catalog default_model.
