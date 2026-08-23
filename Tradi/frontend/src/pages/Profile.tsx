@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   User,
   Mail,
@@ -15,15 +15,27 @@ import {
   Target,
   Award,
   KeyRound,
-  Globe,
   Loader2,
   Trash2,
+  ChevronDown,
+  ExternalLink,
+  Plus,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-store";
-import { saveApiKey, getApiKeyStatus, deleteApiKey, type ApiKeyStatus } from "@/lib/apikeys";
+import {
+  saveApiKey,
+  listApiKeyStatuses,
+  deleteApiKey,
+  type ApiKeyStatus,
+} from "@/lib/apikeys";
+import {
+  FEATURED_PROVIDERS,
+  MORE_PROVIDERS,
+  type LlmProvider,
+} from "@/lib/providers";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Skeleton } from "@/components/common/Skeleton";
 
@@ -102,47 +114,36 @@ function ActivityItem({
   );
 }
 
-/* ─── API key section (BYOK) ───────────────────────────────────────────
- * Users bring their own DeepSeek key — stored server-side in Supabase
- * Vault, never re-rendered as plaintext once saved. This card is the only
- * place in the app that reads/writes it (via `lib/apikeys.ts`, which talks
- * to SECURITY DEFINER RPCs — there is no client-facing table to query).
- * `id="api-key"` lets `/profile#api-key` deep-link here from the Agent
- * page's "no key configured" banner.
+/* ─── Single provider card ─────────────────────────────────────────────
+ * Renders one LLM provider row within the ProviderKeysSection. Shows
+ * the provider label, configured status, and an inline form for
+ * add / edit / delete.
  */
-function ApiKeySection() {
-  const [status, setStatus] = useState<ApiKeyStatus | null>(null);
-  const [loaded, setLoaded] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
+function ProviderCard({
+  provider,
+  status,
+  isEditing,
+  onStartEdit,
+  onCancelEdit,
+  onSaved,
+  onDeleted,
+}: {
+  provider: LlmProvider;
+  status: ApiKeyStatus | null;
+  isEditing: boolean;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onSaved: (next: ApiKeyStatus) => void;
+  onDeleted: () => void;
+}) {
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  // Bumped by the "Retry" button to re-run the effect below without
-  // duplicating its fetch/cancellation logic.
-  const [reloadCount, setReloadCount] = useState(0);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoaded(false);
-    setLoadError(null);
-    getApiKeyStatus()
-      .then((s) => {
-        if (cancelled) return;
-        setStatus(s);
-        setLoaded(true);
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        setLoadError(e instanceof Error ? e.message : "Failed to load key status");
-        setLoaded(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [reloadCount]);
+  const isConfigured = status !== null;
+  const showForm = isEditing;
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -150,14 +151,13 @@ function ApiKeySection() {
     setSaving(true);
     setSaveError(null);
     try {
-      const next = await saveApiKey("deepseek", draft);
-      setStatus(next);
-      setEditing(false);
-      // Never keep the plaintext around once it's safely stored server-side.
+      const next = await saveApiKey(provider.name, draft);
+      onSaved(next);
       setDraft("");
-      toast.success("DeepSeek key saved");
+      setSaveError(null);
+      toast.success(`${provider.label} ${provider.apiKeyRequired ? "key" : "URL"} saved`);
     } catch (saveErr) {
-      const message = saveErr instanceof Error ? saveErr.message : "Failed to save key";
+      const message = saveErr instanceof Error ? saveErr.message : "Failed to save";
       setSaveError(message);
     } finally {
       setSaving(false);
@@ -165,117 +165,132 @@ function ApiKeySection() {
   };
 
   const cancelEdit = () => {
-    setEditing(false);
     setDraft("");
     setSaveError(null);
+    onCancelEdit();
   };
 
   const confirmDelete = async () => {
     setDeleting(true);
     try {
-      await deleteApiKey("deepseek");
-      setStatus(null);
+      await deleteApiKey(provider.name);
+      onDeleted();
       setConfirmDeleteOpen(false);
-      toast.success("DeepSeek key removed");
+      toast.success(`${provider.label} ${provider.apiKeyRequired ? "key" : "URL"} removed`);
     } catch (deleteErr) {
-      const message = deleteErr instanceof Error ? deleteErr.message : "Failed to delete key";
+      const message = deleteErr instanceof Error ? deleteErr.message : "Failed to remove";
       toast.error(message);
     } finally {
       setDeleting(false);
     }
   };
 
-  const showForm = loaded && !loadError && (status === null || editing);
+  // First letter badge color — use a deterministic hue from the provider name
+  const hue = provider.name.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360;
+  const badgeBg = `hsl(${hue} 55% 92%)`;
+  const badgeText = `hsl(${hue} 60% 35%)`;
 
   return (
-    <section id="api-key" className="mt-6 scroll-mt-20 rounded-xl border border-border bg-card p-6">
-      <div className="flex items-center gap-2">
-        <h2 className="flex items-center gap-2 text-base font-semibold">
-          <KeyRound className="h-4 w-4 text-primary" />
-          API Key
-        </h2>
-        <span className="inline-flex items-center rounded-full border border-primary/25 bg-primary/8 px-2 py-0.5 text-[11px] font-medium text-primary">
-          DeepSeek
-        </span>
-      </div>
-      <p className="mt-1.5 text-sm text-muted-foreground">
-        H~Mltd runs on your own DeepSeek key — we never proxy or mark up model calls.
-      </p>
-
-      {!loaded && (
-        <div className="mt-4 space-y-2">
-          <Skeleton className="h-10 w-full rounded-lg" />
+    <div
+      className={cn(
+        "rounded-xl border bg-card transition-all",
+        isConfigured ? "border-border" : "border-border/60",
+      )}
+    >
+      <div className="flex items-center gap-3 p-4">
+        {/* Provider icon (first letter) */}
+        <div
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold"
+          style={{ backgroundColor: badgeBg, color: badgeText }}
+        >
+          {provider.label[0]}
         </div>
-      )}
 
-      {loaded && loadError && (
-        <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2.5">
-          <p className="text-xs text-danger">{loadError}</p>
-          <button
-            type="button"
-            onClick={() => setReloadCount((n) => n + 1)}
-            className="shrink-0 rounded-lg border border-border px-2.5 py-1 text-xs transition hover:bg-elevated"
-          >
-            Retry
-          </button>
+        {/* Provider info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold">{provider.label}</span>
+            {isConfigured && (
+              <span className="inline-flex items-center rounded-full bg-success/10 px-1.5 py-0.5 text-[10px] font-medium text-success">
+                Configured
+              </span>
+            )}
+            {!provider.apiKeyRequired && (
+              <span className="inline-flex items-center rounded-full border border-border/60 bg-elevated px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                URL
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground truncate">{provider.description}</p>
         </div>
-      )}
 
-      {loaded && !loadError && status !== null && !editing && (
-        <>
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-elevated px-3 py-2.5">
-            <span className="font-mono text-sm text-foreground">sk-…{status.last4}</span>
-            <span className="text-xs text-muted-foreground">
-              Added {new Date(status.configured_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-            </span>
-          </div>
-          <div className="mt-3 flex gap-2">
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className="rounded-lg border border-border px-3 py-2 text-sm transition hover:bg-elevated"
-            >
-              Change
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmDeleteOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-danger transition hover:bg-danger/5"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Delete
-            </button>
-          </div>
-        </>
-      )}
-
-      {showForm && (
-        <form onSubmit={submit} className="mt-4 space-y-2">
-          <label htmlFor="profile-api-key" className="text-xs font-medium text-muted-foreground">
-            DEEPSEEK API KEY
-          </label>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <input
-              id="profile-api-key"
-              type="password"
-              required
-              autoComplete="off"
-              spellCheck={false}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="sk-..."
-              className="w-full flex-1 rounded-lg border border-border bg-[var(--bg-input)] px-3 py-2.5 font-mono text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary/60 focus:ring-2 focus:ring-primary/15"
-            />
-            <div className="flex shrink-0 gap-2">
+        {/* Actions */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {isConfigured && !showForm && (
+            <>
+              <span className="hidden sm:inline text-xs font-mono text-muted-foreground">
+                …{status.last4}
+              </span>
               <button
-                type="submit"
-                disabled={saving || !draft.trim()}
-                className="inline-flex items-center justify-center gap-1.5 rounded-lg gradient-bg glow-gradient px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                type="button"
+                onClick={onStartEdit}
+                className="rounded-lg border border-border px-2.5 py-1.5 text-xs transition hover:bg-elevated"
               >
-                {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                Save
+                Change
               </button>
-              {status !== null && (
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteOpen(true)}
+                className="rounded-lg border border-border p-1.5 text-danger transition hover:bg-danger/5"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </>
+          )}
+          {!isConfigured && !showForm && (
+            <button
+              type="button"
+              onClick={onStartEdit}
+              className="flex items-center gap-1 rounded-lg gradient-bg px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90"
+            >
+              <Plus className="h-3 w-3" />
+              Add
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Inline form */}
+      {showForm && (
+        <div className="border-t border-border px-4 pb-4 pt-3">
+          <form onSubmit={submit} className="space-y-2">
+            <label
+              htmlFor={`provider-${provider.name}`}
+              className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+            >
+              {provider.apiKeyRequired ? `${provider.label} API Key` : `${provider.label} Base URL`}
+            </label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                id={`provider-${provider.name}`}
+                type={provider.inputType}
+                required
+                autoComplete="off"
+                spellCheck={false}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder={provider.placeholder}
+                className="w-full flex-1 rounded-lg border border-border bg-[var(--bg-input)] px-3 py-2.5 font-mono text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary/60 focus:ring-2 focus:ring-primary/15"
+              />
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="submit"
+                  disabled={saving || !draft.trim()}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg gradient-bg glow-gradient px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  Save
+                </button>
                 <button
                   type="button"
                   onClick={cancelEdit}
@@ -284,251 +299,204 @@ function ApiKeySection() {
                 >
                   Cancel
                 </button>
-              )}
+              </div>
             </div>
-          </div>
-          {saveError && <p className="text-xs text-danger">{saveError}</p>}
-          <p className="text-xs text-muted-foreground">
-            Get a key from{" "}
-            <a
-              href="https://platform.deepseek.com/api_keys"
-              target="_blank"
-              rel="noreferrer"
-              className="text-primary hover:underline"
-            >
-              platform.deepseek.com/api_keys
-            </a>
-            . Only DeepSeek is supported today.
-          </p>
-        </form>
-      )}
-
-      <ConfirmDialog
-        open={confirmDeleteOpen}
-        title="Remove your DeepSeek key?"
-        description="Runs will be blocked until you add a key again. This does not cancel your subscription."
-        confirmLabel={deleting ? "Removing…" : "Remove key"}
-        cancelLabel="Cancel"
-        tone="destructive"
-        onConfirm={confirmDelete}
-        onCancel={() => setConfirmDeleteOpen(false)}
-      />
-    </section>
-  );
-}
-
-/* ─── Ollama BYOK section ──────────────────────────────────────────────
- * Users who self-host Ollama can point H~M at their server by supplying
- * the base URL (e.g. http://192.168.1.10:11434). The URL is encrypted in
- * Supabase Vault exactly like a DeepSeek key. The worker resolves
- * provider priority at run time: DeepSeek first, Ollama as fallback.
- * `id="ollama-key"` lets deep-links work (/profile#ollama-key).
- */
-function OllamaSection() {
-  const [status, setStatus] = useState<ApiKeyStatus | null>(null);
-  const [loaded, setLoaded] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  const [reloadCount, setReloadCount] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoaded(false);
-    setLoadError(null);
-    // Use the legacy single-provider RPC, scoped to ollama.
-    // getApiKeyStatus() only returns deepseek — call save_user_api_key via
-    // the supabase client directly with provider=ollama via saveApiKey / RPC.
-    // Cheaper: just call getApiKeyStatus narrowed to "ollama" by fetching all.
-    import("@/lib/apikeys")
-      .then(({ listApiKeyStatuses }) => listApiKeyStatuses())
-      .then((statuses) => {
-        if (cancelled) return;
-        setStatus(statuses.find((s) => s.provider === "ollama") ?? null);
-        setLoaded(true);
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        setLoadError(e instanceof Error ? e.message : "Failed to load Ollama status");
-        setLoaded(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [reloadCount]);
-
-  const submit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!draft.trim() || saving) return;
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const next = await saveApiKey("ollama", draft);
-      setStatus(next);
-      setEditing(false);
-      setDraft("");
-      toast.success("Ollama URL saved");
-    } catch (saveErr) {
-      const message = saveErr instanceof Error ? saveErr.message : "Failed to save URL";
-      setSaveError(message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const cancelEdit = () => {
-    setEditing(false);
-    setDraft("");
-    setSaveError(null);
-  };
-
-  const confirmDelete = async () => {
-    setDeleting(true);
-    try {
-      await deleteApiKey("ollama");
-      setStatus(null);
-      setConfirmDeleteOpen(false);
-      toast.success("Ollama URL removed");
-    } catch (deleteErr) {
-      const message = deleteErr instanceof Error ? deleteErr.message : "Failed to remove URL";
-      toast.error(message);
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const showForm = loaded && !loadError && (status === null || editing);
-
-  return (
-    <section id="ollama-key" className="mt-4 scroll-mt-20 rounded-xl border border-border bg-card p-6">
-      <div className="flex items-center gap-2">
-        <h2 className="flex items-center gap-2 text-base font-semibold">
-          <Globe className="h-4 w-4 text-primary" />
-          Ollama
-        </h2>
-        <span className="inline-flex items-center rounded-full border border-border/60 bg-elevated px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-          Self-hosted
-        </span>
-      </div>
-      <p className="mt-1.5 text-sm text-muted-foreground">
-        Running Ollama locally or on a private server? Point H~M at it — no API key needed.
-        DeepSeek takes priority if both are configured.
-      </p>
-
-      {!loaded && (
-        <div className="mt-4 space-y-2">
-          <Skeleton className="h-10 w-full rounded-lg" />
-        </div>
-      )}
-
-      {loaded && loadError && (
-        <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2.5">
-          <p className="text-xs text-danger">{loadError}</p>
-          <button
-            type="button"
-            onClick={() => setReloadCount((n) => n + 1)}
-            className="shrink-0 rounded-lg border border-border px-2.5 py-1 text-xs transition hover:bg-elevated"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
-      {loaded && !loadError && status !== null && !editing && (
-        <>
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-elevated px-3 py-2.5">
-            <span className="font-mono text-sm text-foreground">…{status.last4}</span>
-            <span className="text-xs text-muted-foreground">
-              Added {new Date(status.configured_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-            </span>
-          </div>
-          <div className="mt-3 flex gap-2">
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className="rounded-lg border border-border px-3 py-2 text-sm transition hover:bg-elevated"
-            >
-              Change
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmDeleteOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-danger transition hover:bg-danger/5"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Remove
-            </button>
-          </div>
-        </>
-      )}
-
-      {showForm && (
-        <form onSubmit={submit} className="mt-4 space-y-2">
-          <label htmlFor="profile-ollama-url" className="text-xs font-medium text-muted-foreground">
-            OLLAMA BASE URL
-          </label>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <input
-              id="profile-ollama-url"
-              type="url"
-              required
-              autoComplete="off"
-              spellCheck={false}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="http://localhost:11434"
-              className="w-full flex-1 rounded-lg border border-border bg-[var(--bg-input)] px-3 py-2.5 font-mono text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary/60 focus:ring-2 focus:ring-primary/15"
-            />
-            <div className="flex shrink-0 gap-2">
-              <button
-                type="submit"
-                disabled={saving || !draft.trim()}
-                className="inline-flex items-center justify-center gap-1.5 rounded-lg gradient-bg glow-gradient px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                Save
-              </button>
-              {status !== null && (
-                <button
-                  type="button"
-                  onClick={cancelEdit}
-                  disabled={saving}
-                  className="rounded-lg border border-border px-3 py-2.5 text-sm transition hover:bg-elevated disabled:opacity-50"
+            {saveError && <p className="text-xs text-danger">{saveError}</p>}
+            {provider.helpUrl && (
+              <p className="text-xs text-muted-foreground">
+                Get {provider.apiKeyRequired ? "a key" : "started"} at{" "}
+                <a
+                  href={provider.helpUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-0.5 text-primary hover:underline"
                 >
-                  Cancel
-                </button>
-              )}
-            </div>
-          </div>
-          {saveError && <p className="text-xs text-danger">{saveError}</p>}
-          <p className="text-xs text-muted-foreground">
-            Make sure your Ollama server is reachable from the worker.{" "}
-            <a
-              href="https://ollama.com"
-              target="_blank"
-              rel="noreferrer"
-              className="text-primary hover:underline"
-            >
-              ollama.com
-            </a>
-          </p>
-        </form>
+                  {new URL(provider.helpUrl).hostname}
+                  <ExternalLink className="h-2.5 w-2.5" />
+                </a>
+              </p>
+            )}
+          </form>
+        </div>
+      )}
+
+      {/* Configured details row (hidden when editing) */}
+      {isConfigured && !showForm && (
+        <div className="border-t border-border/50 px-4 py-2">
+          <span className="text-[11px] text-muted-foreground">
+            Added {new Date(status.configured_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+          </span>
+        </div>
       )}
 
       <ConfirmDialog
         open={confirmDeleteOpen}
-        title="Remove Ollama URL?"
-        description="Runs will fall back to DeepSeek (if configured) or be blocked until a key is added."
+        title={`Remove ${provider.label}?`}
+        description={`Runs will fall back to another configured provider, or be blocked if this is your only one.`}
         confirmLabel={deleting ? "Removing…" : "Remove"}
         cancelLabel="Cancel"
         tone="destructive"
         onConfirm={confirmDelete}
         onCancel={() => setConfirmDeleteOpen(false)}
       />
+    </div>
+  );
+}
+
+/* ─── Multi-provider BYOK section ──────────────────────────────────────
+ * Replaces the old separate ApiKeySection + OllamaSection with a unified
+ * multi-provider manager. Shows all supported providers from the catalog
+ * (lib/providers.ts), grouped into "Featured" and "More providers".
+ *
+ * `id="api-key"` preserves the /profile#api-key deep-link from the Agent
+ * page's "no key configured" banner.
+ */
+function ProviderKeysSection() {
+  const [statuses, setStatuses] = useState<Map<string, ApiKeyStatus>>(new Map());
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [editingProvider, setEditingProvider] = useState<string | null>(null);
+  const [showMore, setShowMore] = useState(false);
+  const [reloadCount, setReloadCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoaded(false);
+    setLoadError(null);
+    listApiKeyStatuses()
+      .then((list) => {
+        if (cancelled) return;
+        const map = new Map<string, ApiKeyStatus>();
+        for (const s of list) map.set(s.provider, s);
+        setStatuses(map);
+        setLoaded(true);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setLoadError(e instanceof Error ? e.message : "Failed to load provider statuses");
+        setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadCount]);
+
+  const handleSaved = useCallback((providerName: string, next: ApiKeyStatus) => {
+    setStatuses((prev) => {
+      const updated = new Map(prev);
+      updated.set(providerName, next);
+      return updated;
+    });
+    setEditingProvider(null);
+  }, []);
+
+  const handleDeleted = useCallback((providerName: string) => {
+    setStatuses((prev) => {
+      const updated = new Map(prev);
+      updated.delete(providerName);
+      return updated;
+    });
+  }, []);
+
+  const configuredCount = statuses.size;
+
+  // Check if any "more" providers are configured (to auto-expand that section)
+  const moreHasConfigured = MORE_PROVIDERS.some((p) => statuses.has(p.name));
+
+  return (
+    <section id="api-key" className="mt-6 scroll-mt-20 rounded-xl border border-border bg-card p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="flex items-center gap-2 text-base font-semibold">
+            <KeyRound className="h-4 w-4 text-primary" />
+            LLM Providers
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Connect your API keys to run research agents. The first configured provider is used.
+          </p>
+        </div>
+        {loaded && configuredCount > 0 && (
+          <span className="shrink-0 inline-flex items-center rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+            {configuredCount} active
+          </span>
+        )}
+      </div>
+
+      {!loaded && (
+        <div className="mt-4 space-y-3">
+          <Skeleton className="h-[72px] w-full rounded-xl" />
+          <Skeleton className="h-[72px] w-full rounded-xl" />
+          <Skeleton className="h-[72px] w-full rounded-xl" />
+        </div>
+      )}
+
+      {loaded && loadError && (
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2.5">
+          <p className="text-xs text-danger">{loadError}</p>
+          <button
+            type="button"
+            onClick={() => setReloadCount((n) => n + 1)}
+            className="shrink-0 rounded-lg border border-border px-2.5 py-1 text-xs transition hover:bg-elevated"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {loaded && !loadError && (
+        <>
+          {/* Featured providers — always visible */}
+          <div className="mt-4 space-y-2">
+            {FEATURED_PROVIDERS.map((provider) => (
+              <ProviderCard
+                key={provider.name}
+                provider={provider}
+                status={statuses.get(provider.name) ?? null}
+                isEditing={editingProvider === provider.name}
+                onStartEdit={() => setEditingProvider(provider.name)}
+                onCancelEdit={() => setEditingProvider(null)}
+                onSaved={(next) => handleSaved(provider.name, next)}
+                onDeleted={() => handleDeleted(provider.name)}
+              />
+            ))}
+          </div>
+
+          {/* More providers — collapsible */}
+          {MORE_PROVIDERS.length > 0 && (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => setShowMore(!showMore)}
+                className="flex w-full items-center justify-between rounded-lg border border-border/60 px-3 py-2.5 text-sm text-muted-foreground transition hover:bg-elevated"
+              >
+                <span>
+                  More providers ({MORE_PROVIDERS.length})
+                  {moreHasConfigured && " · some configured"}
+                </span>
+                <ChevronDown
+                  className={cn("h-4 w-4 transition-transform", showMore && "rotate-180")}
+                />
+              </button>
+              {(showMore || moreHasConfigured) && (
+                <div className="mt-2 space-y-2">
+                  {MORE_PROVIDERS.map((provider) => (
+                    <ProviderCard
+                      key={provider.name}
+                      provider={provider}
+                      status={statuses.get(provider.name) ?? null}
+                      isEditing={editingProvider === provider.name}
+                      onStartEdit={() => setEditingProvider(provider.name)}
+                      onCancelEdit={() => setEditingProvider(null)}
+                      onSaved={(next) => handleSaved(provider.name, next)}
+                      onDeleted={() => handleDeleted(provider.name)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
     </section>
   );
 }
@@ -633,8 +601,7 @@ export function Profile() {
         </div>
       </div>
 
-      <ApiKeySection />
-      <OllamaSection />
+      <ProviderKeysSection />
 
       {/* Stats grid */}
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">

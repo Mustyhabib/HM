@@ -79,9 +79,6 @@ def build_runner(config: Config) -> Runner:
             runs_root=config.runs_root,
             timeout_seconds=config.run_timeout_seconds,
             heartbeat_seconds=config.heartbeat_seconds,
-            llm_provider=config.llm_provider,
-            llm_model=config.llm_model,
-            ollama_model=config.ollama_model,
         )
     return StubRunner(config.stub_duration_seconds, config.heartbeat_seconds)
 

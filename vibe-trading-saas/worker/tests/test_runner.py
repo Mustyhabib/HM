@@ -420,8 +420,11 @@ def test_llm_routing_vars_injected_into_subprocess_env(fake_command, tmp_path):
 
 def test_ollama_byok_routing(fake_command, tmp_path):
     """Ollama BYOK: when only an Ollama credential exists the engine is routed
-    via OLLAMA_BASE_URL + LANGCHAIN_PROVIDER=ollama + LANGCHAIN_MODEL_NAME=<model>."""
-    # Fetcher returns None for deepseek (no key) and a URL for ollama.
+    via OLLAMA_BASE_URL + LANGCHAIN_PROVIDER=ollama + LANGCHAIN_MODEL_NAME=<model>.
+
+    The model is taken from the providers catalog (qwen2.5:32b for ollama).
+    """
+    # Fetcher returns None for all providers except ollama.
     set_api_key_fetcher(
         lambda uid, provider: "http://my-gpu:11434" if provider == "ollama" else None
     )
@@ -429,11 +432,24 @@ def test_ollama_byok_routing(fake_command, tmp_path):
         fake_command,
         tmp_path,
         cleanup=False,
-        ollama_model="phi4:latest",
     ).execute(make_run("SUCCEED"), lambda: True, threading.Event())
     marker = tmp_path / "runs" / "run-x" / "llm_route.marker"
     assert marker.exists()
-    assert marker.read_text() == "ollama|phi4:latest"
+    assert marker.read_text() == "ollama|qwen2.5:32b"
+
+
+def test_multi_provider_resolution_openai(fake_command, tmp_path):
+    """Multi-provider BYOK: when a user has only an OpenAI key configured,
+    the resolution loop skips deepseek and picks openai."""
+    set_api_key_fetcher(
+        lambda uid, provider: "sk-openai-fake-key-1234" if provider == "openai" else None
+    )
+    make_runner(fake_command, tmp_path, cleanup=False).execute(
+        make_run("SUCCEED"), lambda: True, threading.Event()
+    )
+    marker = tmp_path / "runs" / "run-x" / "llm_route.marker"
+    assert marker.exists()
+    assert marker.read_text() == "openai|gpt-5.5"
 
 
 def test_missing_key_fetcher_is_system_error(fake_command, tmp_path):
@@ -456,7 +472,7 @@ def test_missing_key_is_user_input_error(fake_command, tmp_path):
             make_run("SUCCEED"), lambda: True, threading.Event()
         )
     assert exc.value.refundable is False
-    assert "no api key configured" in str(exc.value)
+    assert "no api key configured for any provider" in str(exc.value)
 
 
 def test_key_fetcher_called_before_attachment_download(fake_command, tmp_path):
