@@ -76,13 +76,13 @@ export function Agent() {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Inline live output for the most recent run (this session).
-  const [liveRunId, setLiveRunId] = useState<string | null>(null);
-  const [liveRun, setLiveRun] = useState<AgentRun | null>(null);
+  // Multi-run thread: every submitted prompt stacks inline, oldest → newest.
+  const [runIds, setRunIds] = useState<string[]>([]);
+  const [runs, setRuns] = useState<Record<string, AgentRun>>({});
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const outputRef = useRef<HTMLDivElement>(null);
+  const threadRef = useRef<HTMLDivElement>(null);
 
   const [attachments, setAttachments] = useState<RunAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -202,8 +202,8 @@ export function Agent() {
       setError(null);
       try {
         const runId = await startRun(prompt, { attachments });
-        // Open inline — the run streams into this page's output area.
-        setLiveRunId(runId);
+        // Stack inline — the composer stays ready for the next prompt.
+        setRunIds((prev) => [...prev, runId]);
         setAttachments([]);
         setInput("");
         if (textareaRef.current) textareaRef.current.style.height = "auto";
@@ -218,24 +218,30 @@ export function Agent() {
     [starting, blocked, attachments],
   );
 
-  // Live progress for the in-page output: subscribe while a run is active.
+  // Live progress for each run in the thread: subscribe while any is active.
   useEffect(() => {
-    if (!liveRunId) return;
+    if (runIds.length === 0) return;
     let cancelled = false;
 
-    const apply = (r: AgentRun) => {
-      if (cancelled) return;
-      setLiveRun(r);
-      if (outputRef.current) outputRef.current.scrollTop = outputRef.current.scrollHeight;
-    };
-
-    import("@/lib/runs").then(({ getRun }) =>
-      getRun(liveRunId).then((r) => { if (r) apply(r); }),
+    const unsubs = runIds.map((id) =>
+      subscribeToRun(id, (r) => {
+        if (cancelled) return;
+        setRuns((prev) => ({ ...prev, [id]: r }));
+        if (threadRef.current) threadRef.current.scrollTop = threadRef.current.scrollHeight;
+      }),
     );
 
-    const unsub = subscribeToRun(liveRunId, apply);
-    return () => { cancelled = true; unsub(); };
-  }, [liveRunId]);
+    // Hydrate initial state for runs we haven't seen yet.
+    import("@/lib/runs").then(({ getRun }) => {
+      runIds.forEach((id) => {
+        getRun(id).then((r) => {
+          if (!cancelled && r) setRuns((prev) => (prev[id] ? prev : { ...prev, [id]: r }));
+        });
+      });
+    });
+
+    return () => { cancelled = true; unsubs.forEach((u) => u()); };
+  }, [runIds]);
 
   // Rotating placeholder — quiet hint without an example-card grid.
   const [exampleIdx, setExampleIdx] = useState(0);
@@ -245,8 +251,72 @@ export function Agent() {
     return () => clearInterval(t);
   }, [input, blocked, starting]);
 
-  const activeStatus = liveRun?.status ?? null;
-  const isActive = activeStatus === "queued" || activeStatus === "running";
+  /** Thin one-line status strip per run. */
+  function StatusStrip({ id }: { id: string }) {
+    const run = runs[id];
+    const status = run?.status ?? "queued";
+    const running = status === "queued" || status === "running";
+
+    return (
+      <div className="rounded-lg border border-border/70 bg-card/60 px-3 py-1.5">
+        <div className="flex items-center gap-2 text-xs">
+          {running ? (
+            <Loader2 className="h-3 w-3 shrink-0 animate-spin text-primary" />
+          ) : (
+            <span
+              className={cn(
+                "h-1.5 w-1.5 shrink-0 rounded-full",
+                status === "completed" ? "bg-success" : "bg-danger",
+              )}
+            />
+          )}
+          <span className="font-medium">{run?.prompt ?? "…"}</span>
+          <span
+            className={cn(
+              "shrink-0",
+              running ? "text-primary" : status === "completed" ? "text-success" : "text-danger",
+            )}
+          >
+            {running
+              ? status === "queued" ? "queued" : "running"
+              : status === "completed" ? "done" : "failed"}
+          </span>
+          <Link
+            to={`/run/${id}`}
+            className="ml-auto shrink-0 font-medium text-primary hover:underline"
+          >
+            Full view →
+          </Link>
+        </div>
+
+        {/* Live progress line — Realtime-pushed by the worker */}
+        {run?.progress_message && (
+          <p className="mt-1 truncate border-t border-border/50 pt-1 font-mono text-[11px] text-muted-foreground">
+            <span className="mr-1.5 text-primary">›</span>
+            {run.progress_message}
+            {run.progress_iter != null && (
+              <span className="ml-2 rounded bg-elevated px-1 py-0.5 text-[9px]">
+                iter {run.progress_iter}/{run.max_iter}
+              </span>
+            )}
+          </p>
+        )}
+
+        {status === "failed" && run?.error_message && (
+          <p className="mt-1 truncate border-t border-border/50 pt-1 text-[11px] text-danger">
+            {run.error_message}
+          </p>
+        )}
+
+        {/* Artifact bundle pill once complete */}
+        {status === "completed" && (
+          <div className="border-t border-border/50 pt-1">
+            <ArtifactBundleStrip runId={id} />
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex min-h-full flex-col">
@@ -255,8 +325,8 @@ export function Agent() {
 
       {/* ─── Canvas: empty until a run opens inline ─── */}
       <div className="flex min-h-0 flex-1 flex-col px-6 pb-44 pt-6 lg:pr-80">
-        {/* Greeting — fades out once a run exists */}
-        {!liveRunId && (
+        {/* Greeting — fades out once a thread exists */}
+        {runIds.length === 0 && (
           <div className="msg-enter mt-[18vh] text-center">
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               What would you like to <span className="gradient-text">research?</span>
@@ -267,68 +337,19 @@ export function Agent() {
           </div>
         )}
 
-        {/* ─── Inline live output ─── */}
-        {liveRunId && (
-          <div ref={outputRef} className="mx-auto w-full max-w-3xl space-y-3 overflow-y-auto">
-            {/* Prompt echo */}
-            <div className="bubble-user ml-auto w-fit max-w-[85%] px-3.5 py-2 text-sm text-foreground">
-              {liveRun?.prompt ?? "…"}
-            </div>
-
-            {/* Status card */}
-            <div className="rounded-xl border border-border bg-card p-4">
-              <div className="flex items-center gap-2.5">
-                {isActive ? (
-                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
-                ) : activeStatus === "completed" ? (
-                  <span className="h-2 w-2 shrink-0 rounded-full bg-success" />
-                ) : (
-                  <span className="h-2 w-2 shrink-0 rounded-full bg-danger" />
-                )}
-                <p className="text-sm font-medium">
-                  {isActive
-                    ? liveRun?.status === "queued"
-                      ? "Queued — waiting for a worker…"
-                      : "Running"
-                    : activeStatus === "completed"
-                      ? "Completed"
-                      : "Failed"}
-                </p>
-                <Link
-                  to={`/run/${liveRunId}`}
-                  className="ml-auto shrink-0 text-xs font-medium text-primary hover:underline"
-                >
-                  Full view →
-                </Link>
-              </div>
-
-              {/* Live progress line — Realtime-pushed by the worker */}
-              {liveRun?.progress_message && (
-                <p className="mt-2.5 truncate border-t border-border/60 pt-2.5 font-mono text-xs text-muted-foreground">
-                  <span className="mr-1.5 text-primary">›</span>
-                  {liveRun.progress_message}
-                  {liveRun.progress_iter != null && (
-                    <span className="ml-2 rounded bg-elevated px-1.5 py-0.5 text-[10px]">
-                      iter {liveRun.progress_iter}/{liveRun.max_iter}
-                    </span>
-                  )}
-                </p>
-              )}
-
-              {activeStatus === "failed" && liveRun?.error_message && (
-                <p className="mt-2.5 border-t border-border/60 pt-2.5 text-xs text-danger">
-                  {liveRun.error_message}
-                </p>
-              )}
-
-              {/* Artifact bundle — small pill, bottom-left below the output.
-                  One click downloads every artifact the run produced. */}
-              {activeStatus === "completed" && (
-                <div className="border-t border-border/60 pt-2.5">
-                  <ArtifactBundleStrip runId={liveRunId} />
+        {/* ─── Multi-run thread: prompts stack inline, oldest → newest ─── */}
+        {runIds.length > 0 && (
+          <div ref={threadRef} className="mx-auto w-full max-w-3xl space-y-3 overflow-y-auto">
+            {runIds.map((id) => (
+              <div key={id} className="space-y-2">
+                {/* Prompt echo */}
+                <div className="bubble-user ml-auto w-fit max-w-[85%] px-3.5 py-2 text-sm text-foreground">
+                  {runs[id]?.prompt ?? "…"}
                 </div>
-              )}
-            </div>
+                {/* Thin streaming status strip */}
+                <StatusStrip id={id} />
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -348,7 +369,7 @@ export function Agent() {
                 onChosen={(title) => { setChosenSwarm(title); setSwarmOpen(false); }}
                 onStarted={(runId) => {
                   setSwarmOpen(false);
-                  setLiveRunId(runId);
+                  setRunIds((prev) => [...prev, runId]);
                 }}
               />
             </div>

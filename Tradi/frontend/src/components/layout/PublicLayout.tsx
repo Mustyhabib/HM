@@ -30,39 +30,28 @@ export function PublicLayout() {
       <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
 
-          {/* Left: brand + desktop nav */}
-          <div className="flex items-center gap-6">
-            <Link
-              to="/"
-              className="flex items-center gap-1.5"
-              aria-label="H~Mltd home"
-            >
-              <span className="text-xl font-bold gradient-text glow-gradient">
-                H~Mltd
-              </span>
-            </Link>
-            <nav
-              className="hidden items-center gap-1 sm:flex"
-              aria-label="Public navigation"
-            >
-              {NAV_LINKS.map(({ to, label }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  className={cn(
-                    "rounded-md px-3 py-1.5 text-sm transition-colors",
-                    pathname === to
-                      ? "text-foreground font-medium"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {label}
-                </Link>
-              ))}
-            </nav>
-          </div>
+          {/* Left: desktop nav only (brand moves to right) */}
+          <nav
+            className="hidden items-center gap-1 sm:flex"
+            aria-label="Public navigation"
+          >
+            {NAV_LINKS.map(({ to, label }) => (
+              <Link
+                key={to}
+                to={to}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-sm transition-colors",
+                  pathname === to
+                    ? "text-foreground font-medium"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {label}
+              </Link>
+            ))}
+          </nav>
 
-          {/* Right: theme toggle + auth (desktop) + hamburger (mobile) */}
+          {/* Right: theme toggle + auth + brand mark (top-right) */}
           <div className="flex items-center gap-2">
             <button
               onClick={toggle}
@@ -90,7 +79,27 @@ export function PublicLayout() {
               </Link>
             ))}
 
-            {/* Mobile hamburger */}
+            {/* Brand — top-right anchor */}
+            <Link
+              to="/"
+              className="hidden sm:flex items-center gap-1.5 ml-1 pl-3 border-l border-border/60"
+              aria-label="H~Mltd home"
+            >
+              <span className="text-base font-bold gradient-text glow-gradient">
+                H~Mltd
+              </span>
+            </Link>
+
+            {/* Mobile: brand + hamburger */}
+            <Link
+              to="/"
+              className="flex sm:hidden items-center"
+              aria-label="H~Mltd home"
+            >
+              <span className="text-base font-bold gradient-text glow-gradient">
+                H~Mltd
+              </span>
+            </Link>
             <button
               onClick={() => setMobileOpen((o) => !o)}
               aria-label={mobileOpen ? "Close menu" : "Open menu"}
