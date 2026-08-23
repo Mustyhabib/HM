@@ -47,6 +47,7 @@ export interface ApiKeyStatus {
 export interface SelectedProvider {
   selected_provider: string | null;
   configured: boolean;
+  selected_model?: string | null;
 }
 
 // Client-side pattern for URL-type providers (ollama): http(s) URL.
@@ -153,9 +154,11 @@ export async function getSelectedProvider(): Promise<SelectedProvider> {
  */
 export async function setSelectedProvider(
   provider: string,
+  model?: string | null,
 ): Promise<SelectedProvider> {
   const { data, error } = await supabase.rpc("set_selected_provider", {
     p_provider: provider,
+    p_model: model ?? null,
   });
   if (error) throw new Error(friendlyApiKeyError(error.message));
   return (data as SelectedProvider) ?? {

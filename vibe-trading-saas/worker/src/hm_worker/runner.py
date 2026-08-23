@@ -341,7 +341,7 @@ class TradiRunner:
                 proc = subprocess.Popen(
                     argv,
                     cwd=str(run_dir),
-                    env=self._build_env(run_dir, resolved_provider, api_key),
+                    env=self._build_env(run_dir, resolved_provider, api_key, run.model),
                     stdout=out,
                     stderr=err,
                     text=True,
@@ -437,7 +437,8 @@ class TradiRunner:
             log.info("run %s: mounted attachment %s (%d bytes)", run.id, safe_name, len(data))
 
     def _build_env(
-        self, run_dir: Path, provider: str, credential: str
+        self, run_dir: Path, provider: str, credential: str,
+        model_override: str | None = None,
     ) -> dict[str, str]:
         # Inherit the worker's environment (PATH, locale, ...), then isolate all
         # engine state under the per-run directory. Broker / live-trading vars
@@ -463,9 +464,11 @@ class TradiRunner:
             # Fail closed — a provider not in the catalog is a misconfig.
             raise SystemError_(f"unsupported provider: {provider!r}")
 
-        # Route the engine to the right provider + model.
+        # Route the engine to the right provider + model. A user-pinned
+        # model (agent_runs.model, resolved at enqueue time) wins; then the
+        # worker's url-type env override; then the catalog default.
         env["LANGCHAIN_PROVIDER"] = provider
-        env["LANGCHAIN_MODEL_NAME"] = self._model_for(spec)
+        env["LANGCHAIN_MODEL_NAME"] = model_override or self._model_for(spec)
 
         if spec.is_url_type:
             # url-type provider (e.g. self-hosted Ollama): the credential IS

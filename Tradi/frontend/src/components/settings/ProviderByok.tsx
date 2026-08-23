@@ -191,6 +191,11 @@ export function ProviderByok() {
               isActive={effectiveSelected === row.catalog.name}
               isOpen={openProvider === row.catalog.name}
               isLast={idx === rows.length - 1}
+              activeModel={
+                effectiveSelected === row.catalog.name
+                  ? selected.selected_model ?? null
+                  : null
+              }
               onToggle={() =>
                 setOpenProvider((prev) =>
                   prev === row.catalog.name ? null : row.catalog.name,
@@ -228,6 +233,9 @@ export function ProviderByok() {
                   );
                 }
               }}
+              onModelSaved={(model) =>
+                setSelected((prev) => ({ ...prev, selected_model: model }))
+              }
             />
           ))}
         </div>
@@ -258,19 +266,23 @@ function ProviderRow({
   isActive,
   isOpen,
   isLast,
+  activeModel,
   onToggle,
   onSaved,
   onDeleted,
   onActivate,
+  onModelSaved,
 }: {
   row: { catalog: ProviderCatalogEntry; status: ApiKeyStatus | null };
   isActive: boolean;
   isOpen: boolean;
   isLast: boolean;
+  activeModel: string | null;
   onToggle: () => void;
   onSaved: (s: ApiKeyStatus) => void;
   onDeleted: () => void;
   onActivate: () => void;
+  onModelSaved: (model: string | null) => void;
 }) {
   const { catalog, status } = row;
   const isUrl = catalog.provider_type === "url";
@@ -359,9 +371,11 @@ function ProviderRow({
             catalog={catalog}
             status={status}
             isActive={isActive}
+            currentModel={isActive ? activeModel : null}
             onSaved={onSaved}
             onDeleted={onDeleted}
             onActivate={onActivate}
+            onModelSaved={onModelSaved}
           />
         </div>
       )}
@@ -377,16 +391,20 @@ function ProviderForm({
   catalog,
   status,
   isActive,
+  currentModel,
   onSaved,
   onDeleted,
   onActivate,
+  onModelSaved,
 }: {
   catalog: ProviderCatalogEntry;
   status: ApiKeyStatus | null;
   isActive: boolean;
+  currentModel: string | null;
   onSaved: (s: ApiKeyStatus) => void;
   onDeleted: () => void;
   onActivate: () => void;
+  onModelSaved: (model: string | null) => void;
 }) {
   const isUrl = catalog.provider_type === "url";
   const [draft, setDraft] = useState("");
@@ -482,7 +500,16 @@ function ProviderForm({
 
       {/* Actions for a configured key */}
       {status && (
-        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+        <div className="space-y-3 border-t border-border pt-3">
+          {/* Model override — only meaningful on the active provider */}
+          {isActive && (
+            <ModelOverride
+              catalog={catalog}
+              current={currentModel}
+              onSaved={(model) => onModelSaved(model)}
+            />
+          )}
+          <div className="flex flex-wrap items-center gap-2">
           {!isActive && (
             <button
               type="button"
@@ -530,10 +557,109 @@ function ProviderForm({
               </button>
             </div>
           )}
+          </div>
         </div>
       )}
 
       {/* TODO: fallback model selector goes here once spec is confirmed */}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Model override — pin the model the engine calls on the active provider
+// ---------------------------------------------------------------------------
+
+function ModelOverride({
+  catalog,
+  current,
+  onSaved,
+}: {
+  catalog: ProviderCatalogEntry;
+  current: string | null;
+  onSaved: (model: string | null) => void;
+}) {
+  const [modelDraft, setModelDraft] = useState(current ?? "");
+  const [modelSaving, setModelSaving] = useState(false);
+  const [modelError, setModelError] = useState<string | null>(null);
+  // Track whether the user has edited away from the saved value.
+  const dirty = modelDraft.trim() !== (current ?? "");
+
+  const saveModel = async (value: string | null) => {
+    setModelSaving(true);
+    setModelError(null);
+    try {
+      const next = await setSelectedProvider(catalog.name, value);
+      onSaved(next.selected_model ?? null);
+      toast.success(
+        value
+          ? `Model pinned: ${value}`
+          : `Model reset to ${catalog.label} default`,
+      );
+    } catch (err) {
+      setModelError(err instanceof Error ? err.message : "Failed to save model");
+    } finally {
+      setModelSaving(false);
+    }
+  };
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (modelSaving) return;
+        void saveModel(modelDraft.trim() || null);
+      }}
+      className="space-y-2"
+    >
+      <label
+        htmlFor={`provider-model-${catalog.name}`}
+        className="block text-xs font-medium text-muted-foreground"
+      >
+        Model{" "}
+        <span className="font-normal text-muted-foreground/70">
+          (default: <span className="font-mono">{catalog.default_model}</span>)
+        </span>
+      </label>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <input
+          id={`provider-model-${catalog.name}`}
+          type="text"
+          maxLength={120}
+          autoComplete="off"
+          spellCheck={false}
+          value={modelDraft}
+          onChange={(e) => setModelDraft(e.target.value)}
+          placeholder={catalog.default_model}
+          className="w-full flex-1 rounded-lg border border-border bg-[var(--bg-input)] px-3 py-2 font-mono text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary/60 focus:ring-2 focus:ring-primary/15"
+        />
+        <button
+          type="submit"
+          disabled={modelSaving || !dirty}
+          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-primary/30 bg-primary/8 px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {modelSaving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          {modelDraft.trim() ? "Pin model" : "Use default"}
+        </button>
+        {current && (
+          <button
+            type="button"
+            disabled={modelSaving}
+            onClick={() => {
+              setModelDraft("");
+              void saveModel(null);
+            }}
+            className="inline-flex shrink-0 items-center justify-center rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground transition hover:bg-elevated disabled:opacity-50"
+          >
+            Reset
+          </button>
+        )}
+      </div>
+      {modelError && <p className="text-xs text-danger">{modelError}</p>}
+      <p className="text-xs text-muted-foreground">
+        Leave empty to use the provider default. The pinned model is recorded
+        on every run for reproducibility.
+      </p>
+    </form>
   );
 }
