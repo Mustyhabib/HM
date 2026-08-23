@@ -26,7 +26,7 @@ import {
   type SubscriptionStatus,
   type RunAttachment,
 } from "@/lib/runs";
-import { getApiKeyStatus, type ApiKeyStatus } from "@/lib/apikeys";
+import { getSelectedProvider } from "@/lib/apikeys";
 import { SwarmPresetPicker } from "@/components/chat/SwarmPresetPicker";
 import { ShadowUploadPanel } from "@/components/chat/ShadowUploadPanel";
 
@@ -135,7 +135,7 @@ export function Agent() {
   const isPremium = subscription?.planId === "premium";
   const isPro = subscription?.planId === "pro" || subscription?.planId === "premium";
 
-  const [apiKey, setApiKey] = useState<ApiKeyStatus | null>(null);
+  const [apiKeyConfigured, setApiKeyConfigured] = useState<boolean | null>(null);
   const [apiKeyLoaded, setApiKeyLoaded] = useState(false);
   const [apiKeyError, setApiKeyError] = useState(false);
 
@@ -161,10 +161,12 @@ export function Agent() {
 
   useEffect(() => {
     let cancelled = false;
-    getApiKeyStatus()
-      .then((k) => {
+    getSelectedProvider()
+      .then((sel) => {
         if (cancelled) return;
-        setApiKey(k);
+        // configured === true means the user has a usable credential for their
+        // selected (or any) provider. Multi-provider aware.
+        setApiKeyConfigured(sel.configured);
         setApiKeyLoaded(true);
       })
       .catch(() => {
@@ -179,7 +181,7 @@ export function Agent() {
   }, []);
 
   const noSubscription = subscriptionLoaded && !subscriptionError && subscription === null;
-  const noApiKey = apiKeyLoaded && !apiKeyError && apiKey === null;
+  const noApiKey = apiKeyLoaded && !apiKeyError && apiKeyConfigured === false;
   const blocked = noSubscription || noApiKey;
 
   /** Upload one or more research data files (Premium only). */
@@ -508,7 +510,7 @@ export function Agent() {
         <p className="text-[11px] text-muted-foreground">
           <kbd className="rounded border border-border bg-elevated px-1 font-mono text-[10px]">Enter</kbd> to run · <kbd className="rounded border border-border bg-elevated px-1 font-mono text-[10px]">Shift+Enter</kbd> for new line
         </p>
-        {!blocked && apiKey && (
+        {!blocked && apiKeyConfigured && (
           <span
             className="inline-flex items-center gap-1.5 rounded-full border border-border bg-elevated px-2.5 py-1 text-[11px] font-mono font-medium text-muted-foreground"
             title="BYOK — unlimited runs on your subscription"

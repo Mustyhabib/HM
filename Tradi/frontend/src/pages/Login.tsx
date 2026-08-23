@@ -50,8 +50,8 @@ export function Login() {
               AK
             </div>
             <div>
-              <div className="text-sm font-semibold text-foreground">Adaeze K.</div>
-              <div className="text-xs text-muted-foreground">Independent trader · Lagos</div>
+              <div className="text-sm font-semibold text-foreground">Hydroo Otee.</div>
+              <div className="text-xs text-muted-foreground">Independent trader · Kano</div>
             </div>
           </div>
         </div>

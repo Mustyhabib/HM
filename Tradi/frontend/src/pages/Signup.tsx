@@ -57,9 +57,6 @@ export function Signup() {
           </h2>
           <ul className="mt-8 space-y-4">
             {[
-              { t: "No Python setup",       d: "Skip venvs, keys, and dependencies. Ready in seconds." },
-              { t: "462 alphas, 8 engines", d: "The same quant toolkit institutions run — one prompt away." },
-              { t: "Money-safe research",   d: "We never touch your broker. Analysis only." },
             ].map(({ t, d }) => (
               <li key={t} className="flex gap-3">
                 <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-primary" />

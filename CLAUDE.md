@@ -178,7 +178,7 @@ agent_runs      id UUID PK | user_id FK→profiles | usage_period_id FK NULL
 agent_artifacts id UUID PK | agent_run_id FK→agent_runs
                 kind TEXT | storage_path TEXT | created_at
 
-user_api_keys   id UUID PK | user_id FK→profiles | provider CHECK ('deepseek')
+user_api_keys   id UUID PK | user_id FK→profiles | provider FK→llm_provider_catalog
                 secret_id UUID (→ vault.secrets, NOT a FK)
                 key_last4 TEXT (4 chars) | configured_at | updated_at
                 UNIQUE(user_id, provider)
@@ -196,6 +196,16 @@ usage_events    id UUID PK | usage_period_id FK→usage_periods
 webhook_events  id UUID PK | provider_event_id TEXT UNIQUE
                 type TEXT | payload JSONB | processed_at | created_at
                 # RLS enabled, zero policies. Service-role only.
+
+llm_provider_catalog  name TEXT PK | label | api_key_env | base_url_env
+                      default_model | default_base_url | base_url_options JSONB
+                      provider_type CHECK ('key','url') | auth_type | login_command
+                      sort_order INT | enabled BOOL | created_at
+                      # 23 providers seeded. Single source of truth for BYOK.
+
+user_llm_prefs        user_id UUID PK FK→profiles | selected_provider TEXT FK→catalog
+                      updated_at
+                      # Per-user active provider selection.
 
 admin_users / audit_logs    Admin dashboard (2026_08_17_admin_dashboard.sql)
 
@@ -220,14 +230,19 @@ Safety net: 30 runs/rolling hour/user soft rate limit (not a business quota).
 ## Key RPCs (SECURITY DEFINER, search_path pinned to 'public')
 
 start_agent_run(p_prompt, p_max_iter, p_idempotency_key, p_attachments)
-  Gates: authenticated → active subscription → DeepSeek OR Ollama key configured → 30/hr rate limit
+  Gates: authenticated → active subscription → resolve_run_provider (catalog) → 30/hr rate limit
   Returns: run UUID | Errors: not_authenticated, no_active_subscription, no_api_key, rate_limited
 start_swarm_run(p_preset_name, p_user_vars, p_idempotency_key)
   Gates: same as above + plan_id IN ('pro','premium') | Errors: same + plan_gate
-start_shadow_run(p_journal_file...)   # shadow account kind (2026_08_21_shadow_account.sql)
-save_user_api_key(p_provider, p_api_key)          # Vault encrypt, upsert, never returns plaintext
-get_user_api_key_status()                          # {provider, last4, configured_at} | null  (deepseek only — backward compat)
-list_user_api_key_statuses()                       # [{provider, last4, configured_at}] all providers (2026_08_22_ollama_byok)
+start_shadow_run(p_prompt, p_idempotency_key, p_journal_paths)
+  Gates: same as above + plan_id = 'premium' | Errors: same + plan_gate
+resolve_run_provider(p_user_id)                    # selected provider → first configured fallback → NULL
+save_user_api_key(p_provider, p_api_key)           # Vault encrypt, catalog-validated, upsert, never returns plaintext
+list_supported_llm_providers()                     # catalog entries (name, label, type, env vars, model, sort)
+get_selected_provider()                            # {selected_provider, configured} for current user
+set_selected_provider(p_provider)                  # set active provider (must be in catalog)
+get_user_api_key_status()                          # {provider, last4, configured_at} | null  (backward compat)
+list_user_api_key_statuses()                       # [{provider, last4, configured_at}] all providers
 delete_user_api_key(p_provider)
 worker_get_user_api_key(p_user_id, p_provider)     # service_role ONLY — decrypts for the worker
 upsert_subscription(p_user_id, p_plan_id, p_provider_subscription_id, p_status, p_period_start, p_period_end)
@@ -336,7 +351,7 @@ plan. Attachments: CSV/XLSX/JSON → agent-uploads bucket, 50 MB cap, paths
 
 ## Sprint tracker — UPDATE AT END OF EVERY SESSION
 
-Sprint day : 8 of 30   Status: Week 2 in progress — Ollama BYOK + landing page v2 merged to main
+Sprint day : 9 of 30   Status: Week 2 in progress — Multi-provider BYOK (23 providers) applied + deployed
 
 Shipped (merged to main, live):
   ✅ MVP run loop VERIFIED end-to-end (prompt → queued → claim → engine → completed,
@@ -389,6 +404,18 @@ In progress / next:
   ✅ BUG-ENG-5 (2026-08-22) — start_shadow_run stores attachments as a plain
      string array but ClaimedRun.from_row only accepted dicts → "missing journal
      attachment". Fixed: worker accepts both shapes. VERIFIED LIVE.
+  ✅ MULTI-PROVIDER BYOK (2026-08-23) — migration APPLIED to Supabase (3 parts):
+     • DB: llm_provider_catalog (23 providers seeded), user_llm_prefs, 9 RPCs
+       (list_supported_llm_providers, save_user_api_key rewrite, get/set_selected_provider,
+       resolve_run_provider, start_agent_run/swarm/shadow rewrite, claim_agent_run
+       with run_provider). FK expansions replace old CHECK constraints.
+     • Worker: catalog.py (ProviderCatalog cached at boot), runner.py catalog-driven
+       _build_env (LANGCHAIN_PROVIDER + provider-specific env var), main.py wires
+       catalog + resolver + fetcher at boot. Tests: all pass.
+     • Frontend: ProviderByok.tsx (visible provider rows with inline key/URL form),
+       apikeys.ts (catalog-driven API layer), AccountSettings credentials tab,
+       Agent.tsx gate uses getSelectedProvider(). Build: clean.
+     Branch: feat/account-settings-unified. NEXT: deploy Railway + Vercel.
   ⏳ PHASE 2 DATA PLANE (2026-08-22) — branch feat/phase2-data-plane, PR pending:
      • Migration 2026_08_22_phase2_data_plane.sql APPLIED to Supabase: dataset_registry
        table, data_feeds table (lse-ohlcv-daily seed row), hm-datalake bucket,
@@ -431,9 +458,11 @@ D8  — **Paystack (NGN, Nigeria launch) + Stripe (international, entity-gated, 
       provider-agnostic subscriptions; webhooks signed + idempotent
 D9  — Auth store sets session synchronously (fixed signup/login race)
 D10 — One metered prompt box on Agent page (not a chat-style multi-turn UI)
-D11 — BYOK pivot: users supply their own LLM credential — DeepSeek (sk-…) or
-      Ollama (base URL, self-hosted). Both encrypted in Supabase Vault. Worker
-      resolves provider per-user at run time: DeepSeek first, Ollama fallback.
+D11 — BYOK pivot: users supply their own LLM credential for any of 23
+      catalog-driven providers (key-type: OpenAI, DeepSeek, Anthropic, Gemini,
+      etc.; url-type: Ollama). Encrypted in Supabase Vault. Worker resolves
+      provider per-user via resolve_run_provider (selected → first configured).
+      llm_provider_catalog is the single source of truth (DB, worker, frontend).
 D12 — Supabase Vault for key storage (not AES-256-GCM with app-managed key)
 D13 — Edge Functions for payment webhooks (not a FastAPI backend at MVP)
 D14 — No Celery/Redis — Python polling loop is simpler and sufficient for MVP scale

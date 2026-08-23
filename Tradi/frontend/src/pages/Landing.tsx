@@ -42,25 +42,35 @@ const FEATURES = [
   {
     icon: BarChart3,
     title: "Quantitative Backtesting",
-    desc: "462 alpha factors, 8 backtest engines, cross-market coverage. Real quant-grade analysis without a single line of Python.",
+    desc: "462 alpha factors, 16 backtest engines, cross-market coverage. Real quant-grade analysis without a single line of Python.",
     tags: [],
   },
+
+  {
+  icon: BarChart3,
+    title: "Paper Trade with your Backtested Strategy.",
+    desc: "Test your Backtested Strategy with virtual money before you trade with real money in your broker account.",
+    tags: [],
+  },
+
   {
     icon: FlaskConical,
     title: "Experiment Registry",
     desc: "Every run is logged, versioned, and replayable. Compare strategies side-by-side and promote winners through validation gates.",
     tags: [],
   },
+
   {
     icon: TrendingUp,
     title: "Research-to-Paper Workflow",
     desc: "From idea to validated paper trade — the full promotion ladder with walk-forward validation, drawdown gates, and risk checks.",
     tags: [],
   },
+
   {
     icon: Shield,
-    title: "Research Only — By Design",
-    desc: "No live trading at MVP. Your capital stays in your broker account. We never touch it, hold it, or proxy it.",
+    title: "Generate Live Entry Signal at the your with your Backtested Strategy.",
+    desc: "From your Backtested Strategy, gets Live Entry Signal via Whatsapp, Telegram, Email, or SMS.",
     tags: [],
   },
 ];
@@ -70,6 +80,7 @@ const STEPS = [
   { step: "2", title: "Data is sourced", desc: "The platform pulls canonical, point-in-time market data from the institutional feed." },
   { step: "3", title: "Agent experiments", desc: "The AI agent runs backtests, applies alpha factors, and stress-tests the idea." },
   { step: "4", title: "Get your report", desc: "View a full research report — equity curve, metrics, risk breakdown, and next steps." },
+  { step: "5", title: "Generate Live Entry Signal", desc: "From your Backtested Strategy, gets Live Entry Signal via Whatsapp, Telegram, Email, or SMS." },
 ];
 
 /** Hero preview: terminal chrome + trading chart video */
@@ -171,7 +182,7 @@ export function Landing() {
 
             <p className="mt-5 max-w-[44ch] text-base text-muted-foreground sm:text-lg leading-relaxed">
               Institutional market data, 462 alpha factors, and an AI research agent —
-              all in one platform. From idea to validated strategy, without writing code.
+              all in one platform. From idea to Live Entry Signal, at your Comfort Zone.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -222,7 +233,7 @@ export function Landing() {
         <div className="mx-auto max-w-5xl px-4 sm:px-6">
           <div className="mb-12 text-center">
             <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">From question to validated insight</h2>
-            <p className="mt-2 text-sm text-muted-foreground">Institutional workflow. Zero setup. No Python.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Institutional workflow..</p>
           </div>
 
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -245,7 +256,7 @@ export function Landing() {
       {/* ─── Features bento ─── */}
       <section className="border-t border-border/50 py-20 reveal-on-scroll">
         <div className="mx-auto max-w-5xl px-4 sm:px-6">
-          <h2 className="mb-8 text-2xl font-bold tracking-tight sm:text-3xl">The full research stack</h2>
+          <h2 className="mb-8 text-2xl font-bold tracking-tight sm:text-3xl">Phase 1: The full research stack</h2>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {/* Wide card — AI agent */}
@@ -291,8 +302,9 @@ export function Landing() {
                 <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
                   Our five-layer canonical pipeline (RAW → VALIDATED → NORMALIZED → DERIVED → FEATURES)
                   delivers point-in-time, bias-free data to every research run.
-                  Powered by 403B+ ticks across 27 asset classes — the same quality foundation
-                  institutional desks build on.
+                  Powered by 403B+ ticks across 27 asset classes — Integrating ML Models to enhance the data,
+                  Training and Deploying Models with ability to adapt to Market. Instead of adopting one strategy,
+                  to generate Signal, a Trained Model will change as Market Shifts.
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-4 sm:shrink-0 sm:grid-cols-1">
@@ -327,7 +339,7 @@ export function Landing() {
             Create Your Account <ArrowRight className="h-4 w-4" />
           </Link>
           <p className="mt-4 text-xs text-muted-foreground/60">
-            Cancel any time. BYOK model — bring your own DeepSeek API key.
+            Cancel any time.
           </p>
         </div>
       </section>
