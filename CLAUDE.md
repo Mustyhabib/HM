@@ -178,7 +178,7 @@ agent_runs      id UUID PK | user_id FK→profiles | usage_period_id FK NULL
 agent_artifacts id UUID PK | agent_run_id FK→agent_runs
                 kind TEXT | storage_path TEXT | created_at
 
-user_api_keys   id UUID PK | user_id FK→profiles | provider CHECK ('deepseek')
+user_api_keys   id UUID PK | user_id FK→profiles | provider TEXT (open — any llm_providers.json name)
                 secret_id UUID (→ vault.secrets, NOT a FK)
                 key_last4 TEXT (4 chars) | configured_at | updated_at
                 UNIQUE(user_id, provider)
@@ -220,7 +220,7 @@ Safety net: 30 runs/rolling hour/user soft rate limit (not a business quota).
 ## Key RPCs (SECURITY DEFINER, search_path pinned to 'public')
 
 start_agent_run(p_prompt, p_max_iter, p_idempotency_key, p_attachments)
-  Gates: authenticated → active subscription → DeepSeek OR Ollama key configured → 30/hr rate limit
+  Gates: authenticated → active subscription → ANY provider key configured → 30/hr rate limit
   Returns: run UUID | Errors: not_authenticated, no_active_subscription, no_api_key, rate_limited
 start_swarm_run(p_preset_name, p_user_vars, p_idempotency_key)
   Gates: same as above + plan_id IN ('pro','premium') | Errors: same + plan_gate
@@ -336,7 +336,7 @@ plan. Attachments: CSV/XLSX/JSON → agent-uploads bucket, 50 MB cap, paths
 
 ## Sprint tracker — UPDATE AT END OF EVERY SESSION
 
-Sprint day : 10 of 30  Status: Week 2 — PR #19 merged to main; Phase 2 data plane next
+Sprint day : 11 of 30  Status: Week 2 — multi-provider BYOK PR #13 open; migration applied
 
 ## HANDOFF NOTE FOR NEXT AGENT (read before starting)
 
@@ -412,6 +412,21 @@ Shipped (merged to main, live):
      • billing.ts + BillingCallback.tsx: provider-agnostic Paystack/Stripe
 
 In progress / next:
+  ⏳ MULTI-PROVIDER BYOK (2026-08-23) — PR #13 open (draft), migration APPLIED:
+     • DB migration 2026_08_22_multi_provider_byok.sql APPLIED to Supabase 2026-08-23.
+       Dropped restrictive CHECK constraints on user_api_keys.provider + agent_runs.provider
+       (open text — app validates against llm_providers.json catalog). save_user_api_key
+       now validates generically (deepseek sk-..., ollama/copilot URL, others >=10 chars).
+       start_*_run RPCs gate on EXISTS(user_api_keys WHERE user_id) — any provider.
+     • Worker: new providers.py (23-provider embedded catalog, resolution order);
+       runner.py catalog-driven _build_env(); execute() iterates all providers in
+       priority order (deepseek first, base-URL last). config.py: removed ollama_model.
+       84/84 tests pass.
+     • Frontend: new lib/providers.ts (23 providers, featured/more split, categories);
+       lib/apikeys.ts rewritten (generic Provider type, validateCredential());
+       Profile.tsx ProviderCard + ProviderKeysSection (featured grid + collapsible
+       "More providers"). 265/265 tests pass, build clean.
+     NEXT: merge PR #13 after CI green → Railway redeploys with multi-provider worker.
   ✅ OLLAMA BYOK (2026-08-22) — MERGED to main (commit 411c973):
      • DB migration 2026_08_22_ollama_byok.sql APPLIED to Supabase 2026-08-22.
        provider CHECK (deepseek|ollama) on user_api_keys + agent_runs; URL validation
@@ -514,9 +529,11 @@ D8  — **Paystack (NGN, Nigeria launch) + Stripe (international, entity-gated, 
       provider-agnostic subscriptions; webhooks signed + idempotent
 D9  — Auth store sets session synchronously (fixed signup/login race)
 D10 — One metered prompt box on Agent page (not a chat-style multi-turn UI)
-D11 — BYOK pivot: users supply their own LLM credential — DeepSeek (sk-…) or
-      Ollama (base URL, self-hosted). Both encrypted in Supabase Vault. Worker
-      resolves provider per-user at run time: DeepSeek first, Ollama fallback.
+D11 — BYOK pivot: users supply their own LLM credential for any of 23 supported
+      providers (llm_providers.json catalog — openai-codex excluded, requires OAuth).
+      API-key providers store a key; base-URL providers (ollama, copilot) store a URL.
+      All encrypted in Supabase Vault. Worker resolves provider per-user at run time
+      by iterating the catalog in priority order (DeepSeek first, base-URL last).
 D12 — Supabase Vault for key storage (not AES-256-GCM with app-managed key)
 D13 — Edge Functions for payment webhooks (not a FastAPI backend at MVP)
 D14 — No Celery/Redis — Python polling loop is simpler and sufficient for MVP scale
