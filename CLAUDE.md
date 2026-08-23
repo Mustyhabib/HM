@@ -351,7 +351,7 @@ plan. Attachments: CSV/XLSX/JSON → agent-uploads bucket, 50 MB cap, paths
 
 ## Sprint tracker — UPDATE AT END OF EVERY SESSION
 
-Sprint day : 9 of 30   Status: Week 2 in progress — LSE primary data source + multi-provider BYOK live
+Sprint day : 11 of 30   Status: Week 2 in progress — LSE primary data source + multi-provider BYOK live
 
 Shipped (merged to main, live):
   ✅ LSE PRIMARY DATA SOURCE (2026-08-23, commit cd9f83f) — London Strategic
@@ -412,8 +412,31 @@ Shipped (merged to main, live):
   ✅ LSE IMPORT 2026-08-22 — London Strategic Edge formally adopted as product +
      data architecture reference; 7 patterns imported; docs committed (6b12d49).
      ADR D18 recorded: LSE promoted from reference to live Phase 2 data provider.
+  ✅ PR #19 MERGED 2026-08-22 (squash 5326683) — CI + ESLint + Stripe billing + LSE:
+     • .github/workflows/ci.yml: frontend (lint→build→test) + worker (pytest) CI
+     • ESLint v9 flat config (typescript-eslint, react-hooks, react-refresh)
+     • supabase/functions/stripe-init + stripe-webhook: entity-gated Stripe billing
+     • supabase/functions/market-data: auth-gated LSE OHLCV proxy (ADR D18)
+     • Dashboard.tsx LiveMarketChart: CoinGecko → LSE via Edge Function (BTC/USD etc.)
+     • Layout.tsx aria-labels + Layout.test.tsx rewrite for QuantLab nav (265/265 pass)
+     • billing.ts + BillingCallback.tsx: provider-agnostic Paystack/Stripe
 
 In progress / next:
+  ⏳ MULTI-PROVIDER BYOK (2026-08-23) — PR #13 open (draft), migration APPLIED:
+     • DB migration 2026_08_22_multi_provider_byok.sql APPLIED to Supabase 2026-08-23.
+       Dropped restrictive CHECK constraints on user_api_keys.provider + agent_runs.provider
+       (open text — app validates against llm_providers.json catalog). save_user_api_key
+       now validates generically (deepseek sk-..., ollama/copilot URL, others >=10 chars).
+       start_*_run RPCs gate on EXISTS(user_api_keys WHERE user_id) — any provider.
+     • Worker: new providers.py (23-provider embedded catalog, resolution order);
+       runner.py catalog-driven _build_env(); execute() iterates all providers in
+       priority order (deepseek first, base-URL last). config.py: removed ollama_model.
+       84/84 tests pass.
+     • Frontend: new lib/providers.ts (23 providers, featured/more split, categories);
+       lib/apikeys.ts rewritten (generic Provider type, validateCredential());
+       Profile.tsx ProviderCard + ProviderKeysSection (featured grid + collapsible
+       "More providers"). 265/265 tests pass, build clean.
+     NEXT: merge PR #13 after CI green → Railway redeploys with multi-provider worker.
   ✅ OLLAMA BYOK (2026-08-22) — MERGED to main (commit 411c973):
      • DB migration 2026_08_22_ollama_byok.sql APPLIED to Supabase 2026-08-22.
        provider CHECK (deepseek|ollama) on user_api_keys + agent_runs; URL validation
@@ -466,8 +489,46 @@ In progress / next:
      → Settings before any real run can complete. Test row/artifacts cleaned.
   ⏳ Paystack charge.success E2E with test card (PAYSTACK_TEST_REFERENCE); swap to live
      plans + key at launch.
-  ⏳ Stripe: onboarding (entity/Atlas) + stripe-init/stripe-webhook Edge Functions + plans.
-  ⏳ Email: support@hmtrade-business.com mailbox, Auth templates, transactional provider.
+  ✅ CI WORKFLOW (2026-08-22) — .github/workflows/ci.yml: runs on every PR/push to main.
+     frontend job: npm ci → lint → build (tsc+vite) → vitest. worker job: pytest (hermetic).
+     Engine tests excluded from CI (heavy deps, env-dependent).
+  ✅ ESLINT (2026-08-22) — eslint.config.js (ESLint v9 flat config): typescript-eslint +
+     react-hooks + react-refresh. `npm run lint` / `npm run lint:fix` scripts added.
+     Packages added to devDependencies: eslint, typescript-eslint, eslint-plugin-react-hooks,
+     eslint-plugin-react-refresh, @eslint/js.
+  ✅ LAYOUT TEST FIX (2026-08-22) — PR #19 fix/domain-ci-eslint-stripe driving to green:
+     • Desktop <aside> aria-label="Primary navigation"; mobile drawer aria-label="Mobile navigation"
+     • Layout.test.tsx rewritten: NAV updated (Dashboard/Research); getByRole("complementary")
+       → labelled variant; brand link uses getAllByRole (BrandLogo renders "H~Mltd" in all 3
+       sidebar/topbar elements); active-link scoped via within(primaryNav). 265/265 pass.
+  ✅ LSE MARKET DATA EDGE FUNCTION (2026-08-22):
+     • supabase/functions/market-data/index.ts — auth-gated Edge Function that proxies
+       LSE HTTP OHLCV endpoint (GET /v1/market/candles) using LSE_API_KEY stored as a
+       Supabase secret. Key never reaches the browser. Returns 503 when key not set.
+       Handles all LSE response shapes ({"data":[...]}, {"candles":[...]}, bare [...]).
+     • Dashboard.tsx LiveMarketChart updated — replaced CoinGecko fetch() with
+       supabase.functions.invoke("market-data", { body: { symbol, resolution, from, to } }).
+       COINS updated to LSE symbol format (BTC/USD, ETH/USD, SOL/USD).
+     Activation: set LSE_API_KEY as a Supabase secret (separate from the Railway env var
+     used by hm-ingest). WebSocket live feed is Phase 6 per ADR D17.
+     265/265 frontend tests pass, build clean.
+  ✅ STRIPE BILLING INFRASTRUCTURE (2026-08-22):
+     • Migration 2026_08_22_stripe_schema.sql: plans.stripe_price_id + subscriptions.provider.
+       (NOT yet applied — apply after Stripe entity/Atlas onboarding is complete.)
+     • supabase/functions/stripe-init/ — Stripe Checkout Session creator; entity-gated
+       (returns 503 if STRIPE_SECRET_KEY is absent; safe to deploy now).
+     • supabase/functions/stripe-webhook/ — handles checkout.session.completed,
+       customer.subscription.updated/deleted, invoice.payment_succeeded/failed;
+       Stripe-Signature verification + idempotent via webhook_events; re-verified
+       against Stripe API before activation.
+     • billing.ts — provider-agnostic: initiateSubscription(planId, 'paystack'|'stripe'),
+       STRIPE_ENABLED flag (VITE_STRIPE_ENABLED=true env var). Paystack default unchanged.
+     • BillingCallback.tsx — now accepts session_id (Stripe) alongside reference/trxref (Paystack).
+     Activation checklist: (1) Atlas US LLC entity, (2) Stripe account + price IDs,
+     (3) set STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET in Supabase secrets,
+     (4) set VITE_STRIPE_ENABLED=true in Vercel, (5) apply stripe schema migration,
+     (6) populate plans.stripe_price_id values, (7) register stripe-webhook URL in Stripe dashboard.
+  ⏳ Email: support@hmtrade.business mailbox, Auth templates, transactional provider.
   ⏳ Upgrade Phase 0: ✅ DONE 2026-08-21 — inventory (docs/UPGRADE_INVENTORY.md), decision
      ledger (UPGRADE_ROADMAP.md §4), launch gates shipped (keepalive + backup workflows).
      ⏳ Phase 1: brief drafted (docs/PHASE1_BRIEF.md) — build starts AFTER launch (R1-Q1);
