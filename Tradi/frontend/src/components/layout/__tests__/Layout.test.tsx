@@ -76,26 +76,14 @@ describe("Layout", () => {
     expect(screen.getByText("Research content")).toBeInTheDocument();
   });
 
-  it("collapses the sidebar and persists the preference", () => {
+  it("renders a fixed-width sidebar (collapse retired with the sidebar footer)", () => {
     renderLayout();
     const sidebar = screen.getByRole("complementary", {
       name: "Primary navigation",
     });
+    // The collapse feature was removed when the sidebar footer moved to the
+    // dashboard utility strip — width is now fixed.
     expect(sidebar).toHaveClass("w-56");
-
-    fireEvent.click(screen.getByTitle("Collapse sidebar"));
-
-    expect(sidebar).toHaveClass("w-16");
-    expect(window.localStorage.getItem("hm-sidebar")).toBe("collapsed");
-  });
-
-  it("starts collapsed when the stored preference says so", () => {
-    window.localStorage.setItem("hm-sidebar", "collapsed");
-    renderLayout();
-
-    expect(
-      screen.getByRole("complementary", { name: "Primary navigation" }),
-    ).toHaveClass("w-16");
   });
 
   it("does not crash when localStorage access is blocked", () => {

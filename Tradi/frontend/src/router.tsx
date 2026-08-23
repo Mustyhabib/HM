@@ -13,6 +13,10 @@ import {
 const DataCatalog = lazy(() =>
   import("@/pages/DataCatalog").then((m) => ({ default: m.DataCatalog })),
 );
+// Review & Support — reviews / complaints / suggestions (2026-08-23)
+const Review = lazy(() =>
+  import("@/pages/Review").then((m) => ({ default: m.ReviewPage })),
+);
 
 // --- Public / SaaS pages ---
 const Landing = lazy(() => import("@/pages/Landing").then((m) => ({ default: m.Landing })));
@@ -168,6 +172,7 @@ export const router = createBrowserRouter([
           { path: "/paper",        element: <Paper /> },
           { path: "/portfolio",    element: <Portfolio /> },
           { path: "/data",         element: wrap(DataCatalog) },
+          { path: "/review",       element: wrap(Review) },
           { path: "/models",       element: <Models /> },
           { path: "/live",         element: <Live /> },
         ],

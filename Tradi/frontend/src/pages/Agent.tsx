@@ -7,11 +7,13 @@ import {
   KeyRound,
   Paperclip,
   Plus,
+  Users,
   X as CloseIcon,
   FileSpreadsheet,
   FileJson,
 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import {
   startRun,
   getActiveSubscription,
@@ -23,7 +25,6 @@ import {
 } from "@/lib/runs";
 import { getSelectedProvider } from "@/lib/apikeys";
 import { SwarmPresetPicker } from "@/components/chat/SwarmPresetPicker";
-import { ShadowUploadPanel } from "@/components/chat/ShadowUploadPanel";
 import { ChatHistoryPanel } from "@/components/agent/ChatHistoryPanel";
 import { ArtifactBundleStrip } from "@/components/agent/ArtifactBundleStrip";
 
@@ -51,6 +52,16 @@ const EXAMPLES = [
 
 const SWARM_TEAM_COUNT = 30;
 
+/** Teams-tab styling — active state when the picker is open above. */
+function cnSwarmTab(open: boolean): string {
+  return cn(
+    "flex h-7 items-center justify-center gap-1 rounded-lg transition disabled:opacity-40",
+    open
+      ? "border border-primary/50 bg-primary/10 text-primary"
+      : "text-muted-foreground hover:bg-elevated hover:text-primary",
+  );
+}
+
 /** File-kind → icon */
 function AttachIcon({ kind }: { kind: RunAttachment["kind"] }) {
   if (kind === "json") return <FileJson className="h-3 w-3 text-primary" />;
@@ -76,10 +87,35 @@ export function Agent() {
   const [attachments, setAttachments] = useState<RunAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
 
-  // Swarm launcher — MANUAL only: a small clickable tab showing the team
-  // count ("30"); clicking opens the preset picker. Nothing auto-runs.
+  // Swarm launcher — MANUAL only. The picker displays ABOVE the composer,
+  // closes on outside click, and a chosen team can be exported into the
+  // prompt via the rightmost "+" (adds a swarm directive to the text).
   const [swarmOpen, setSwarmOpen] = useState(false);
-  const [panelTab, setPanelTab] = useState<"teams" | "shadow">("teams");
+  const [chosenSwarm, setChosenSwarm] = useState<string | null>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
+
+  // Click-outside closes the swarm panel.
+  useEffect(() => {
+    if (!swarmOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!composerRef.current?.contains(e.target as Node)) setSwarmOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [swarmOpen]);
+
+  /** Export the chosen swarm into the prompt as an explicit directive. */
+  const addSwarmToPrompt = useCallback(() => {
+    if (!chosenSwarm) return;
+    setInput((prev) => {
+      const directive = `[Use the ${chosenSwarm} specialist team] `;
+      if (prev.includes(`[${chosenSwarm}`)) return prev; // already added
+      return directive + prev;
+    });
+    setSwarmOpen(false);
+    toast.success(`${chosenSwarm} attached to your prompt`);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, [chosenSwarm]);
 
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
   const [subscriptionLoaded, setSubscriptionLoaded] = useState(false);
@@ -297,9 +333,27 @@ export function Agent() {
         )}
       </div>
 
-      {/* ─── Bottom-docked composer ─── */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 md:pl-60 lg:pr-80">
-        <div className="pointer-events-auto mx-auto max-w-3xl px-6 pb-5">
+      {/* ─── Bottom-docked composer — offset RIGHT of the chats rail ─── */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 md:pl-60">
+        <div ref={composerRef} className="pointer-events-auto ml-auto max-w-3xl px-6 pb-5 lg:mr-[max(1.5rem,calc((100vw-60rem)/2))] lg:pr-24">
+          {/* ─── Swarm picker — displays ABOVE the prompt box, closes on
+               outside click (handled by composerRef listener) ─── */}
+          {swarmOpen && (
+            <div className="mb-2">
+              <SwarmPresetPicker
+                open
+                onClose={() => setSwarmOpen(false)}
+                isPro={isPro}
+                subscriptionLoaded={subscriptionLoaded}
+                onChosen={(title) => { setChosenSwarm(title); setSwarmOpen(false); }}
+                onStarted={(runId) => {
+                  setSwarmOpen(false);
+                  setLiveRunId(runId);
+                }}
+              />
+            </div>
+          )}
+
           {/* Access banner — only when blocked */}
           {blocked && (
             <div className="mb-2 flex items-center justify-between gap-3 rounded-xl border border-danger/30 bg-danger/5 p-3">
@@ -386,7 +440,8 @@ export function Agent() {
               />
 
               <div className="flex items-center gap-1 px-1 pb-0.5 pt-1">
-                {/* LEFTMOST controls: + (teams) and 📎 (attach) */}
+                {/* LEFTMOST controls: 📎 (attach) and teams tab (opens the
+                    picker ABOVE this box; click-outside closes) */}
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -414,15 +469,32 @@ export function Agent() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setSwarmOpen(true)}
+                  onClick={() => setSwarmOpen((p) => !p)}
                   disabled={starting || blocked}
-                  className="flex h-7 items-center justify-center gap-1 rounded-lg text-muted-foreground transition hover:bg-elevated hover:text-primary disabled:opacity-40"
-                  aria-label={`Deploy a specialist team (${SWARM_TEAM_COUNT} available)`}
-                  title={`Specialist teams (${SWARM_TEAM_COUNT})`}
+                  className={cnSwarmTab(swarmOpen)}
+                  aria-expanded={swarmOpen}
+                  aria-label={`Specialist teams (${SWARM_TEAM_COUNT} available)`}
+                  title={`Specialist teams (${SWARM_TEAM_COUNT}) — pick one, then add it to your prompt`}
                 >
-                  <Plus className="h-3.5 w-3.5" />
+                  <Users className="h-3.5 w-3.5" />
                   <span className="hidden text-[11px] font-medium sm:inline">{SWARM_TEAM_COUNT}</span>
                 </button>
+
+                {/* Chosen swarm chip */}
+                {chosenSwarm && (
+                  <span className="inline-flex max-w-[220px] items-center gap-1 rounded-full border border-primary/30 bg-primary/8 px-2 py-0.5 text-[10px] text-primary">
+                    <Users className="h-2.5 w-2.5 shrink-0" />
+                    <span className="truncate">{chosenSwarm}</span>
+                    <button
+                      type="button"
+                      onClick={() => setChosenSwarm(null)}
+                      aria-label={`Remove ${chosenSwarm}`}
+                      className="rounded-full transition hover:text-danger"
+                    >
+                      <CloseIcon className="h-2.5 w-2.5" />
+                    </button>
+                  </span>
+                )}
 
                 <span className="flex-1" />
 
@@ -430,11 +502,25 @@ export function Agent() {
                   Enter
                 </kbd>
 
-                {/* Send — rightmost */}
+                {/* RIGHTMOST "+": export the chosen swarm into the prompt */}
+                {chosenSwarm && (
+                  <button
+                    type="button"
+                    onClick={addSwarmToPrompt}
+                    disabled={starting || blocked}
+                    className="flex h-7 items-center justify-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-2 text-[11px] font-medium text-primary transition hover:bg-primary/15 disabled:opacity-40"
+                    aria-label={`Add ${chosenSwarm} to prompt`}
+                    title={`Add "${chosenSwarm}" to your prompt`}
+                  >
+                    <Plus className="h-3 w-3" /> Add to prompt
+                  </button>
+                )}
+
+                {/* Send */}
                 <button
                   type="submit"
                   disabled={starting || blocked || !input.trim()}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg gradient-bg glow-gradient text-white transition hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg gradient-bg glow-gradient text-white transition hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                   aria-label="Start run"
                 >
                   {starting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
@@ -447,41 +533,6 @@ export function Agent() {
         </div>
       </div>
 
-      {/* ─── Swarm / Shadow launcher panels (manual, opened from the + tab) ─── */}
-      {swarmOpen && panelTab === "shadow" && (
-        <ShadowUploadPanel
-          open
-          onClose={() => setSwarmOpen(false)}
-          isPremium={isPremium}
-          subscriptionLoaded={subscriptionLoaded}
-          onStarted={(runId) => {
-            setSwarmOpen(false);
-            setLiveRunId(runId);
-          }}
-        />
-      )}
-      <SwarmPresetPicker
-        open={swarmOpen && panelTab === "teams"}
-        onClose={() => setSwarmOpen(false)}
-        isPro={isPro}
-        subscriptionLoaded={subscriptionLoaded}
-        onStarted={(runId) => {
-          setSwarmOpen(false);
-          setLiveRunId(runId);
-        }}
-      />
-
-      {/* Keep Shadow tab reachable: tiny switcher inside the picker overlay era */}
-      {swarmOpen && panelTab === "teams" && (
-        <button
-          type="button"
-          onClick={() => setPanelTab("shadow")}
-          className="sr-only"
-          aria-hidden
-        >
-          Shadow Account
-        </button>
-      )}
     </div>
   );
 }

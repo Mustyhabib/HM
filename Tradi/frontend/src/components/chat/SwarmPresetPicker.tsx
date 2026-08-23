@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import {
-  Users, Sparkles, Search, Crown, X as CloseIcon, Loader2, ArrowRight, ArrowLeft,
+  Users, Sparkles, Search, Crown, X as CloseIcon, Loader2, ArrowRight, ArrowLeft, Plus,
   TrendingUp, BarChart3, Bitcoin, Globe2, Brain, ShieldAlert, Layers,
   LineChart, Landmark, Briefcase,
 } from "lucide-react";
@@ -52,6 +52,9 @@ interface SwarmPresetPickerProps {
   subscriptionLoaded: boolean;
   /** Called with the new run id once `startSwarmRun` succeeds. */
   onStarted: (runId: string) => void;
+  /** Called with the preset TITLE when the user picks "Add to prompt" —
+   *  exports the chosen team into the composer text instead of running it. */
+  onChosen?: (title: string) => void;
 }
 
 export function SwarmPresetPicker({
@@ -60,6 +63,7 @@ export function SwarmPresetPicker({
   isPro,
   subscriptionLoaded,
   onStarted,
+  onChosen,
 }: SwarmPresetPickerProps) {
   const [query, setQuery] = useState("");
   const [activeCat, setActiveCat] = useState<SwarmCategory | "all">("all");
@@ -219,7 +223,7 @@ export function SwarmPresetPicker({
             ))}
           </div>
 
-          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
             <button
               type="button"
               onClick={backToBrowse}
@@ -227,6 +231,16 @@ export function SwarmPresetPicker({
             >
               Cancel
             </button>
+            {onChosen && (
+              <button
+                type="button"
+                onClick={() => onChosen(selected.title)}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/15"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add to prompt
+              </button>
+            )}
             <button
               type="button"
               onClick={runPreset}
