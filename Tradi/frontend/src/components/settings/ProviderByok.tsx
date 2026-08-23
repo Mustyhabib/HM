@@ -8,6 +8,8 @@ import {
   CircleCheck,
   ShieldCheck,
   ChevronRight,
+  Zap,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -18,9 +20,11 @@ import {
   setSelectedProvider,
   saveApiKey,
   deleteApiKey,
+  testProviderCredential,
   type ProviderCatalogEntry,
   type ApiKeyStatus,
   type SelectedProvider,
+  type TestResult,
 } from "@/lib/apikeys";
 
 /**
@@ -412,6 +416,8 @@ function ProviderForm({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
 
   const fieldLabel = isUrl
     ? `${catalog.label} Base URL`
@@ -429,11 +435,30 @@ function ProviderForm({
       const next = await saveApiKey(catalog, draft);
       onSaved(next);
       setDraft("");
+      setTestResult(null);
       toast.success(`${catalog.label} saved`);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const runTest = async () => {
+    if (!draft.trim() || testing) return;
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const result = await testProviderCredential(catalog, draft.trim());
+      setTestResult(result);
+    } catch (err) {
+      setTestResult({
+        ok: false,
+        model: catalog.default_model,
+        message: err instanceof Error ? err.message : "Test failed",
+      });
+    } finally {
+      setTesting(false);
     }
   };
 
@@ -469,7 +494,10 @@ function ProviderForm({
             autoComplete="off"
             spellCheck={false}
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              setTestResult(null);
+            }}
             placeholder={
               status
                 ? isUrl
@@ -479,15 +507,56 @@ function ProviderForm({
             }
             className="w-full flex-1 rounded-lg border border-border bg-[var(--bg-input)] px-3 py-2.5 font-mono text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary/60 focus:ring-2 focus:ring-primary/15"
           />
-          <button
-            type="submit"
-            disabled={saving || !draft.trim()}
-            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg gradient-bg glow-gradient px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            {status ? "Rotate" : "Save"}
-          </button>
+          <div className="flex shrink-0 gap-2">
+            {/* Test button — calls the model with the draft credential */}
+            <button
+              type="button"
+              onClick={runTest}
+              disabled={testing || !draft.trim()}
+              title={`Test with ${catalog.default_model}`}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-elevated px-3 py-2.5 text-sm font-medium text-foreground transition hover:bg-elevated/80 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {testing ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Zap className="h-3.5 w-3.5 text-warning" />
+              )}
+              <span className="hidden sm:inline">Test</span>
+            </button>
+            <button
+              type="submit"
+              disabled={saving || !draft.trim()}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg gradient-bg glow-gradient px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {status ? "Rotate" : "Save"}
+            </button>
+          </div>
         </div>
+
+        {/* Test result — model name + pass/fail inline */}
+        {(testing || testResult) && (
+          <div
+            className={cn(
+              "flex items-start gap-2 rounded-lg border px-3 py-2",
+              testing
+                ? "border-border bg-elevated text-muted-foreground"
+                : testResult?.ok
+                  ? "border-success/30 bg-success/8 text-success"
+                  : "border-danger/30 bg-danger/8 text-danger",
+            )}
+          >
+            {testing && <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin" />}
+            {!testing && testResult?.ok && <CircleCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
+            {!testing && !testResult?.ok && <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
+            <span className="text-xs">
+              {testing
+                ? `Testing ${catalog.default_model}…`
+                : testResult?.message}
+            </span>
+          </div>
+        )}
+
         {saveError && <p className="text-xs text-danger">{saveError}</p>}
 
         {/* Per-field trust hint */}

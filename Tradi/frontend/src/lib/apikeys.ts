@@ -167,6 +167,126 @@ export async function setSelectedProvider(
   };
 }
 
+// ---------------------------------------------------------------------------
+// Provider credential tester — browser-side direct API call
+// ---------------------------------------------------------------------------
+
+export interface TestResult {
+  ok: boolean;
+  model: string;
+  message: string;
+}
+
+/**
+ * Test a provider credential by making a minimal real API call.
+ *
+ * Called from the BYOK settings UI with the draft key (before or after
+ * saving). The call goes directly from the browser to the provider's API —
+ * most LLM providers are CORS-enabled. For url-type (Ollama) we just call
+ * GET /api/tags to confirm the server is reachable.
+ *
+ * Never touches the Vault — this uses the credential string the user just
+ * typed, not the stored copy.
+ *
+ * @throws Error with provider-specific copy on auth or network failure.
+ */
+export async function testProviderCredential(
+  provider: ProviderCatalogEntry,
+  credential: string,
+): Promise<TestResult> {
+  const model = provider.default_model;
+  const name = provider.name.toLowerCase();
+
+  // ── URL-type (Ollama) ────────────────────────────────────────────────────
+  if (provider.provider_type === "url") {
+    const base = credential.trim().replace(/\/$/, "");
+    const res = await fetch(`${base}/api/tags`, {
+      method: "GET",
+      signal: AbortSignal.timeout(8_000),
+    }).catch((e: Error) => {
+      throw new Error(`Cannot reach server: ${e.message}`);
+    });
+    if (!res.ok) throw new Error(`Server returned HTTP ${res.status}`);
+    const data = (await res.json()) as { models?: { name: string }[] };
+    const models = data?.models?.map((m) => m.name) ?? [];
+    const found = models.some((m) => m === model || m.startsWith(`${model}:`));
+    return {
+      ok: true,
+      model,
+      message: found
+        ? `Connected · ${model} available`
+        : `Connected · ${models.length} model(s) found${models.length ? ` (${model} not yet pulled)` : ""}`,
+    };
+  }
+
+  // ── Anthropic ────────────────────────────────────────────────────────────
+  if (name === "anthropic") {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": credential,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 1,
+        messages: [{ role: "user", content: "Hi" }],
+      }),
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
+      throw new Error(body?.error?.message ?? `HTTP ${res.status}`);
+    }
+    return { ok: true, model, message: `${model} — key valid` };
+  }
+
+  // ── Google Gemini ────────────────────────────────────────────────────────
+  if (name === "google" || name.includes("gemini")) {
+    const bareModel = model.replace(/^models\//, "");
+    const url =
+      `https://generativelanguage.googleapis.com/v1beta/models/${bareModel}:generateContent?key=${credential}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: "Hi" }] }],
+        generationConfig: { maxOutputTokens: 1 },
+      }),
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
+      throw new Error(body?.error?.message ?? `HTTP ${res.status}`);
+    }
+    return { ok: true, model, message: `${model} — key valid` };
+  }
+
+  // ── OpenAI-compatible (DeepSeek, OpenAI, Groq, Mistral, xAI, …) ─────────
+  const base = (provider.default_base_url || "https://api.openai.com").replace(/\/$/, "");
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${credential}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 1,
+      messages: [{ role: "user", content: "Hi" }],
+    }),
+    signal: AbortSignal.timeout(12_000),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: { message?: string }; message?: string };
+    throw new Error(body?.error?.message ?? body?.message ?? `HTTP ${res.status}`);
+  }
+  return { ok: true, model, message: `${model} — key valid` };
+}
+
+// ---------------------------------------------------------------------------
+
 /** Map the RPCs' raise-exception messages to friendly UI copy. */
 function friendlyApiKeyError(message: string, providerLabel?: string): string {
   if (message.includes("invalid_key_format"))
