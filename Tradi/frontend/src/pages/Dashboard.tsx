@@ -120,6 +120,9 @@ const RANGES = [
   { label: "90D", days: 90 },
 ] as const;
 
+/** Live-price poll interval (CoinGecko free tier: ~10-30 calls/min) */
+const LIVE_POLL_MS = 15_000;
+
 /** CoinGecko fallback — free, no key, CORS-enabled */
 async function fetchCoinGeckoOHLC(cgId: string, days: number): Promise<PriceBar[]> {
   const r = await fetch(
@@ -135,12 +138,27 @@ async function fetchCoinGeckoOHLC(cgId: string, days: number): Promise<PriceBar[
   return [...byDate.values()];
 }
 
+/** Live spot price + 24h change — polled every LIVE_POLL_MS */
+async function fetchLivePrice(cgId: string): Promise<{ price: number; change24h: number }> {
+  const r = await fetch(
+    `https://api.coingecko.com/api/v3/simple/price?ids=${cgId}&vs_currencies=usd&include_24hr_change=true`,
+  );
+  if (!r.ok) throw new Error(`CoinGecko ${r.status}`);
+  const j = (await r.json()) as Record<string, { usd: number; usd_24h_change?: number }>;
+  const d = j[cgId];
+  if (!d?.usd) throw new Error("No price");
+  return { price: d.usd, change24h: d.usd_24h_change ?? 0 };
+}
+
 function LiveMarketChart() {
   const [coin, setCoin]   = useState<(typeof COINS)[number]>(COINS[0]);
   const [range, setRange] = useState<(typeof RANGES)[number]>(RANGES[0]);
   const [data, setData]   = useState<PriceBar[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Live spot price — polled, feeds both the ticker badge and the last candle
+  const [live, setLive] = useState<{ price: number; change24h: number } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -184,6 +202,37 @@ function LiveMarketChart() {
     return () => { cancelled = true; };
   }, [coin.lseSymbol, coin.cgId, range.days]);
 
+  // ── Live price polling — updates the ticker + the current candle ──
+  // ADR D17: WebSocket live feed is Phase 6; until then we poll the free
+  // CoinGecko spot endpoint and merge each tick into the last PriceBar
+  // (close = spot, high/low extended) so the chart tracks live price.
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const tick = () =>
+      fetchLivePrice(coin.cgId)
+        .then((p) => {
+          if (cancelled) return;
+          setLive(p);
+          setData((prev) => {
+            if (prev.length === 0) return prev;
+            const next = [...prev];
+            const last = { ...next[next.length - 1] };
+            last.close = p.price;
+            last.high = Math.max(last.high, p.price);
+            last.low = Math.min(last.low, p.price);
+            next[next.length - 1] = last;
+            return next;
+          });
+        })
+        .catch(() => {/* transient — keep last known */});
+
+    tick();
+    timer = setInterval(tick, LIVE_POLL_MS);
+    return () => { cancelled = true; if (timer) clearInterval(timer); };
+  }, [coin.cgId]);
+
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
       {/* Header */}
@@ -196,6 +245,22 @@ function LiveMarketChart() {
           <span className="rounded-full border border-border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/50">
             {coin.symbol}/USD
           </span>
+          {/* Live ticker — polled spot price + 24h change */}
+          {live && (
+            <span className="flex items-center gap-1.5 font-mono text-[11px]">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success" />
+              </span>
+              <span className="font-semibold text-foreground">
+                ${live.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              </span>
+              <span className={cn("text-[10px]", live.change24h >= 0 ? "text-success" : "text-danger")}>
+                {live.change24h >= 0 ? "+" : ""}
+                {live.change24h.toFixed(2)}%
+              </span>
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {/* Coin selector */}
