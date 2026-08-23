@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 
 from .artifacts import ArtifactStore
 from .config import Config, ConfigError, load_config
+from .catalog import get_catalog, set_catalog, set_provider_resolver
 from .db import ClaimedRun, RunQueue
 from .health import HealthServer, HealthStatus
 from .logging_config import set_run_id, setup_logging
@@ -232,6 +233,28 @@ def main() -> int:
 
     queue = RunQueue(config)
     artifacts = ArtifactStore(queue.client) if config.execute_tradi else None
+    # Catalog-driven BYOK: cache the supported-provider list at boot so the
+    # runner can map provider names to env vars without importing the engine.
+    # Best-effort — on failure the runner fails closed (unsupported provider).
+    set_catalog(ProviderCatalog := get_catalog())
+    try:
+        ProviderCatalog.load(queue.client)
+    except Exception:  # noqa: BLE001 — never let a catalog hiccup block boot
+        log.warning("LLM provider catalog not loaded at boot; runs fail closed until next boot", exc_info=True)
+
+    # Per-user provider resolver: reads the user's selection (user_llm_prefs)
+    # and returns a usable provider name, or None. The DB start_*_run gates
+    # have already resolved + recorded the provider on the run row, so this
+    # is only a fallback for runs whose row lacks one.
+    def _resolve_provider(user_id: str) -> str | None:
+        try:
+            resp = queue.client.rpc("resolve_run_provider", {"p_user_id": user_id}).execute()
+            return resp.data if resp.data else None
+        except Exception:  # noqa: BLE001
+            log.debug("provider resolution failed for user %s", user_id, exc_info=True)
+            return None
+
+    set_provider_resolver(_resolve_provider)
     # Register the storage downloader so TradiRunner can stage Premium
     # attachments into HOME/inputs/ before spawning the engine. StubRunner
     # never calls this, so tests that skip Tradi don't need Storage.

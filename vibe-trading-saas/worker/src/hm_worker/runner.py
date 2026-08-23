@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Protocol
 
+from .catalog import get_catalog, _provider_resolver
 from .db import Attachment, ClaimedRun
 from .logging_config import set_run_id
 from .progress import TraceTailer
@@ -272,18 +273,30 @@ class TradiRunner:
         #    (SystemError_, refunded); a missing/never-configured key is the
         #    user's to fix (MissingApiKey, not refunded).
         #
-        #    Resolution order: DeepSeek first (existing behaviour), Ollama as
-        #    fallback (URL-as-credential, no API key required on the server).
+        #    Provider resolution is catalog-driven: the selected provider
+        #    (user_llm_prefs, via the resolver hook wired in main.py) wins;
+        #    the start_*_run RPCs already resolved it to a configured provider
+        #    and recorded it on agent_runs.provider, so the worker trusts that
+        #    value when present otherwise it asks the resolver hook. Either
+        #    way the worker fetches the credential for exactly that provider.
         if _api_key_fetcher is None:
             raise SystemError_("api key fetcher not registered")
-        resolved_provider = "deepseek"
-        api_key = _api_key_fetcher(run.user_id, "deepseek")
-        if not api_key:
-            api_key = _api_key_fetcher(run.user_id, "ollama")
-            resolved_provider = "ollama"
+        catalog = get_catalog()
+        # Prefer the provider recorded on the run row (set by start_*_run),
+        # else defer to the per-user resolver hook.
+        resolved_provider = getattr(run, "provider", None) or (
+            _provider_resolver(run.user_id) if _provider_resolver else None
+        )
+        if not resolved_provider or resolved_provider not in catalog:
+            # Fail closed: do not guess. The run row should always carry a
+            # valid provider from the DB gate; a mismatch means data drift.
+            raise MissingApiKey(
+                f"no usable provider resolved for run {run.id}"
+            )
+        api_key = _api_key_fetcher(run.user_id, resolved_provider)
         if not api_key:
             raise MissingApiKey(
-                "no api key configured for provider 'deepseek' or 'ollama'"
+                f"no api key configured for provider '{resolved_provider}'"
             )
 
         # 2. Mount any Premium attachments into HOME/inputs/ before the engine boots.
@@ -436,28 +449,49 @@ class TradiRunner:
         env["VIBE_TRADING_HOME"] = str(run_dir)
         env["VIBE_TRADING_ALLOWED_RUN_ROOTS"] = str(run_dir)
 
-        # BYOK pivot: inject provider-specific credential.  The user's own
-        # credential always wins over any value the worker process inherited
-        # (e.g. a dev-only default in the OS environment). Never logged.
+        # BYOK pivot: inject provider-specific credential from the catalog.
+        # The user's own credential always wins over any value the worker
+        # process inherited (e.g. a dev-only default in the OS environment).
+        # Never logged.
         #
         # BUG-ENG-4 (2026-08-22): upstream engine (>= 1907e47) hard-requires
         # LANGCHAIN_PROVIDER / LANGCHAIN_MODEL_NAME — the container ships no
         # agent/.env so without these every run dies at LLM construction.
-        if provider == "deepseek":
-            env["DEEPSEEK_API_KEY"] = credential
-            env["LANGCHAIN_PROVIDER"] = "deepseek"
-            env["LANGCHAIN_MODEL_NAME"] = self._llm_model
-        elif provider == "ollama":
-            # Ollama uses a base URL (no API key). The engine catalog entry
-            # (llm_providers.json: base_url_env=OLLAMA_BASE_URL) picks this up.
-            env["OLLAMA_BASE_URL"] = credential
-            env["LANGCHAIN_PROVIDER"] = "ollama"
-            env["LANGCHAIN_MODEL_NAME"] = self._ollama_model
-        else:
-            # Future providers: add branches above.
+        catalog = get_catalog()
+        spec = catalog.get(provider)
+        if spec is None:
+            # Fail closed — a provider not in the catalog is a misconfig.
             raise SystemError_(f"unsupported provider: {provider!r}")
 
+        # Route the engine to the right provider + model.
+        env["LANGCHAIN_PROVIDER"] = provider
+        env["LANGCHAIN_MODEL_NAME"] = self._model_for(spec)
+
+        if spec.is_url_type:
+            # url-type provider (e.g. self-hosted Ollama): the credential IS
+            # the base URL; inject it into the provider's base_url_env.
+            if spec.base_url_env:
+                env[spec.base_url_env] = credential
+        else:
+            # key-type provider: inject the API key into the provider's
+            # api_key_env (e.g. OPENAI_API_KEY, DEEPSEEK_API_KEY). The engine
+            # falls back to its bundled catalog for the base URL if the
+            # base_url_env is unset.
+            if spec.api_key_env:
+                env[spec.api_key_env] = credential
+
         return env
+
+    def _model_for(self, spec) -> str:
+        """Pick the model to inject for a provider.
+
+        url-type (Ollama) uses the worker's ollama_model override when set,
+        since the model tag must match what the user pulled locally. key-type
+        providers use the catalog default_model.
+        """
+        if spec.is_url_type and self._ollama_model:
+            return self._ollama_model
+        return spec.default_model
 
     def _supervise(
         self,

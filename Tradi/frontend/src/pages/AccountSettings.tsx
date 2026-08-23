@@ -8,15 +8,14 @@
  * Sections
  * ─────────
  *   account      → identity (name, email, timezone, user ID) + preferences
- *   credentials  → BYOK keys (DeepSeek API key + Ollama base URL)
+ *   credentials  → BYOK keys (any catalog provider; active provider selectable)
  *   billing      → current plan, usage, payment method, invoice history
  *   notifications → email + push alert toggles
  *   security     → password change, 2FA, active sessions, danger zone
  *
  * Deep-links
  * ──────────
- *   /profile#api-key    → jumps to Credentials, scrolls to DeepSeek card
- *   /profile#ollama-key → jumps to Credentials, scrolls to Ollama card
+ *   /profile#api-key    → jumps to Credentials (first provider card)
  *   /settings#credentials, #billing, #security → jump to those sections
  */
 
@@ -33,7 +32,6 @@ import {
   Target,
   KeyRound,
   Globe,
-  Loader2,
   Trash2,
   Bell,
   CreditCard,
@@ -47,18 +45,10 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useNavigate } from "react-router";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-store";
-import {
-  saveApiKey,
-  getApiKeyStatus,
-  deleteApiKey,
-  listApiKeyStatuses,
-  type ApiKeyStatus,
-} from "@/lib/apikeys";
+import { ProviderByok } from "@/components/settings/ProviderByok";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { Skeleton } from "@/components/common/Skeleton";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 
@@ -232,429 +222,14 @@ function StatPill({
    ═══════════════════════════════════════════════════════════════════════ */
 
 /**
- * DeepSeek BYOK card.
- * id="api-key" lets /profile#api-key deep-link scroll here from Agent page.
+ * Catalog-driven BYOK credentials. Renders the shared ProviderByok component
+ * (id="api-key" for /profile#api-key deep-links) inside the credentials tab.
+ * The provider list comes from the DB, matching the worker's catalog.
  */
-function DeepSeekCard() {
-  const [status, setStatus] = useState<ApiKeyStatus | null>(null);
-  const [loaded, setLoaded] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [reloadCount, setReloadCount] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoaded(false);
-    setLoadError(null);
-    getApiKeyStatus()
-      .then((s) => {
-        if (cancelled) return;
-        setStatus(s);
-        setLoaded(true);
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        setLoadError(e instanceof Error ? e.message : "Failed to load key status");
-        setLoaded(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [reloadCount]);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!draft.trim() || saving) return;
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const next = await saveApiKey("deepseek", draft);
-      setStatus(next);
-      setEditing(false);
-      setDraft("");
-      toast.success("DeepSeek key saved");
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Failed to save key");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const doDelete = async () => {
-    setDeleting(true);
-    try {
-      await deleteApiKey("deepseek");
-      setStatus(null);
-      setConfirmOpen(false);
-      toast.success("DeepSeek key removed");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to delete key");
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const showForm = loaded && !loadError && (status === null || editing);
-
-  return (
-    <div
-      id="api-key"
-      className="scroll-mt-24 rounded-xl border border-border bg-card p-5"
-    >
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg gradient-bg">
-          <KeyRound className="h-4 w-4 text-white" />
-        </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold">DeepSeek</span>
-            <span className="inline-flex items-center rounded-full border border-primary/25 bg-primary/8 px-2 py-0.5 text-[10px] font-medium text-primary">
-              Priority
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground">API key · cloud LLM</p>
-        </div>
-      </div>
-
-      <div className="mt-4">
-        {!loaded && <Skeleton className="h-10 w-full rounded-lg" />}
-
-        {loaded && loadError && (
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2.5">
-            <p className="text-xs text-danger">{loadError}</p>
-            <button
-              type="button"
-              onClick={() => setReloadCount((n) => n + 1)}
-              className="shrink-0 rounded-lg border border-border px-2.5 py-1 text-xs transition hover:bg-elevated"
-            >
-              Retry
-            </button>
-          </div>
-        )}
-
-        {loaded && !loadError && status !== null && !editing && (
-          <>
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-elevated px-3 py-2.5">
-              <span className="font-mono text-sm">sk-…{status.last4}</span>
-              <span className="text-xs text-muted-foreground">
-                Added{" "}
-                {new Date(status.configured_at).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
-              </span>
-            </div>
-            <div className="mt-3 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className="rounded-lg border border-border px-3 py-1.5 text-sm transition hover:bg-elevated"
-              >
-                Change
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmOpen(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-danger transition hover:bg-danger/5"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Remove
-              </button>
-            </div>
-          </>
-        )}
-
-        {showForm && (
-          <form onSubmit={submit} className="space-y-2">
-            <label htmlFor="ds-api-key" className="text-xs font-medium text-muted-foreground">
-              DEEPSEEK API KEY
-            </label>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <input
-                id="ds-api-key"
-                type="password"
-                required
-                autoComplete="off"
-                spellCheck={false}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                placeholder="sk-..."
-                className="w-full flex-1 rounded-lg border border-border bg-[var(--bg-input)] px-3 py-2.5 font-mono text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary/60 focus:ring-2 focus:ring-primary/15"
-              />
-              <div className="flex shrink-0 gap-2">
-                <button
-                  type="submit"
-                  disabled={saving || !draft.trim()}
-                  className="inline-flex items-center gap-1.5 rounded-lg gradient-bg glow-gradient px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  Save
-                </button>
-                {status !== null && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditing(false);
-                      setDraft("");
-                      setSaveError(null);
-                    }}
-                    disabled={saving}
-                    className="rounded-lg border border-border px-3 py-2.5 text-sm transition hover:bg-elevated disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                )}
-              </div>
-            </div>
-            {saveError && <p className="text-xs text-danger">{saveError}</p>}
-            <p className="text-xs text-muted-foreground">
-              Get a key at{" "}
-              <a
-                href="https://platform.deepseek.com/api_keys"
-                target="_blank"
-                rel="noreferrer"
-                className="text-primary hover:underline"
-              >
-                platform.deepseek.com/api_keys
-              </a>
-            </p>
-          </form>
-        )}
-      </div>
-
-      <ConfirmDialog
-        open={confirmOpen}
-        title="Remove your DeepSeek key?"
-        description="Runs will fall back to Ollama (if configured) or be blocked until a key is added. This does not cancel your subscription."
-        confirmLabel={deleting ? "Removing…" : "Remove key"}
-        cancelLabel="Cancel"
-        tone="destructive"
-        onConfirm={doDelete}
-        onCancel={() => setConfirmOpen(false)}
-      />
-    </div>
-  );
+function CredentialsSection() {
+  return <ProviderByok />;
 }
 
-/**
- * Ollama BYOK card.
- * id="ollama-key" supports deep-links from the Agent page.
- * The worker resolves DeepSeek first; Ollama is used as fallback.
- */
-function OllamaCard() {
-  const [status, setStatus] = useState<ApiKeyStatus | null>(null);
-  const [loaded, setLoaded] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [reloadCount, setReloadCount] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoaded(false);
-    setLoadError(null);
-    listApiKeyStatuses()
-      .then((statuses) => {
-        if (cancelled) return;
-        setStatus(statuses.find((s) => s.provider === "ollama") ?? null);
-        setLoaded(true);
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        setLoadError(e instanceof Error ? e.message : "Failed to load Ollama status");
-        setLoaded(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [reloadCount]);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!draft.trim() || saving) return;
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const next = await saveApiKey("ollama", draft);
-      setStatus(next);
-      setEditing(false);
-      setDraft("");
-      toast.success("Ollama URL saved");
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Failed to save URL");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const doDelete = async () => {
-    setDeleting(true);
-    try {
-      await deleteApiKey("ollama");
-      setStatus(null);
-      setConfirmOpen(false);
-      toast.success("Ollama URL removed");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to remove URL");
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const showForm = loaded && !loadError && (status === null || editing);
-
-  return (
-    <div
-      id="ollama-key"
-      className="scroll-mt-24 rounded-xl border border-border bg-card p-5"
-    >
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-elevated">
-          <Globe className="h-4 w-4 text-muted-foreground" />
-        </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold">Ollama</span>
-            <span className="inline-flex items-center rounded-full border border-border/60 bg-elevated px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-              Self-hosted · Fallback
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground">Base URL · local or private server</p>
-        </div>
-      </div>
-
-      <div className="mt-4">
-        {!loaded && <Skeleton className="h-10 w-full rounded-lg" />}
-
-        {loaded && loadError && (
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2.5">
-            <p className="text-xs text-danger">{loadError}</p>
-            <button
-              type="button"
-              onClick={() => setReloadCount((n) => n + 1)}
-              className="shrink-0 rounded-lg border border-border px-2.5 py-1 text-xs transition hover:bg-elevated"
-            >
-              Retry
-            </button>
-          </div>
-        )}
-
-        {loaded && !loadError && status !== null && !editing && (
-          <>
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-elevated px-3 py-2.5">
-              <span className="font-mono text-sm">…{status.last4}</span>
-              <span className="text-xs text-muted-foreground">
-                Added{" "}
-                {new Date(status.configured_at).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
-              </span>
-            </div>
-            <div className="mt-3 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className="rounded-lg border border-border px-3 py-1.5 text-sm transition hover:bg-elevated"
-              >
-                Change
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmOpen(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-danger transition hover:bg-danger/5"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Remove
-              </button>
-            </div>
-          </>
-        )}
-
-        {showForm && (
-          <form onSubmit={submit} className="space-y-2">
-            <label htmlFor="ollama-url" className="text-xs font-medium text-muted-foreground">
-              OLLAMA BASE URL
-            </label>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <input
-                id="ollama-url"
-                type="url"
-                required
-                autoComplete="off"
-                spellCheck={false}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                placeholder="http://localhost:11434"
-                className="w-full flex-1 rounded-lg border border-border bg-[var(--bg-input)] px-3 py-2.5 font-mono text-sm text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary/60 focus:ring-2 focus:ring-primary/15"
-              />
-              <div className="flex shrink-0 gap-2">
-                <button
-                  type="submit"
-                  disabled={saving || !draft.trim()}
-                  className="inline-flex items-center gap-1.5 rounded-lg gradient-bg glow-gradient px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  Save
-                </button>
-                {status !== null && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditing(false);
-                      setDraft("");
-                      setSaveError(null);
-                    }}
-                    disabled={saving}
-                    className="rounded-lg border border-border px-3 py-2.5 text-sm transition hover:bg-elevated disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                )}
-              </div>
-            </div>
-            {saveError && <p className="text-xs text-danger">{saveError}</p>}
-            <p className="text-xs text-muted-foreground">
-              Ensure the server is reachable from the worker. Learn more at{" "}
-              <a
-                href="https://ollama.com"
-                target="_blank"
-                rel="noreferrer"
-                className="text-primary hover:underline"
-              >
-                ollama.com
-              </a>
-            </p>
-          </form>
-        )}
-      </div>
-
-      <ConfirmDialog
-        open={confirmOpen}
-        title="Remove Ollama URL?"
-        description="Runs will fall back to DeepSeek (if configured) or be blocked until a credential is added."
-        confirmLabel={deleting ? "Removing…" : "Remove"}
-        cancelLabel="Cancel"
-        tone="destructive"
-        onConfirm={doDelete}
-        onCancel={() => setConfirmOpen(false)}
-      />
-    </div>
-  );
-}
 
 /* ═══════════════════════════════════════════════════════════════════════
    SECTION CONTENT PANELS
@@ -744,8 +319,7 @@ function CredentialsPanel() {
       </div>
 
       {/* Provider cards */}
-      <DeepSeekCard />
-      <OllamaCard />
+      <CredentialsSection />
     </div>
   );
 }
