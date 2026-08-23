@@ -37,5 +37,5 @@ def test_market_data_falls_back_from_okx_to_binance() -> None:
         fallback_chain_provider=lambda _source: FALLBACK_CHAINS["crypto"],
     )
 
-    assert calls[:2] == ["okx", "binance"]
+    assert calls[:3] == ["okx", "lse", "binance"]
     assert "BTC-USDT" in result

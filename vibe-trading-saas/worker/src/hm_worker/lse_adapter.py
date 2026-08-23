@@ -92,11 +92,12 @@ class LSEAdapter:
     """
 
     # Endpoint: verify path from LSE API docs — common patterns:
-    #   /v1/market/candles   (most REST APIs)
-    #   /v1/candles
-    #   /api/v1/candles
+    # Verified against the live API (2026-08-23):
+    #   GET /v1/candles?symbol=&start=YYYY-MM-DD&end=YYYY-MM-DD&timeframe=
+    #   Auth header: x-api-key (Bearer is NOT accepted)
+    #   Timeframes: 1m 5m 15m 30m 1h 2h 4h 1d; end date INCLUSIVE.
     # Override via environment: LSE_CANDLES_PATH (not in Config — adapter-level)
-    CANDLES_PATH = "/v1/market/candles"  # GET ?symbol=&resolution=&from=&to=
+    CANDLES_PATH = "/v1/candles"
 
     def __init__(
         self,
@@ -108,7 +109,8 @@ class LSEAdapter:
         self.sb = supabase_client
         self.base_url = base_url.rstrip("/")
         self._headers = {
-            "Authorization": f"Bearer {api_key}",
+            "x-api-key": api_key,
+            "User-Agent": "hm-trading-institute/1.0",
             "Accept": "application/json",
         }
 
@@ -126,7 +128,8 @@ class LSEAdapter:
 
         Args:
             symbol:     Instrument identifier, e.g. ``"BTC/USD"``, ``"AAPL"``.
-            resolution: Candle size: ``tick``, ``1min``, ``5min``, ``1h``, ``1d``, ``1w``.
+            resolution: Candle size: ``1m``, ``5m``, ``15m``, ``30m``, ``1h``,
+                        ``2h``, ``4h``, ``1d`` (verified valid set).
             start:      ISO date ``"YYYY-MM-DD"`` (inclusive). Defaults to 1 year ago.
             end:        ISO date ``"YYYY-MM-DD"`` (inclusive). Defaults to today.
 
@@ -137,11 +140,11 @@ class LSEAdapter:
             httpx.HTTPStatusError: on non-2xx LSE response.
             ValueError: if LSE returns 0 rows for the requested window.
         """
-        params: dict[str, str] = {"symbol": symbol, "resolution": resolution}
+        params: dict[str, str] = {"symbol": symbol, "timeframe": resolution}
         if start:
-            params["from"] = start
+            params["start"] = start
         if end:
-            params["to"] = end
+            params["end"] = end
 
         log.info("lse_adapter.fetch", extra={"symbol": symbol, "resolution": resolution, "start": start, "end": end})
 
