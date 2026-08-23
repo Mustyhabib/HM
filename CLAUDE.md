@@ -351,9 +351,29 @@ plan. Attachments: CSV/XLSX/JSON → agent-uploads bucket, 50 MB cap, paths
 
 ## Sprint tracker — UPDATE AT END OF EVERY SESSION
 
-Sprint day : 9 of 30   Status: Week 2 in progress — Multi-provider BYOK (23 providers) applied + deployed
+Sprint day : 9 of 30   Status: Week 2 in progress — LSE primary data source + multi-provider BYOK live
 
 Shipped (merged to main, live):
+  ✅ LSE PRIMARY DATA SOURCE (2026-08-23, commit cd9f83f) — London Strategic
+     Edge now LEADS the engine fallback chains for crypto, us_equity, fund
+     (ETFs) and forex (after mt5); indices/options/macro unchanged (no LSE
+     coverage — verified live). New loader Tradi/agent/backtest/loaders/
+     lse_loader.py built from a LIVE-PROBED contract: GET /v1/candles,
+     x-api-key auth (NOT Bearer), dates inclusive, timeframes 1m..1d only.
+     Hardened for the commercial loop: sub-daily windows chunked into <=14d
+     slices (huge minute responses die mid-stream), daily bars floored to
+     midnight UTC (equity dailies stamp at session open — merge hazard),
+     verified error taxonomy (401 bad key / 403 rate-limit / 404 not-listed /
+     422 bad params), thread-safe process-wide throttle (concurrent user runs
+     share one key), retry_with_budget + wall-clock budget, validate_ohlc at
+     the boundary. USDT pairs map to USD (no USDT coverage on LSE).
+     Worker lse_adapter.py corrected to the same contract. LSE_API_KEY lives
+     in Railway HM service variables. 35 new tests; live E2E: SOL 65d of 1m
+     chunked (86k bars), AAPL daily midnight-normalized, SPY 6.5y daily.
+     NOTE: source="auto" still pins yahoo first for .US symbols via
+     detect_source() symbol-format routing; LSE follows immediately in the
+     chain. Flip detect_source if LSE-first routing is wanted.
+
   ✅ PER-PROVIDER MODEL OVERRIDE (2026-08-23, commit 41d32a2) — users pin
      WHICH model their runs call per provider. Migration
      2026_08_23_model_override.sql APPLIED to production (Management API):
@@ -496,6 +516,22 @@ D19 — **Phase 2 Path B** — dataset_registry schema built directly in Supabas
       (not gated on Phase 1 FastAPI monolith). Strangler-fig: FastAPI can sit in front
       later without touching the data layer. hm-ingest is a separate CLI entry point —
       the live agent-run poll loop never changes (D16 invariant preserved).
+D20 — **LSE is a DATA SOURCE, not an execution model; no external backtest framework**
+      (2026-08-23). Loaders (where bars come from) and engines (how trades execute:
+      fees, lots, T+1, margin) are deliberately orthogonal — LSE feeds bars into the
+      EXISTING market engines via FALLBACK_CHAINS; a "LSE engine" would duplicate every
+      market engine for zero behavioral gain. Likewise Backtrader/zipline/vectorbt stay
+      OUT: our BaseEngine family already provides per-market exchange rules (CN T+1,
+      price limits, funding, margin, lot rounding), cross-market CompositeEngine,
+      vectorized numpy fast-paths, sandboxed subprocess isolation for hostile
+      user-supplied strategy code, and fill-level audit artifacts — adopting an external
+      framework would lose the security sandbox, re-port 8 markets' rule nuances, and
+      add dependency risk on a commercial platform. Revisit ONLY if tick-level order-book
+      replay or RL training environments are needed (roadmap-phase decision, not MVP).
+D21 — **Per-provider model override** (2026-08-23): users pin WHICH model each provider
+      calls (user_llm_prefs.selected_model), recorded per-run on agent_runs.model for
+      auditable (provider, model) provenance; worker injects priority run model >
+      WORKER_OLLAMA_MODEL (url-type) > catalog default_model.
 
 ## Testing requirements
 
