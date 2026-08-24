@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation } from "react-router";
 import { Sun, Moon, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/theme";
+import { BETA_MODE } from "@/lib/beta";
 import { SiteFooter } from "@/components/common/SiteFooter";
 
 const NAV_LINKS = [
@@ -11,10 +12,14 @@ const NAV_LINKS = [
   { to: "/docs",    label: "Docs"    },
 ];
 
-const AUTH_LINKS = [
-  { to: "/login",  label: "Log in",  primary: false },
-  { to: "/signup", label: "Sign up", primary: true  },
-];
+// Open beta: auth links hidden from the header. BETA_MODE=false brings them
+// straight back — the routes and Login/Signup pages are untouched.
+const AUTH_LINKS = BETA_MODE
+  ? []
+  : [
+      { to: "/login",  label: "Log in",  primary: false },
+      { to: "/signup", label: "Sign up", primary: true  },
+    ];
 
 export function PublicLayout() {
   const { pathname } = useLocation();

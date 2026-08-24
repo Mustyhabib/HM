@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { BETA_MODE } from "@/lib/beta";
 import {
   startRun,
   getActiveSubscription,
@@ -159,8 +160,12 @@ export function Agent() {
     return () => { cancelled = true; };
   }, []);
 
-  const noSubscription = subscriptionLoaded && !subscriptionError && subscription === null;
-  const noApiKey = apiKeyLoaded && !apiKeyError && apiKeyConfigured === false;
+  const noSubscription = BETA_MODE
+    ? false // open beta: subscription gate lifted (tiered, not deleted)
+    : subscriptionLoaded && !subscriptionError && subscription === null;
+  const noApiKey = BETA_MODE
+    ? false // open beta: BYOK gate lifted — runs use the platform default provider
+    : apiKeyLoaded && !apiKeyError && apiKeyConfigured === false;
   const blocked = noSubscription || noApiKey;
 
   /** Upload one or more research data files (Premium only). */
@@ -218,30 +223,41 @@ export function Agent() {
     [starting, blocked, attachments],
   );
 
-  // Live progress for each run in the thread: subscribe while any is active.
+  // Live progress for each run in the thread. Subscriptions are ADDED
+  // incrementally as new runs stack — existing channels are never torn down
+  // and re-created (the old keyed-on-runIds effect dropped updates during
+  // every resubscribe window). Channels live until the page unmounts.
+  const subscribedRef = useRef<Set<string>>(new Set());
+  const unsubsRef = useRef<Array<() => void>>([]);
   useEffect(() => {
-    if (runIds.length === 0) return;
-    let cancelled = false;
+    runIds.forEach((id) => {
+      if (subscribedRef.current.has(id)) return;
+      subscribedRef.current.add(id);
 
-    const unsubs = runIds.map((id) =>
-      subscribeToRun(id, (r) => {
-        if (cancelled) return;
-        setRuns((prev) => ({ ...prev, [id]: r }));
-        if (threadRef.current) threadRef.current.scrollTop = threadRef.current.scrollHeight;
-      }),
-    );
+      unsubsRef.current.push(
+        subscribeToRun(id, (r) => {
+          setRuns((prev) => ({ ...prev, [id]: r }));
+          if (threadRef.current) threadRef.current.scrollTop = threadRef.current.scrollHeight;
+        }),
+      );
 
-    // Hydrate initial state for runs we haven't seen yet.
-    import("@/lib/runs").then(({ getRun }) => {
-      runIds.forEach((id) => {
+      // Hydrate the row we just created (prompt echo before first update).
+      import("@/lib/runs").then(({ getRun }) =>
         getRun(id).then((r) => {
-          if (!cancelled && r) setRuns((prev) => (prev[id] ? prev : { ...prev, [id]: r }));
-        });
-      });
+          if (r) setRuns((prev) => (prev[id] ? prev : { ...prev, [id]: r }));
+        }),
+      );
     });
-
-    return () => { cancelled = true; unsubs.forEach((u) => u()); };
   }, [runIds]);
+
+  // Final teardown — once, on unmount.
+  useEffect(
+    () => () => {
+      unsubsRef.current.forEach((u) => u());
+      unsubsRef.current = [];
+    },
+    [],
+  );
 
   // Rotating placeholder — quiet hint without an example-card grid.
   const [exampleIdx, setExampleIdx] = useState(0);
