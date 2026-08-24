@@ -63,7 +63,7 @@ const BUNDLE_FEATURE_LABEL: Record<FeatureBundle, string> = {
 };
 
 // Shared across every tier — not a differentiator.
-const SHARED_FEATURES = ["462 alpha factors", "Report + charts", "Bring your DeepSeek key"];
+const SHARED_FEATURES = ["462 alpha factors", "Report + charts", "Bring your own LLM key"];
 
 /** A plan's full feature list: its bundle's capabilities first, then the
  * baseline features every tier gets. */
@@ -106,7 +106,7 @@ export function Pricing() {
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground sm:text-lg">
           Pick a plan by the research capabilities you need. Unlimited runs on every
-          tier — bring your own DeepSeek key.
+          tier — bring your own LLM key.
         </p>
       </div>
 
@@ -190,13 +190,17 @@ export function Pricing() {
         <div>
           <h3 className="text-base font-semibold text-foreground">Why do I need my own API key?</h3>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            H~M runs on DeepSeek. Your key means your usage stays your usage — we don't proxy or mark up model calls. You pay DeepSeek directly for tokens.
+            H~M runs on your own LLM provider — DeepSeek, OpenAI, Anthropic, Gemini,
+            Ollama and more. Your key means your usage stays your usage: we don't proxy
+            or mark up model calls. You pay the provider directly for tokens.
           </p>
         </div>
         <div>
-          <h3 className="text-base font-semibold text-foreground">How much will DeepSeek cost me?</h3>
+          <h3 className="text-base font-semibold text-foreground">How much will the LLM cost me?</h3>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Typical research runs cost a few cents on DeepSeek v4-flash. See deepseek.com/pricing.
+            Typical research runs cost a few cents on fast models like DeepSeek
+            v4-flash. Costs depend on the provider and model you pick — see your
+            provider's pricing page.
           </p>
         </div>
         <div>

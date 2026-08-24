@@ -20,6 +20,7 @@ import {
 import { UserCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/theme";
+import { BETA_MODE } from "@/lib/beta";
 import { AppHeader } from "@/components/layout/AppHeader";
 
 /* ─── Nav definition ────────────────────────────────────────────────────────
@@ -128,11 +129,18 @@ function SidebarNav({ pathname, compact }: { pathname: string; compact: boolean 
       className={cn("flex-1 overflow-y-auto py-3", compact ? "px-2" : "px-3")}
       aria-label="Sidebar navigation"
     >
-      {NAV_SECTIONS.map((section) => (
+      {NAV_SECTIONS.map((section) => {
+        // Open beta: hide not-yet-live sections entirely (tiered, not deleted —
+        // set BETA_MODE=false to show the "Soon" roadmap items again).
+        const items = BETA_MODE
+          ? section.items.filter((item) => !item.locked)
+          : section.items;
+        if (items.length === 0) return null;
+        return (
         <div key={section.label}>
           <SectionLabel label={section.label} compact={compact} />
           <div className="space-y-0.5">
-            {section.items.map((item) => (
+            {items.map((item) => (
               <NavItem
                 key={item.to}
                 to={item.to}
@@ -149,7 +157,8 @@ function SidebarNav({ pathname, compact }: { pathname: string; compact: boolean 
             ))}
           </div>
         </div>
-      ))}
+        );
+      })}
     </nav>
   );
 }
