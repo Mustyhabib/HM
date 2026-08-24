@@ -4,107 +4,74 @@ import {
   Mail,
   Calendar,
   Crown,
-  Activity,
-  Clock,
   Settings,
   LogOut,
   Copy,
   Check,
-  Zap,
-  TrendingUp,
-  Target,
-  Award,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
-import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-store";
+import {
+  getActiveSubscription,
+  type SubscriptionStatus,
+} from "@/lib/runs";
 import { ProviderByok } from "@/components/settings/ProviderByok";
 
-/* ─── Mock user (will be replaced with real data once subscriptions are wired) ─── */
-const USER = {
-  name: "Mustapha Habib",
-  email: "mustaphahabib270@gmail.com",
-  plan: "Pro",
-  memberSince: "2026-06-01",
-  totalRuns: 24,
-  totalSignals: 87,
-  winRate: 64,
-  userId: "usr_hm_7x9k2m4q",
+/**
+ * Profile — the account page. All identity data comes from Supabase Auth;
+ * the plan badge comes from the live subscriptions table (same source the
+ * run gates read). Sections backed by features that don't exist yet
+ * (usage stats, achievements, activity feed) render honest placeholders —
+ * no fabricated numbers.
+ */
+
+const PLAN_LABEL: Record<string, string> = {
+  starter: "Starter",
+  pro: "Pro",
+  premium: "Premium",
 };
 
-/* ─── Stats card ─── */
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  color = "text-primary",
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string | number;
-  color?: string;
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">{label}</span>
-        <Icon className={cn("h-4 w-4", color)} />
-      </div>
-      <div className="mt-2 text-2xl font-bold font-mono">{value}</div>
-    </div>
-  );
-}
-
-/* ─── Activity item ─── */
-function ActivityItem({
-  action,
-  detail,
-  time,
-  type,
-}: {
-  action: string;
-  detail: string;
-  time: string;
-  type: "run" | "signal" | "billing" | "account";
-}) {
-  const iconMap = {
-    run: Zap,
-    signal: TrendingUp,
-    billing: Crown,
-    account: User,
-  };
-  const colorMap = {
-    run: "bg-primary/10 text-primary",
-    signal: "bg-success/10 text-success",
-    billing: "bg-secondary/10 text-secondary",
-    account: "bg-muted/10 text-muted-foreground",
-  };
-  const Icon = iconMap[type];
-
-  return (
-    <div className="flex items-start gap-3 py-3">
-      <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg shrink-0", colorMap[type])}>
-        <Icon className="h-4 w-4" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium">{action}</div>
-        <div className="text-xs text-muted-foreground truncate">{detail}</div>
-      </div>
-      <div className="text-xs text-muted-foreground whitespace-nowrap">{time}</div>
-    </div>
-  );
-}
-
-
-/* ─── Page ─── */
 export function Profile() {
   const [copied, setCopied] = useState(false);
+  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(
+    null,
+  );
+  const [subLoaded, setSubLoaded] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
-  // Use real email from auth if available, fall back to mock
-  const email = user?.email ?? USER.email;
-  const userId = user?.id?.slice(0, 16) ?? USER.userId;
+  // Real identity — never fall back to placeholder personal data.
+  const email = user?.email ?? "";
+  const name =
+    user?.user_metadata?.display_name ||
+    user?.user_metadata?.full_name ||
+    email.split("@")[0] ||
+    "there";
+  const initials = (name || "?")
+    .split(/\s+/)
+    .map((n: string) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  const userId = user?.id?.slice(0, 16) ?? "";
+  const memberSince = user?.created_at ? new Date(user.created_at) : null;
+
+  useEffect(() => {
+    let cancelled = false;
+    getActiveSubscription()
+      .then((s) => {
+        if (!cancelled) {
+          setSubscription(s);
+          setSubLoaded(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSubLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(userId).catch(() => {});
@@ -117,20 +84,6 @@ export function Profile() {
     navigate("/login", { replace: true });
   };
 
-  const memberDate = new Date(USER.memberSince);
-  const daysAsMember = Math.floor(
-    (Date.now() - memberDate.getTime()) / (1000 * 60 * 60 * 24),
-  );
-
-  // Client-side routing doesn't scroll to a URL fragment the way a full page
-  // load does — the Agent page links here as `/profile#api-key`, so scroll
-  // to the section manually on mount.
-  useEffect(() => {
-    if (window.location.hash === "#api-key") {
-      document.getElementById("api-key")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, []);
-
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
       {/* Profile header */}
@@ -138,19 +91,20 @@ export function Profile() {
         <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
           {/* Avatar */}
           <div className="flex h-20 w-20 items-center justify-center rounded-full gradient-bg text-2xl font-bold text-white shrink-0">
-            {USER.name
-              .split(" ")
-              .map((n) => n[0])
-              .join("")}
+            {initials}
           </div>
 
           {/* Info */}
           <div className="flex-1 text-center sm:text-left">
             <div className="flex flex-col items-center gap-2 sm:flex-row">
-              <h1 className="text-xl font-bold">{USER.name}</h1>
-              <span className="flex items-center gap-1 rounded-full gradient-bg px-2.5 py-0.5 text-xs font-medium text-white">
-                <Crown className="h-3 w-3" />
-                {USER.plan}
+              <h1 className="text-xl font-bold">{name}</h1>
+              <span className="flex items-center gap-1 rounded-full border border-border px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                <Crown className="h-3 w-3 text-secondary" />
+                {!subLoaded
+                  ? "…"
+                  : subscription
+                    ? `${PLAN_LABEL[subscription.planId] ?? subscription.planId} plan`
+                    : "No active plan"}
               </span>
             </div>
 
@@ -159,11 +113,19 @@ export function Profile() {
                 <Mail className="h-3.5 w-3.5" />
                 {email}
               </span>
-              <span className="hidden sm:inline">·</span>
-              <span className="flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5" />
-                Member since {memberDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-              </span>
+              {memberSince && (
+                <>
+                  <span className="hidden sm:inline">·</span>
+                  <span className="flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5" />
+                    Member since{" "}
+                    {memberSince.toLocaleDateString("en-US", {
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </span>
+                </>
+              )}
             </div>
 
             <div className="mt-3 flex items-center justify-center gap-2 sm:justify-start">
@@ -198,145 +160,62 @@ export function Profile() {
 
       <ProviderByok />
 
-      {/* Stats grid */}
-      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard icon={Zap} label="Total Runs" value={USER.totalRuns} color="text-primary" />
-        <StatCard icon={Activity} label="Signals Generated" value={USER.totalSignals} color="text-secondary" />
-        <StatCard icon={Target} label="Win Rate" value={`${USER.winRate}%`} color="text-success" />
-        <StatCard icon={Calendar} label="Days Active" value={daysAsMember} color="text-muted-foreground" />
-      </div>
-
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        {/* Current plan */}
-        <div className="rounded-xl border border-border bg-card p-6">
-          <h2 className="flex items-center gap-2 text-base font-semibold">
-            <Crown className="h-4 w-4 text-secondary" />
-            Current Plan
-          </h2>
-          <div className="mt-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Plan</span>
-              <span className="text-sm font-medium">Pro — ₦120,000/mo</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Runs this period</span>
-              <span className="text-sm font-mono font-medium">3 / 7</span>
-            </div>
-            <div className="h-2 rounded-full bg-elevated">
-              <div className="h-full rounded-full gradient-bg" style={{ width: "42.8%" }} />
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Renews</span>
-              <span className="text-sm font-mono">Aug 15, 2026</span>
-            </div>
-          </div>
-          <div className="mt-4 flex gap-2">
-            <Link
-              to="/settings"
-              className="flex-1 rounded-lg gradient-bg px-3 py-2 text-center text-sm font-medium text-white transition hover:opacity-90"
-            >
-              Upgrade Plan
-            </Link>
-            <Link
-              to="/usage"
-              className="flex-1 rounded-lg border border-border px-3 py-2 text-center text-sm transition hover:bg-elevated"
-            >
-              View Usage
-            </Link>
-          </div>
-        </div>
-
-        {/* Achievements */}
-        <div className="rounded-xl border border-border bg-card p-6">
-          <h2 className="flex items-center gap-2 text-base font-semibold">
-            <Award className="h-4 w-4 text-amber-400" />
-            Achievements
-          </h2>
-          <div className="mt-4 space-y-3">
-            {[
-              { name: "First Run", desc: "Completed your first agent run", earned: true },
-              { name: "Signal Hunter", desc: "Generated 50+ signals", earned: true },
-              { name: "Strategist", desc: "Created 10 strategies", earned: true },
-              { name: "Power User", desc: "Complete 100 agent runs", earned: false, progress: "24/100" },
-              { name: "Streak Master", desc: "Run agent 7 days in a row", earned: false, progress: "3/7" },
-            ].map((badge) => (
-              <div
-                key={badge.name}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg border p-3",
-                  badge.earned ? "border-border" : "border-border/50 opacity-60",
-                )}
-              >
-                <div
-                  className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-lg text-sm",
-                    badge.earned ? "gradient-bg text-white" : "bg-elevated text-muted-foreground",
-                  )}
-                >
-                  {badge.earned ? "★" : "☆"}
-                </div>
-                <div className="flex-1">
-                  <div className="text-sm font-medium">{badge.name}</div>
-                  <div className="text-xs text-muted-foreground">{badge.desc}</div>
-                </div>
-                {badge.earned ? (
-                  <Check className="h-4 w-4 text-success" />
-                ) : (
-                  <span className="text-xs font-mono text-muted-foreground">{badge.progress}</span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Activity */}
+      {/* Current plan */}
       <div className="mt-6 rounded-xl border border-border bg-card p-6">
-        <div className="flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-base font-semibold">
-            <Clock className="h-4 w-4 text-muted-foreground" />
-            Recent Activity
-          </h2>
-          <button className="text-xs text-primary hover:underline">View all</button>
+        <h2 className="flex items-center gap-2 text-base font-semibold">
+          <Crown className="h-4 w-4 text-secondary" />
+          Current Plan
+        </h2>
+        <div className="mt-4 space-y-3">
+          {!subLoaded ? (
+            <p className="text-sm text-muted-foreground">Checking your plan…</p>
+          ) : subscription ? (
+            <>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Plan</span>
+                <span className="text-sm font-medium">
+                  {PLAN_LABEL[subscription.planId] ?? subscription.planId}
+                  {subscription.status === "trialing" ? " (trial)" : ""}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Manage billing, invoices, and cancellation from the billing
+                settings page.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">
+                You don't have an active plan yet.
+              </p>
+              <Link
+                to="/pricing"
+                className="inline-block rounded-lg gradient-bg px-3 py-2 text-sm font-medium text-white transition hover:opacity-90"
+              >
+                See plans
+              </Link>
+            </>
+          )}
         </div>
-        <div className="mt-4 divide-y divide-border">
-          <ActivityItem
-            type="run"
-            action="Agent run completed"
-            detail="EMA Crossover strategy backtest on AAPL — Sharpe 1.82"
-            time="2h ago"
-          />
-          <ActivityItem
-            type="signal"
-            action="New signal generated"
-            detail="TSLA short signal — MACD Divergence, 72% confidence"
-            time="4h ago"
-          />
-          <ActivityItem
-            type="run"
-            action="Agent run completed"
-            detail="RSI Mean Reversion analysis on SPY ETF"
-            time="Yesterday"
-          />
-          <ActivityItem
-            type="billing"
-            action="Subscription renewed"
-            detail="Pro Plan — ₦120,000 charged to Visa ending 4242"
-            time="Aug 1"
-          />
-          <ActivityItem
-            type="signal"
-            action="Signal triggered"
-            detail="NVDA long signal hit target — +6.2% gain"
-            time="Aug 1"
-          />
-          <ActivityItem
-            type="account"
-            action="Plan upgraded"
-            detail="Upgraded from Starter to Pro plan"
-            time="Jul 15"
-          />
-        </div>
+      </div>
+
+      {/* Usage / achievements / activity — arrive with Phase 2+ (data plane &
+          research governance). Honest placeholders until then. */}
+      <div className="mt-6 rounded-xl border border-border bg-card p-6 text-center">
+        <User className="mx-auto h-6 w-6 text-muted-foreground/30" />
+        <p className="mt-2 text-sm font-medium text-foreground/60">
+          Usage stats, achievements, and activity history
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Coming with the research-governance rollout — your run history is
+          already live on the Agent page.
+        </p>
+        <Link
+          to="/agent"
+          className="mt-3 inline-block text-xs text-primary hover:underline"
+        >
+          Open Research →
+        </Link>
       </div>
     </div>
   );

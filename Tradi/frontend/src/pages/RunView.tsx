@@ -584,11 +584,13 @@ export function RunView() {
         .then((r) => {
           if (cancelled) return;
           setRun((prev) => {
-            // Don't overwrite fresher realtime data
-            if (prev && new Date(prev.completed_at ?? prev.created_at) >= new Date(r?.created_at ?? 0)) {
-              return prev;
-            }
-            return r;
+            // Realtime data wins over the poll snapshot — but never freeze on
+            // an active run. Only keep prev when BOTH agree it's terminal
+            // (the old timestamp comparison compared a run against itself and
+            // was always true, making this poll a no-op).
+            const prevTerminal = prev && !ACTIVE.has(prev.status);
+            if (prevTerminal && prev) return prev;
+            return r ?? prev;
           });
           if (r && ACTIVE.has(r.status)) fallbackTimer = setTimeout(fallback, 10_000);
         })

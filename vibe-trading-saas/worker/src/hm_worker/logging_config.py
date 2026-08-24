@@ -51,7 +51,19 @@ class JsonFormatter(logging.Formatter):
     allowed to carry newlines, and it is scoped to its own ``exc`` field so a
     naive line-oriented log shipper never sees an unescaped newline outside
     a JSON string value.
+
+    Standard ``LogRecord`` attributes (name, levelno, msg, args, ...) are
+    excluded; every other key passed via ``extra={...}`` at a call site is
+    emitted as a top-level JSON field — ``hm_ingest.*`` and friends rely on
+    this for their structured fields (symbol, rows, path, ...). Values that
+    fail to serialise fall back to ``str()`` via ``default=str``.
     """
+
+    _RESERVED = frozenset(vars(logging.LogRecord("%", 0, "%", 0, "%", None, None)).keys()) | {
+        "message",
+        "asctime",
+        "taskName",
+    }
 
     def format(self, record: logging.LogRecord) -> str:
         obj: dict[str, object] = {
@@ -68,6 +80,10 @@ class JsonFormatter(logging.Formatter):
             obj["event"] = event
         if record.exc_info:
             obj["exc"] = self.formatException(record.exc_info)
+        # Structured extras: everything non-reserved the call site passed.
+        for key, value in record.__dict__.items():
+            if key not in self._RESERVED and key != "event":
+                obj[key] = value
         return json.dumps(obj, default=str, ensure_ascii=False)
 
 

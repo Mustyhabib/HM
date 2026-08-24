@@ -75,7 +75,7 @@ function friendlyStartError(message: string): string {
   if (message.includes("account_suspended"))
     return "Your account is suspended — contact support.";
   if (message.includes("no_api_key"))
-    return "Add your DeepSeek API key on the Profile page before running.";
+    return "Add an LLM provider key in Settings → Credentials before running.";
   if (message.includes("rate_limited"))
     return "You're running the agent too fast — wait a minute and try again.";
   if (message.includes("not_authenticated")) return "Please log in again.";

@@ -39,7 +39,7 @@ export async function startShadowRun(
     if (msg.includes("plan_gate"))
       throw new Error("Shadow Account requires the Premium plan.");
     if (msg.includes("no_api_key"))
-      throw new Error("Add your DeepSeek API key in Settings first.");
+      throw new Error("Add an LLM provider key in Settings → Credentials first.");
     if (msg.includes("rate_limited"))
       throw new Error("You've hit the 30-runs/hour limit. Try again shortly.");
     if (msg.includes("not_authenticated"))

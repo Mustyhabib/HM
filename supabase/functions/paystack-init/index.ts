@@ -36,7 +36,7 @@ serve(async (req: Request) => {
     return new Response(null, { status: 204, headers: CORS });
   }
   if (req.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405 });
+    return new Response("Method Not Allowed", { status: 405, headers: CORS });
   }
 
   // ── Auth ───────────────────────────────────────────────────────────────────
@@ -66,7 +66,7 @@ serve(async (req: Request) => {
     return new Response("Invalid JSON", { status: 400, headers: CORS });
   }
   if (!planId) {
-    return new Response("planId required", { status: 400, headers: CORS });
+    return json({ error: "planId required" }, 400);
   }
 
   // ── Resolve Paystack plan code ─────────────────────────────────────────────

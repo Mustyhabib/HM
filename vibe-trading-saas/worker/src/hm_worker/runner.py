@@ -281,6 +281,22 @@ class TradiRunner:
         #    way the worker fetches the credential for exactly that provider.
         if _api_key_fetcher is None:
             raise SystemError_("api key fetcher not registered")
+        try:
+            return self._execute_checked(run, heartbeat, stop, run_dir)
+        finally:
+            # Cleanup covers EVERY path — including failures raised before the
+            # subprocess section (missing key, attachment staging, bad preset),
+            # which previously leaked the per-run directory.
+            if self._cleanup:
+                shutil.rmtree(run_dir, ignore_errors=True)
+
+    def _execute_checked(
+        self,
+        run: ClaimedRun,
+        heartbeat: Heartbeat,
+        stop: threading.Event,
+        run_dir: Path,
+    ) -> RunResult:
         catalog = get_catalog()
         # Prefer the provider recorded on the run row (set by start_*_run),
         # else defer to the per-user resolver hook.
@@ -313,6 +329,9 @@ class TradiRunner:
         #    ``--swarm-run PRESET '{vars_json}'`` legacy CLI (see agent/cli/_legacy.py);
         #    shadow dispatch passes the journal via the main-parser ``--upload`` flag.
         argv = self._argv_for(run, run_dir)
+
+        stdout_path = run_dir / "stdout.log"
+        stderr_path = run_dir / "stderr.log"
 
         log.info(
             "tradi run %s: kind=%s HOME=%s max_iter=%s attachments=%d",
@@ -359,8 +378,6 @@ class TradiRunner:
         finally:
             if tailer is not None:
                 tailer.stop()
-            if self._cleanup:
-                shutil.rmtree(run_dir, ignore_errors=True)
 
     # -- internals ---------------------------------------------------------
 
