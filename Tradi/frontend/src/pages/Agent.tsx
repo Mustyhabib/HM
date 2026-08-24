@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { BETA_MODE } from "@/lib/beta";
+import { useAuth } from "@/lib/auth-store";
 import {
   startRun,
   getActiveSubscription,
@@ -197,6 +198,14 @@ export function Agent() {
   const removeAttachment = useCallback((path: string) => {
     setAttachments((prev) => prev.filter((a) => a.path !== path));
   }, []);
+
+  // Open beta: bootstrap an anonymous (guest) session so the first submit has
+  // a real auth.uid() — server RPCs, quota, and rate limits all work normally.
+  const { ensureGuestSession } = useAuth();
+  useEffect(() => {
+    if (!BETA_MODE) return;
+    void ensureGuestSession();
+  }, [BETA_MODE, ensureGuestSession]);
 
   const submit = useCallback(
     async (raw: string) => {

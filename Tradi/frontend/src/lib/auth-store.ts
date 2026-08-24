@@ -11,6 +11,15 @@ interface AuthState {
   /** Call once on app mount — sets up the auth listener */
   initialize: () => () => void;
 
+  /**
+   * Open-beta guest bootstrap: sign in anonymously when there is no session.
+   * Gives beta visitors a real auth.uid() so server-side RPCs (quota, rate
+   * limits, RLS) work exactly as for signed-in users. Idempotent — no-ops
+   * when a session already exists or a sign-in is in flight. Guest accounts
+   * convert to full accounts at launch via supabase.auth.updateUser().
+   */
+  ensureGuestSession: () => Promise<void>;
+
   signUp: (
     email: string,
     password: string,
@@ -19,7 +28,7 @@ interface AuthState {
   signOut: () => Promise<void>;
 }
 
-export const useAuth = create<AuthState>((set) => ({
+export const useAuth = create<AuthState>((set, get) => ({
   user: null,
   session: null,
   loading: true,
@@ -49,6 +58,24 @@ export const useAuth = create<AuthState>((set) => ({
 
     // Return cleanup function
     return () => subscription.unsubscribe();
+  },
+
+  ensureGuestSession: async () => {
+    if (get().session || get().loading) return;
+    // Mark in-flight so concurrent callers don't double-sign-in
+    set({ loading: true });
+    try {
+      const { data, error } = await supabase.auth.signInAnonymously();
+      if (error) {
+        console.warn("[H~M] anonymous sign-in failed:", error.message);
+      }
+      set({
+        session: data.session ?? null,
+        user: data.user ?? null,
+      });
+    } finally {
+      set({ loading: false });
+    }
   },
 
   signUp: async (email, password) => {
