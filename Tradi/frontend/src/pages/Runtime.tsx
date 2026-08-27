@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 import {
   Activity,
   AlertTriangle,
@@ -22,7 +20,6 @@ const RUNTIME_POLL_INTERVAL_MS = 15_000;
 const RUNTIME_CLOCK_INTERVAL_MS = 1_000;
 
 export function Runtime() {
-  const { t } = useTranslation();
   const [status, setStatus] = useState<LiveStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -31,11 +28,6 @@ export function Runtime() {
   const activeRequestRef = useRef<{ id: number; controller: AbortController } | null>(null);
   const requestSeqRef = useRef(0);
   const mountedRef = useRef(false);
-  const tRef = useRef(t);
-
-  useEffect(() => {
-    tRef.current = t;
-  }, [t]);
 
   const loadStatus = useCallback(async (mode: "initial" | "refresh" = "refresh") => {
     const requestId = requestSeqRef.current + 1;
@@ -56,10 +48,10 @@ export function Runtime() {
       if (!mountedRef.current || !isCurrentStatusRequest(activeRequestRef.current, requestId, controller)) return;
       console.warn("Failed to load runtime status", err);
       setStatus(null);
-      setError(err instanceof Error ? err.message : tRef.current("runtime.statusUnavailable"));
+      setError(err instanceof Error ? err.message : "Status unavailable.");
     } finally {
-      // Avoid return-in-finally (no-unsafe-finally): guard the cleanup with
-      // an if instead of returning early, so exceptions from try/catch survive.
+      // Avoid return-in-finally (no-unsafe-finally): guard with an if so
+      // exceptions from try/catch survive.
       if (mountedRef.current && isCurrentStatusRequest(activeRequestRef.current, requestId, controller)) {
         activeRequestRef.current = null;
         setLoading(false);
@@ -100,13 +92,13 @@ export function Runtime() {
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2 rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-muted-foreground">
               <Activity className="h-3.5 w-3.5" />
-              {t("runtime.monitorBadge")}
+              Live Monitor
             </div>
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">{t("runtime.title")}</h1>
+              <h1 className="text-2xl font-semibold tracking-tight">Runtime</h1>
               <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-                {t("runtime.subtitlePre")} <span className="font-mono">/live/status</span>
-                {t("runtime.subtitlePost")}
+                System status and mandate compliance for the live trading subsystem. Polls{" "}
+                <span className="font-mono">/live/status</span> every 15 seconds.
               </p>
             </div>
           </div>
@@ -117,7 +109,7 @@ export function Runtime() {
             className="inline-flex items-center gap-2 rounded-md border border-border/60 px-4 py-2 text-sm font-medium transition hover:bg-muted/60 disabled:opacity-50"
           >
             {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            {t("runtime.refresh")}
+            Refresh
           </button>
         </section>
 
@@ -133,10 +125,12 @@ export function Runtime() {
           <section className="rounded-xl border border-warning/30 bg-warning/5 p-5 shadow-sm">
             <div className="flex items-center gap-2 font-medium text-warning">
               <AlertTriangle className="h-5 w-5" />
-              {t("runtime.unavailableTitle")}
+              Status unavailable
             </div>
             <p className="mt-2 text-sm text-muted-foreground">{error}</p>
-            <p className="mt-2 text-xs text-muted-foreground">{t("runtime.unavailableHint")}</p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Ensure the live trading worker is running and the API is reachable.
+            </p>
           </section>
         ) : null}
 
@@ -144,21 +138,21 @@ export function Runtime() {
           <>
             <section className="grid gap-3 md:grid-cols-4">
               <SummaryTile
-                label={t("runtime.globalHalt")}
-                value={status.global_halted ? t("runtime.halted") : t("runtime.clear")}
+                label="Global halt"
+                value={status.global_halted ? "Halted" : "Clear"}
                 tone={status.global_halted ? "danger" : "success"}
                 icon={status.global_halted ? OctagonX : CheckCircle2}
               />
-              <SummaryTile label={t("runtime.brokers")} value={String(summary.brokerCount)} tone="neutral" icon={Activity} />
+              <SummaryTile label="Brokers" value={String(summary.brokerCount)} tone="neutral" icon={Activity} />
               <SummaryTile
-                label={t("runtime.authorized")}
+                label="Authorized"
                 value={String(summary.authorizedCount)}
                 tone={summary.authorizedCount > 0 ? "success" : "neutral"}
                 icon={summary.authorizedCount > 0 ? Wifi : WifiOff}
               />
               <SummaryTile
-                label={t("runtime.runners")}
-                value={t("runtime.running", { count: summary.runningCount })}
+                label="Runners"
+                value={`${summary.runningCount} running`}
                 tone={summary.runningCount > 0 && !status.global_halted ? "success" : "neutral"}
                 icon={summary.runningCount > 0 ? Activity : Clock3}
               />
@@ -167,8 +161,10 @@ export function Runtime() {
             {status.brokers.length === 0 ? (
               <section className="rounded-xl border border-dashed border-border/60 bg-card p-5 text-center shadow-sm">
                 <ShieldOff className="mx-auto h-8 w-8 text-muted-foreground" />
-                <h2 className="mt-3 text-sm font-semibold">{t("runtime.noProfilesTitle")}</h2>
-                <p className="mt-1 text-sm text-muted-foreground">{t("runtime.noProfilesBody")}</p>
+                <h2 className="mt-3 text-sm font-semibold">No broker profiles</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  No broker profiles are configured. Mandate-gated live trading requires a configured broker profile.
+                </p>
               </section>
             ) : (
               <section className="grid gap-4">
@@ -177,7 +173,6 @@ export function Runtime() {
                     key={broker.auth.profile_id || broker.auth.broker}
                     broker={broker}
                     globalHalted={status.global_halted}
-                    t={t}
                     nowMs={nowMs}
                     onRefresh={() => loadStatus("refresh")}
                   />
@@ -236,13 +231,11 @@ function SummaryTile({ label, value, tone, icon: Icon }: SummaryTileProps) {
 function BrokerRuntimeCard({
   broker,
   globalHalted,
-  t,
   nowMs,
   onRefresh,
 }: {
   broker: LiveBrokerStatus;
   globalHalted: boolean;
-  t: TFunction;
   nowMs: number;
   onRefresh: () => Promise<void>;
 }) {
@@ -250,11 +243,11 @@ function BrokerRuntimeCard({
   const runnerAlive = broker.runner?.alive ?? false;
   const halted = globalHalted || broker.halted;
   const mandate = broker.mandate ?? null;
-  const risk = deriveRiskState(broker, globalHalted, t);
-  const mandateCountdown = formatCountdown(mandate?.expires_at, t, nowMs);
+  const risk = deriveRiskState(broker, globalHalted);
+  const mandateCountdown = formatCountdown(mandate?.expires_at, nowMs);
 
   if (broker.auth.transport === "broker_sdk") {
-    return <SdkBrokerRuntimeCard broker={broker} t={t} onRefresh={onRefresh} />;
+    return <SdkBrokerRuntimeCard broker={broker} onRefresh={onRefresh} />;
   }
 
   return (
@@ -264,42 +257,42 @@ function BrokerRuntimeCard({
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-sm font-semibold capitalize">{brokerKey}</h2>
             <StatusPill
-              label={broker.auth.oauth_token_present ? t("runtime.authPresent") : t("runtime.authMissing")}
+              label={broker.auth.oauth_token_present ? "Auth present" : "Auth missing"}
               tone={broker.auth.oauth_token_present ? "success" : "neutral"}
             />
             <StatusPill
-              label={runnerAlive ? t("runtime.runnerAlive") : t("runtime.runnerStopped")}
+              label={runnerAlive ? "Runner alive" : "Runner stopped"}
               tone={runnerAlive ? "success" : "neutral"}
             />
-            {halted ? <StatusPill label={t("runtime.haltedPill")} tone="danger" /> : null}
+            {halted ? <StatusPill label="Halted" tone="danger" /> : null}
           </div>
           <p className="mt-2 text-sm text-muted-foreground">
-            {broker.auth.is_live_broker ? t("runtime.recognizedProfile") : t("runtime.unknownProfile")} · {t("runtime.lastTick")}{" "}
-            {formatLastTick(broker.runner?.last_tick, broker.runner?.last_tick_age_seconds, t, nowMs)}
+            {broker.auth.is_live_broker ? "Recognized profile" : "Unknown profile"} · Last tick{" "}
+            {formatLastTick(broker.runner?.last_tick, broker.runner?.last_tick_age_seconds, nowMs)}
           </p>
         </div>
         <StatusPill label={risk.label} tone={risk.tone} />
       </div>
 
       <div className="mt-4 grid gap-3 md:grid-cols-3">
-        <RuntimePanel title={t("runtime.authorization")} icon={broker.auth.oauth_token_present ? Wifi : WifiOff}>
-          <KeyValue label={t("runtime.oauthToken")} value={broker.auth.oauth_token_present ? t("runtime.present") : t("runtime.missing")} />
-          <KeyValue label={t("runtime.profileType")} value={broker.auth.is_live_broker ? t("runtime.recognized") : t("runtime.unknown")} />
+        <RuntimePanel title="Authorization" icon={broker.auth.oauth_token_present ? Wifi : WifiOff}>
+          <KeyValue label="OAuth token" value={broker.auth.oauth_token_present ? "Present" : "Missing"} />
+          <KeyValue label="Profile type" value={broker.auth.is_live_broker ? "Recognized" : "Unknown"} />
         </RuntimePanel>
 
-        <RuntimePanel title={t("runtime.mandate")} icon={mandate ? ShieldCheck : ShieldOff}>
+        <RuntimePanel title="Mandate" icon={mandate ? ShieldCheck : ShieldOff}>
           {mandate ? (
             <>
-              <KeyValue label={t("runtime.account")} value={mandate.account_ref || t("runtime.unrecorded")} />
-              <KeyValue label={t("runtime.expiry")} value={mandate.expired ? t("runtime.expired") : mandateCountdown} />
-              <KeyValue label={t("runtime.limits")} value={summarizeLimits(mandate.limits, t)} />
+              <KeyValue label="Account" value={mandate.account_ref || "Unrecorded"} />
+              <KeyValue label="Expiry" value={mandate.expired ? "Expired" : mandateCountdown} />
+              <KeyValue label="Limits" value={summarizeLimits(mandate.limits)} />
             </>
           ) : (
-            <p className="text-sm text-muted-foreground">{t("runtime.noMandate")}</p>
+            <p className="text-sm text-muted-foreground">No mandate configured.</p>
           )}
         </RuntimePanel>
 
-        <RuntimePanel title={t("runtime.riskStateTitle")} icon={risk.icon}>
+        <RuntimePanel title="Risk state" icon={risk.icon}>
           <p className="text-sm text-muted-foreground">{risk.description}</p>
         </RuntimePanel>
       </div>
@@ -307,12 +300,12 @@ function BrokerRuntimeCard({
   );
 }
 
-function SdkBrokerRuntimeCard({ broker, t, onRefresh }: { broker: LiveBrokerStatus; t: TFunction; onRefresh: () => Promise<void> }) {
+function SdkBrokerRuntimeCard({ broker, onRefresh }: { broker: LiveBrokerStatus; onRefresh: () => Promise<void> }) {
   const auth = broker.auth;
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const profileId = auth.profile_id || `${auth.broker}-live-sdk-readonly`;
-  const state = connectorState(auth, t);
+  const state = connectorState(auth);
 
   const verify = useCallback(async () => {
     if (verifying) return;
@@ -322,11 +315,11 @@ function SdkBrokerRuntimeCard({ broker, t, onRefresh }: { broker: LiveBrokerStat
       await api.verifyConnector(profileId);
       await onRefresh();
     } catch {
-      setVerifyError(t("runtime.connectorVerifyFailed"));
+      setVerifyError("Connector verification failed.");
     } finally {
       setVerifying(false);
     }
-  }, [onRefresh, profileId, t, verifying]);
+  }, [onRefresh, profileId, verifying]);
 
   return (
     <article className="rounded-xl border border-border/60 bg-card p-4 shadow-sm">
@@ -337,7 +330,7 @@ function SdkBrokerRuntimeCard({ broker, t, onRefresh }: { broker: LiveBrokerStat
             <StatusPill label={state.label} tone={state.tone} />
           </div>
           {isReadOnlyCompatible(auth) ? (
-            <p className="mt-2 text-sm text-muted-foreground">{t("runtime.sdkConnectorProfile")}</p>
+            <p className="mt-2 text-sm text-muted-foreground">SDK connector (read-only profile)</p>
           ) : null}
         </div>
         {state.action ? (
@@ -348,14 +341,16 @@ function SdkBrokerRuntimeCard({ broker, t, onRefresh }: { broker: LiveBrokerStat
             className="inline-flex items-center gap-2 rounded-md border border-border/60 px-4 py-2 text-sm font-medium transition hover:bg-muted/60 disabled:opacity-50"
           >
             {verifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            {t(state.action)}
+            {state.action === "verify" ? "Verify connection" : "Retry"}
           </button>
         ) : null}
       </div>
 
       {state.kind === "not_configured" ? (
         <section className="mt-4 rounded-xl border border-dashed border-border/60 bg-muted/40 p-4 shadow-sm">
-          <p className="text-sm text-muted-foreground">{t("runtime.missingLongbridgeVariables")}</p>
+          <p className="text-sm text-muted-foreground">
+            Missing environment variables. Set the following to configure the Longbridge SDK connector:
+          </p>
           <ul className="mt-2 grid gap-1 font-mono text-sm">
             <li>LONGBRIDGE_APP_KEY</li>
             <li>LONGBRIDGE_APP_SECRET</li>
@@ -364,18 +359,20 @@ function SdkBrokerRuntimeCard({ broker, t, onRefresh }: { broker: LiveBrokerStat
         </section>
       ) : (
         <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <RuntimePanel title={t("runtime.connectionDetails")} icon={state.kind === "connected" ? Wifi : WifiOff}>
-            <KeyValue label={t("runtime.credentialSource")} value={auth.credential_source || t("runtime.unknown")} />
-            <KeyValue label={t("runtime.sdk")} value={formatSdkState(auth.sdk_installed, t)} />
+          <RuntimePanel title="Connection details" icon={state.kind === "connected" ? Wifi : WifiOff}>
+            <KeyValue label="Credential source" value={auth.credential_source || "Unknown"} />
+            <KeyValue label="SDK" value={formatSdkState(auth.sdk_installed)} />
           </RuntimePanel>
-          <RuntimePanel title={t("runtime.environment")} icon={ShieldCheck}>
-            <KeyValue label={t("runtime.environmentIdentity")} value={formatEnvironmentIdentity(auth.environment_identity, t)} />
-            <KeyValue label={t("runtime.capabilities")} value={formatCapabilities(auth, t)} />
+          <RuntimePanel title="Environment" icon={ShieldCheck}>
+            <KeyValue label="Identity" value={formatEnvironmentIdentity(auth.environment_identity)} />
+            <KeyValue label="Capabilities" value={formatCapabilities(auth)} />
           </RuntimePanel>
-          <RuntimePanel title={t("runtime.diagnostics")} icon={state.kind === "error" ? AlertTriangle : CheckCircle2}>
-            <KeyValue label={t("runtime.lastChecked")} value={auth.last_checked_at || t("runtime.never")} />
-            {auth.error_code ? <KeyValue label={t("runtime.errorCode")} value={auth.error_code} /> : null}
-            {state.kind === "error" ? <p className="text-sm text-muted-foreground">{connectorDiagnostic(auth.error_code, t)}</p> : null}
+          <RuntimePanel title="Diagnostics" icon={state.kind === "error" ? AlertTriangle : CheckCircle2}>
+            <KeyValue label="Last checked" value={auth.last_checked_at || "Never"} />
+            {auth.error_code ? <KeyValue label="Error code" value={auth.error_code} /> : null}
+            {state.kind === "error" ? (
+              <p className="text-sm text-muted-foreground">{connectorDiagnostic(auth.error_code)}</p>
+            ) : null}
           </RuntimePanel>
         </div>
       )}
@@ -384,50 +381,50 @@ function SdkBrokerRuntimeCard({ broker, t, onRefresh }: { broker: LiveBrokerStat
   );
 }
 
-function connectorState(auth: LiveBrokerStatus["auth"], t: TFunction): {
+function connectorState(auth: LiveBrokerStatus["auth"]): {
   kind: "not_configured" | "ready" | "connected" | "error" | "unknown";
   label: string;
   tone: "success" | "danger" | "warning" | "neutral";
-  action?: "runtime.verifyConnection" | "runtime.retry";
+  action?: "verify" | "retry";
 } {
   if (auth.connection_state === "connected") {
     if (isReadOnlyCompatible(auth)) {
-      return { kind: "connected", label: t("runtime.connectedReadOnly"), tone: "success" };
+      return { kind: "connected", label: "Connected (read-only)", tone: "success" };
     }
-    return { kind: "connected", label: t("runtime.connectedAccessUnknown"), tone: "neutral" };
+    return { kind: "connected", label: "Connected", tone: "neutral" };
   }
   if (auth.connection_state === "not_configured" || auth.configured === false) {
-    return { kind: "not_configured", label: t("runtime.notConfigured"), tone: "neutral" };
+    return { kind: "not_configured", label: "Not configured", tone: "neutral" };
   }
   if (auth.connection_state === "error") {
-    return { kind: "error", label: t("runtime.connectionFailed"), tone: "danger", action: "runtime.retry" };
+    return { kind: "error", label: "Connection failed", tone: "danger", action: "retry" };
   }
   if (auth.connection_state === "ready") {
-    return { kind: "ready", label: t("runtime.readyToVerify"), tone: "warning", action: "runtime.verifyConnection" };
+    return { kind: "ready", label: "Ready to verify", tone: "warning", action: "verify" };
   }
-  return { kind: "unknown", label: t("runtime.connectorStatusUnavailable"), tone: "neutral" };
+  return { kind: "unknown", label: "Status unavailable", tone: "neutral" };
 }
 
-function connectorDiagnostic(errorCode: string | null | undefined, t: TFunction): string {
+function connectorDiagnostic(errorCode: string | null | undefined): string {
   switch (errorCode) {
-    case "credentials_partial": return t("runtime.diagnosticCredentialsPartial");
-    case "credentials_conflict": return t("runtime.diagnosticCredentialsConflict");
-    case "sdk_missing": return t("runtime.diagnosticSdkMissing");
-    case "authentication_failed": return t("runtime.diagnosticAuthenticationFailed");
-    case "network_unreachable": return t("runtime.diagnosticNetworkUnreachable");
-    default: return t("runtime.diagnosticBrokerError");
+    case "credentials_partial":    return "Partial credentials — some required variables are set but others are missing.";
+    case "credentials_conflict":   return "Credential conflict — both environment and vault credentials are set. Use one source only.";
+    case "sdk_missing":            return "SDK not installed. Install the broker SDK package.";
+    case "authentication_failed":  return "Authentication failed. Check your credentials.";
+    case "network_unreachable":    return "Network unreachable. Check connectivity to the broker.";
+    default:                       return "Unexpected broker error.";
   }
 }
 
-function formatSdkState(installed: boolean | null | undefined, t: TFunction): string {
-  if (installed === true) return t("runtime.installed");
-  if (installed === false) return t("runtime.notInstalled");
-  return t("runtime.unknown");
+function formatSdkState(installed: boolean | null | undefined): string {
+  if (installed === true)  return "Installed";
+  if (installed === false) return "Not installed";
+  return "Unknown";
 }
 
-function formatEnvironmentIdentity(identity: string | null | undefined, t: TFunction): string {
-  if (identity === "config_declared" || identity === "config-declared") return t("runtime.configDeclared");
-  return identity || t("runtime.unknown");
+function formatEnvironmentIdentity(identity: string | null | undefined): string {
+  if (identity === "config_declared" || identity === "config-declared") return "Config declared";
+  return identity || "Unknown";
 }
 
 function isReadCapability(capability: string): boolean {
@@ -442,20 +439,20 @@ function isReadOnlyCompatible(auth: LiveBrokerStatus["auth"]): boolean {
   return auth.capabilities.every(isReadCapability);
 }
 
-function formatCapabilities(auth: LiveBrokerStatus["auth"], t: TFunction): string {
+function formatCapabilities(auth: LiveBrokerStatus["auth"]): string {
   const labels: Record<string, string> = {
-    "account.read": t("runtime.capabilityAccount"),
-    "positions.read": t("runtime.capabilityPositions"),
-    "orders.read": t("runtime.capabilityOpenOrders"),
-    "quotes.read": t("runtime.capabilityQuotes"),
-    "history.read": t("runtime.capabilityHistory"),
+    "account.read":   "Account",
+    "positions.read": "Positions",
+    "orders.read":    "Open orders",
+    "quotes.read":    "Quotes",
+    "history.read":   "History",
   };
   const readCapabilities = auth.capabilities?.filter(isReadCapability) ?? [];
-  const rendered = readCapabilities.map((capability) => labels[capability] || capability).join(", ");
+  const rendered = readCapabilities.map((c) => labels[c] || c).join(", ");
   if (!isReadOnlyCompatible(auth)) {
-    return rendered ? `${rendered} · ${t("runtime.accessUnknown")}` : t("runtime.accessUnknown");
+    return rendered ? `${rendered} · Access unknown` : "Access unknown";
   }
-  return `${rendered} · ${t("runtime.readOnly")}`;
+  return `${rendered} · Read-only`;
 }
 
 function RuntimePanel({ title, icon: Icon, children }: { title: string; icon: typeof Activity; children: ReactNode }) {
@@ -485,7 +482,7 @@ function StatusPill({ label, tone }: { label: string; tone: "success" | "danger"
       className={cn(
         "inline-flex items-center rounded px-2 py-0.5 text-xs font-medium",
         tone === "success" && "bg-success/10 text-success",
-        tone === "danger" && "bg-danger/10 text-danger",
+        tone === "danger"  && "bg-danger/10 text-danger",
         tone === "warning" && "bg-warning/10 text-warning",
         tone === "neutral" && "bg-muted text-muted-foreground",
       )}
@@ -500,13 +497,13 @@ function summarizeRuntime(status: LiveStatus | null) {
   return {
     brokerCount: brokers.length,
     authorizedCount: brokers.filter(
-      (broker) => broker.auth.oauth_token_present || broker.auth.connection_state === "connected",
+      (b) => b.auth.oauth_token_present || b.auth.connection_state === "connected",
     ).length,
-    runningCount: brokers.filter((broker) => broker.runner?.alive).length,
+    runningCount: brokers.filter((b) => b.runner?.alive).length,
   };
 }
 
-function deriveRiskState(broker: LiveBrokerStatus, globalHalted: boolean, t: TFunction): {
+function deriveRiskState(broker: LiveBrokerStatus, globalHalted: boolean): {
   label: string;
   tone: "success" | "danger" | "warning" | "neutral";
   icon: typeof Activity;
@@ -514,61 +511,61 @@ function deriveRiskState(broker: LiveBrokerStatus, globalHalted: boolean, t: TFu
 } {
   if (globalHalted || broker.halted) {
     return {
-      label: t("runtime.riskHalted"),
+      label: "Halted",
       tone: "danger",
       icon: OctagonX,
-      description: t("runtime.riskHaltedDesc"),
+      description: "A global or broker-level halt is active. All new orders are blocked.",
     };
   }
   if (broker.runner?.alive && broker.mandate && !broker.mandate.expired) {
     return {
-      label: t("runtime.riskActive"),
+      label: "Active",
       tone: "success",
       icon: Activity,
-      description: t("runtime.riskActiveDesc"),
+      description: "Runner alive, mandate valid. Orders are permitted within mandate limits.",
     };
   }
   if (broker.auth.oauth_token_present && broker.mandate && !broker.mandate.expired) {
     return {
-      label: t("runtime.riskIdle"),
+      label: "Idle",
       tone: "warning",
       icon: Clock3,
-      description: t("runtime.riskIdleDesc"),
+      description: "Auth present and mandate valid, but runner is not alive.",
     };
   }
   return {
-    label: t("runtime.riskDormant"),
+    label: "Dormant",
     tone: "neutral",
     icon: ShieldOff,
-    description: t("runtime.riskDormantDesc"),
+    description: "No active auth or mandate. The broker is not ready for live execution.",
   };
 }
 
-function summarizeLimits(limits: LiveMandateLimits | undefined, t: TFunction): string {
-  if (!limits) return t("runtime.limitsUnavailable");
+function summarizeLimits(limits: LiveMandateLimits | undefined): string {
+  if (!limits) return "Unavailable";
   const parts: string[] = [];
-  if (typeof limits.max_order_notional_usd === "number") parts.push(`${formatUsd(limits.max_order_notional_usd)}${t("runtime.perOrder")}`);
-  if (typeof limits.max_total_exposure_usd === "number") parts.push(`${formatUsd(limits.max_total_exposure_usd)} ${t("runtime.exposure")}`);
-  if (typeof limits.max_trades_per_day === "number") parts.push(`${limits.max_trades_per_day}${t("runtime.perDay")}`);
-  if (typeof limits.max_leverage === "number") parts.push(`${limits.max_leverage}${t("runtime.leverageSuffix")}`);
-  if (limits.allowed_instruments?.length) parts.push(limits.allowed_instruments.join(", "));
-  return parts.join(" · ") || t("runtime.limitsUnavailable");
+  if (typeof limits.max_order_notional_usd === "number") parts.push(`${formatUsd(limits.max_order_notional_usd)}/order`);
+  if (typeof limits.max_total_exposure_usd === "number")  parts.push(`${formatUsd(limits.max_total_exposure_usd)} exposure`);
+  if (typeof limits.max_trades_per_day === "number")      parts.push(`${limits.max_trades_per_day}/day`);
+  if (typeof limits.max_leverage === "number")            parts.push(`${limits.max_leverage}× leverage`);
+  if (limits.allowed_instruments?.length)                 parts.push(limits.allowed_instruments.join(", "));
+  return parts.join(" · ") || "Unavailable";
 }
 
 function formatUsd(value: number): string {
   return `$${value.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 }
 
-function formatCountdown(iso: string | undefined, t: TFunction, nowMs: number): string {
-  if (!iso) return t("runtime.unknown");
+function formatCountdown(iso: string | undefined, nowMs: number): string {
+  if (!iso) return "Unknown";
   const target = new Date(iso).getTime();
-  if (!Number.isFinite(target)) return t("runtime.unknown");
+  if (!Number.isFinite(target)) return "Unknown";
   const deltaSec = Math.round((target - nowMs) / 1000);
-  if (deltaSec <= 0) return t("runtime.expired");
+  if (deltaSec <= 0) return "Expired";
   const days = Math.floor(deltaSec / 86_400);
   const hours = Math.floor((deltaSec % 86_400) / 3600);
-  if (days > 0) return `${days}d ${hours}h`;
-  if (hours > 0) return `${hours}h`;
+  if (days > 0)      return `${days}d ${hours}h`;
+  if (hours > 0)     return `${hours}h`;
   if (deltaSec < 60) return `${deltaSec}s`;
   return `${Math.floor(deltaSec / 60)}m`;
 }
@@ -576,25 +573,24 @@ function formatCountdown(iso: string | undefined, t: TFunction, nowMs: number): 
 function formatLastTick(
   value: string | number | null | undefined,
   ageSeconds: number | null | undefined,
-  t: TFunction,
   nowMs: number,
 ): string {
   if (typeof ageSeconds === "number" && Number.isFinite(ageSeconds)) {
-    if (ageSeconds < 60) return `${Math.round(ageSeconds)}s ${t("runtime.ago")}`;
-    if (ageSeconds < 3600) return `${Math.floor(ageSeconds / 60)}m ${t("runtime.ago")}`;
-    return `${Math.floor(ageSeconds / 3600)}h ${t("runtime.ago")}`;
+    if (ageSeconds < 60)   return `${Math.round(ageSeconds)}s ago`;
+    if (ageSeconds < 3600) return `${Math.floor(ageSeconds / 60)}m ago`;
+    return `${Math.floor(ageSeconds / 3600)}h ago`;
   }
-  if (value == null || value === "") return t("runtime.never");
+  if (value == null || value === "") return "Never";
   const timestamp = typeof value === "number" ? normalizeEpochMs(value) : new Date(value).getTime();
-  if (!Number.isFinite(timestamp)) return t("runtime.unknown");
+  if (!Number.isFinite(timestamp)) return "Unknown";
   const deltaSec = Math.round((nowMs - timestamp) / 1000);
-  if (deltaSec < 60) return `${Math.max(0, deltaSec)}s ${t("runtime.ago")}`;
-  if (deltaSec < 3600) return `${Math.floor(deltaSec / 60)}m ${t("runtime.ago")}`;
-  return `${Math.floor(deltaSec / 3600)}h ${t("runtime.ago")}`;
+  if (deltaSec < 60)   return `${Math.max(0, deltaSec)}s ago`;
+  if (deltaSec < 3600) return `${Math.floor(deltaSec / 60)}m ago`;
+  return `${Math.floor(deltaSec / 3600)}h ago`;
 }
 
 function normalizeEpochMs(value: number): number {
-  if (value >= 1_000_000_000_000) return value;
-  if (value >= 946_684_800 && value <= 4_102_444_800) return value * 1000;
+  if (value >= 1_000_000_000_000)                          return value;
+  if (value >= 946_684_800 && value <= 4_102_444_800)      return value * 1000;
   return Number.NaN;
 }
