@@ -24,6 +24,8 @@ from .runner import (
     set_api_key_fetcher,
     set_attachment_downloader,
     set_progress_push,
+    set_session_completer,
+    set_session_history_fetcher,
 )
 from .sentry import capture_run_error, init_sentry
 
@@ -267,6 +269,14 @@ def main() -> int:
     # Register the progress pusher so TraceTailer can stream trace.jsonl events
     # into agent_runs.progress_message. StubRunner never triggers this path.
     set_progress_push(lambda run_id, msg, itr: queue.progress(run_id, msg, itr))
+    # Register the session-history fetcher so TradiRunner can inject prior turns
+    # (--history-file) for runs linked to a session. Standalone runs pass nothing.
+    set_session_history_fetcher(lambda sid, uid, limit: queue.get_session_history(sid, uid, limit))
+    # Register the session-completer so TradiRunner can persist the assistant
+    # message (answer + tool trail) for a session run. Best-effort inside the runner.
+    set_session_completer(
+        lambda run_id, sid, content, trail: queue.complete_session_turn(run_id, sid, content, trail)
+    )
 
     state = _LiveState()
     health = HealthServer(state.snapshot, host=config.health_host, port=config.health_port)

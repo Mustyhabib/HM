@@ -44,6 +44,20 @@ _progress_push: Callable[[str, str, int | None], None] | None = None
 _api_key_fetcher: Callable[[str, str], str | None] | None = None
 
 
+# Optional injection point for session history fetch (multi-turn session feature).
+# Signature: (session_id: str, user_id: str, limit: int) -> list[dict] | None
+# Set by main.py from RunQueue.get_session_history so the runner never touches
+# the DB client directly (same boundary as the other hooks above).
+_session_history_fetcher: Callable[[str, str, int], list[dict]] | None = None
+
+# Optional injection point for session turn persistence (multi-turn feature).
+# Signature: (run_id: str, session_id: str, content: str, tool_trail: list[dict]) -> bool
+# Set by main.py from RunQueue.complete_session_turn. Called by TradiRunner while
+# the per-run workspace is still on disk (trace.jsonl is the source of the answer
+# + tool trail), so it must run inside execute() before cleanup — not in main.py.
+_session_completer: Callable[[str, str, str, list[dict]], bool] | None = None
+
+
 def set_attachment_downloader(fn: Callable[[str], bytes] | None) -> None:
     """Register the function used to fetch attachments from Supabase Storage.
 
@@ -75,6 +89,29 @@ def set_api_key_fetcher(fn: Callable[[str, str], str | None] | None) -> None:
     """
     global _api_key_fetcher
     _api_key_fetcher = fn
+
+
+def set_session_history_fetcher(fn: Callable[[str, str, int], list[dict]] | None) -> None:
+    """Register the function used to fetch prior session turns for a run.
+
+    Called by main.py once the RunQueue exists. Passing ``None`` (default)
+    means session history is never injected — standalone runs and sessions
+    with no prior turns both degrade to a single-turn engine invocation, which
+    is exactly the legacy behaviour.
+    """
+    global _session_history_fetcher
+    _session_history_fetcher = fn
+
+
+def set_session_completer(fn: Callable[[str, str, str, list[dict]], bool] | None) -> None:
+    """Register the function that persists an assistant session message.
+
+    Called by TradiRunner right after a session run finishes, while the run
+    workspace (and its trace.jsonl) is still on disk. Passing ``None`` (default)
+    disables session persistence — standalone runs never reach this path.
+    """
+    global _session_completer
+    _session_completer = fn
 
 
 log = logging.getLogger(__name__)
@@ -326,9 +363,11 @@ class TradiRunner:
             raise SystemError_(f"Failed to stage attachments: {exc}") from exc
 
         # 3. Build argv per run kind. Swarm dispatch reuses Tradi's
-        #    ``--swarm-run PRESET '{vars_json}'`` legacy CLI (see agent/cli/_legacy.py);
+        #    ``--swarm-run PRESET '{vars}'`` legacy CLI (see agent/cli/_legacy.py);
         #    shadow dispatch passes the journal via the main-parser ``--upload`` flag.
-        argv = self._argv_for(run, run_dir)
+        #    Single runs linked to a session inject prior turns via --history-file.
+        history_path = self._write_session_history(run, run_dir)
+        argv = self._argv_for(run, run_dir, history_path)
 
         stdout_path = run_dir / "stdout.log"
         stderr_path = run_dir / "stderr.log"
@@ -374,6 +413,24 @@ class TradiRunner:
             )
             # Read artifacts into memory before the workspace is cleaned up.
             result.artifacts = self._collect_artifacts(run_dir)
+
+            # Session turn persistence (multi-turn feature). The workspace is
+            # still on disk here, so the trace.jsonl-backed answer + tool trail
+            # are available. Runs not linked to a session (session_id is None)
+            # skip this entirely — the legacy standalone flow is untouched. Any
+            # failure is best-effort and must NOT change the run outcome.
+            if run.session_id and _session_completer is not None:
+                try:
+                    answer = self._extract_answer(run_dir)
+                    if answer:
+                        tool_trail = self._build_tool_trail(run_dir)
+                        _session_completer(run.id, run.session_id, answer, tool_trail)
+                except Exception:  # noqa: BLE001
+                    log.warning(
+                        "session turn persistence failed for run %s (non-fatal)",
+                        run.id, exc_info=True,
+                    )
+
             return result
         finally:
             if tailer is not None:
@@ -381,7 +438,7 @@ class TradiRunner:
 
     # -- internals ---------------------------------------------------------
 
-    def _argv_for(self, run: ClaimedRun, run_dir: Path) -> list[str]:
+    def _argv_for(self, run: ClaimedRun, run_dir: Path, history_path: Path | None = None) -> list[str]:
         """Pick the right Tradi invocation for the run kind."""
         if run.kind == "swarm":
             if not run.preset_name:
@@ -414,7 +471,11 @@ class TradiRunner:
                 "--max-iter",
                 str(run.max_iter),
             ]
-        return [
+        # Single run. Optionally inject prior session turns so the engine runs
+        # statefully (multi-turn session feature). Standalone runs (no
+        # session_id) omit the flag — the existing one-shot behaviour is
+        # preserved exactly (engine D1 subprocess isolation unchanged).
+        base = [
             *self._command,
             "run",
             "-p",
@@ -424,6 +485,31 @@ class TradiRunner:
             "--max-iter",
             str(run.max_iter),
         ]
+        if history_path is not None:
+            base += ["--history-file", str(history_path)]
+        return base
+
+    def _write_session_history(self, run: ClaimedRun, run_dir: Path) -> Path | None:
+        """Write prior session turns to ``session_history.json`` for ``--history-file``.
+
+        Returns the path when the run belongs to a session with prior turns,
+        else ``None`` (standalone run → no history, engine runs statelessly).
+        The actual DB fetch is delegated to the injected ``_session_history_fetcher``
+        hook (set by main.py from the RunQueue), mirroring set_api_key_fetcher —
+        the runner must not import the engine or the DB client directly.
+        """
+        if not run.session_id or _session_history_fetcher is None:
+            return None
+        try:
+            history = _session_history_fetcher(run.session_id, run.user_id, 8)
+        except Exception:  # noqa: BLE001 — history is best-effort
+            log.warning("session history fetch failed for run %s (non-fatal)", run.id, exc_info=True)
+            return None
+        if not history:
+            return None
+        path = run_dir / "session_history.json"
+        path.write_text(json.dumps(history, ensure_ascii=False))
+        return path
 
     def _mount_attachments(self, run: ClaimedRun, run_dir: Path) -> None:
         """Download every attachment into ``run_dir/inputs/{name}``.
@@ -599,6 +685,56 @@ class TradiRunner:
             if answer:
                 return answer
         return None
+
+    @staticmethod
+    def _build_tool_trail(workspace: Path, limit: int = 50) -> list[dict]:
+        """Build a compact tool-call summary from any trace.jsonl in the workspace.
+
+        Pairs ``tool_call``/``tool_result`` events by ``call_id`` (falling back to
+        the tool name) so each row captures the tool, outcome status, latency, and
+        a short result preview. This is what the chat UI renders under an assistant
+        message. Returns ``[]`` when there is no trace or no tool activity.
+        """
+        trail: list[dict] = []
+        open_calls: dict[str, dict] = {}
+        for trace in workspace.rglob("trace.jsonl"):
+            try:
+                lines = trace.read_text(errors="replace").splitlines()
+            except OSError:
+                continue
+            for line in lines:
+                line = line.strip()
+                if not line.startswith("{"):
+                    continue
+                try:
+                    evt = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(evt, dict):
+                    continue
+                etype = evt.get("type")
+                if etype == "tool_call":
+                    key = evt.get("call_id") or evt.get("tool", "")
+                    open_calls[key] = {
+                        "tool": evt.get("tool", ""),
+                        "iter": evt.get("iter"),
+                        "args_preview": str(evt.get("args", ""))[:100],
+                    }
+                elif etype == "tool_result":
+                    key = evt.get("call_id") or evt.get("tool", "")
+                    call = open_calls.pop(key, {})
+                    trail.append(
+                        {
+                            "tool": evt.get("tool", call.get("tool", "")),
+                            "status": evt.get("status", "ok"),
+                            "elapsed_ms": evt.get("elapsed_ms"),
+                            "iter": call.get("iter") or evt.get("iter"),
+                            "preview": (evt.get("preview") or evt.get("message") or "")[:200],
+                        }
+                    )
+                    if len(trail) >= limit:
+                        return trail
+        return trail
 
     @staticmethod
     def _classify(rel: str) -> str:

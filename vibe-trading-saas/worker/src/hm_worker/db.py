@@ -57,6 +57,9 @@ class ClaimedRun:
     # enqueue time). NULL = use the catalog default_model (or the worker's
     # url-type env override, e.g. WORKER_OLLAMA_MODEL).
     model: str | None = None
+    # Session this run belongs to (multi-turn session feature). NULL = a
+    # standalone run — the legacy behaviour, preserved unchanged.
+    session_id: str | None = None
 
     @classmethod
     def from_row(cls, row: dict) -> "ClaimedRun":
@@ -106,6 +109,8 @@ class ClaimedRun:
             user_vars=row.get("run_user_vars") or None,
             provider=row.get("run_provider") or None,
             model=row.get("run_model") or None,
+            # NULL for standalone runs — preserved exactly as before.
+            session_id=row.get("run_session_id") or None,
         )
 
 
@@ -260,6 +265,67 @@ class RunQueue:
         ).execute()
         key = response.data
         return key if key else None
+
+    def get_session_history(
+        self, session_id: str, user_id: str, limit: int = 8
+    ) -> list[dict]:
+        """Fetch prior session turns for ``--history-file`` injection.
+
+        Worker-only path: the service-role client calls ``get_session_history``,
+        which checks ownership by the explicit ``user_id`` (auth.uid() is NULL
+        under service_role, so the authenticated ``get_session_messages`` RPC is
+        not usable here). Returns a compact ``[{role, content}]`` list; an
+        unowned/missing session yields ``[]`` (safe to run statelessly).
+        """
+        try:
+            response = self._client.rpc(
+                "get_session_history",
+                {
+                    "p_session_id": session_id,
+                    "p_user_id": user_id,
+                    "p_limit": limit,
+                },
+            ).execute()
+            messages = response.data or []
+        except Exception:  # noqa: BLE001 — missing history must not kill the run
+            log.warning("get_session_history failed for %s (non-fatal)", session_id, exc_info=True)
+            return []
+        return [
+            {"role": m["role"], "content": m["content"]}
+            for m in messages
+            if m.get("role") in ("user", "assistant")
+        ]
+
+    def complete_session_turn(
+        self,
+        run_id: str,
+        session_id: str,
+        content: str,
+        tool_trail: list[dict] | None = None,
+    ) -> bool:
+        """Persist the assistant response for a session turn (worker only).
+
+        Best-effort: a failure to record the message must NOT fail the run —
+        the user already has the result via the run view. Returns True on
+        success, False on any error (logged).
+        """
+        try:
+            self._client.rpc(
+                "complete_session_turn",
+                {
+                    "p_run_id": run_id,
+                    "p_session_id": session_id,
+                    "p_content": content,
+                    "p_tool_trail": tool_trail or [],
+                },
+            ).execute()
+            return True
+        except Exception:  # noqa: BLE001
+            log.warning(
+                "complete_session_turn failed for run %s session %s (non-fatal)",
+                run_id, session_id, exc_info=True,
+            )
+            return False
 
     def fail(
         self,
