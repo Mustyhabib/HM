@@ -338,4 +338,7 @@ BEGIN
 END;
 $$;
 
--- No explicit GRANT — called by service_role worker only (default denied to others).
+-- PostgreSQL grants EXECUTE to PUBLIC by default on newly created functions.
+-- The DROP above removed the previous migration's grants, so this must be
+-- re-locked explicitly or any authenticated user could claim worker runs.
+REVOKE ALL ON FUNCTION claim_agent_run(TEXT, INTERVAL) FROM PUBLIC;
