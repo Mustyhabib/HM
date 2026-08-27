@@ -1481,8 +1481,27 @@ def _print_result(result: dict, elapsed: float, *, no_rich: bool = False) -> Non
 # Subcommands
 # ---------------------------------------------------------------------------
 
-def cmd_run(prompt: str, max_iter: int, *, json_mode: bool = False, no_rich: bool = False) -> int:
-    """Single run."""
+def cmd_run(
+    prompt: str,
+    max_iter: int,
+    *,
+    json_mode: bool = False,
+    no_rich: bool = False,
+    history_file: Optional[Path] = None,
+) -> int:
+    """Single run.
+
+    Args:
+        prompt: The user's prompt text.
+        max_iter: Maximum agent loop iterations.
+        json_mode: Emit machine-readable JSON output instead of Rich/plain text.
+        no_rich: Disable Rich formatting (plain-text streaming).
+        history_file: Optional path to a JSON file of prior conversation turns
+            (``[{"role": "user"|"assistant", "content": "..."}]``) injected as
+            session history ahead of ``prompt``. Missing or malformed files are
+            treated as no history — see ``_load_history_from_file``.
+    """
+    history = _load_history_from_file(history_file)
     if not json_mode:
         from src.preflight import run_preflight
         results = run_preflight(console)
@@ -1548,6 +1567,31 @@ def cmd_run(prompt: str, max_iter: int, *, json_mode: bool = False, no_rich: boo
         else:
             console.print(f"[dim]{tip}[/dim]")
     return _result_exit_code(result)
+
+
+def _load_history_from_file(history_file: Optional[Path]) -> List[Dict[str, str]]:
+    """Load prior conversation turns from a JSON file for ``--history-file``.
+
+    Args:
+        history_file: Path to a JSON file containing a list of
+            ``{"role": "user"|"assistant", "content": "..."}`` dicts, or
+            ``None`` if the flag was not supplied.
+
+    Returns:
+        The parsed history list, or an empty list if the flag was not
+        supplied, the file is missing, or the file cannot be parsed as a
+        JSON list. Malformed input never raises — it degrades to "no prior
+        history" so a bad file cannot crash an otherwise-valid run.
+    """
+    if history_file is None or not history_file.exists():
+        return []
+    try:
+        parsed = json.loads(history_file.read_text())
+    except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [turn for turn in parsed if isinstance(turn, dict)]
 
 
 def _build_history_from_trace(trace_dir: Path) -> List[Dict[str, str]]:
@@ -4813,6 +4857,8 @@ def _build_parser() -> argparse.ArgumentParser:
     run_parser = subparsers.add_parser("run", help="Run a prompt")
     run_parser.add_argument("-p", "--prompt", dest="run_prompt", type=str, help="Prompt text")
     run_parser.add_argument("-f", "--prompt-file", dest="run_prompt_file", type=Path, help="Read prompt text from a file")
+    run_parser.add_argument("--history-file", dest="run_history_file", type=Path, default=None,
+                            help="JSON file with prior conversation turns [{role, content}] injected as history")
     run_parser.add_argument("--json", dest="run_json", action="store_true", help="Print machine-readable JSON output")
     run_parser.add_argument("--no-rich", dest="run_no_rich", action="store_true", help="Disable Rich formatting")
     run_parser.add_argument("--max-iter", dest="run_max_iter", type=int, default=50, help="Maximum agent iterations")
@@ -5045,6 +5091,7 @@ def _handle_prompt_command(
     max_iter: int,
     json_mode: bool,
     no_rich: bool,
+    history_file: Optional[Path] = None,
 ) -> int:
     """Resolve a prompt and execute it."""
     resolved_prompt, error_message = _read_prompt_source(prompt, prompt_file, no_rich=no_rich)
@@ -5061,7 +5108,13 @@ def _handle_prompt_command(
         else:
             print("Prompt cannot be empty") if no_rich else console.print("[red]Prompt cannot be empty[/red]")
         return EXIT_USAGE_ERROR
-    return cmd_run(resolved_prompt, max_iter, json_mode=json_mode, no_rich=no_rich)
+    return cmd_run(
+        resolved_prompt,
+        max_iter,
+        json_mode=json_mode,
+        no_rich=no_rich,
+        history_file=history_file,
+    )
 
 
 _INIT_ENV_PATH = Path.home() / ".vibe-trading" / ".env"
@@ -5919,6 +5972,7 @@ def main(argv: list[str] | None = None) -> int:
             max_iter=args.run_max_iter,
             json_mode=args.run_json,
             no_rich=args.run_no_rich,
+            history_file=args.run_history_file,
         )
     if args.command == "list":
         return _coerce_exit_code(cmd_list(args.list_limit))
