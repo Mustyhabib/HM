@@ -473,6 +473,24 @@ In progress / next:
      ⏳ Phase 1: brief drafted (docs/PHASE1_BRIEF.md) — build starts AFTER launch (R1-Q1);
      branch upgrade/phase-1-foundation.
   ⏳ Cleanup before launch: test accounts (admin.tester/user.tester), env-var purge on Vercel.
+  ✅ SESSION AGENT ARCHITECTURE (2026-08-27) — MERGED to main (code complete, tests green):
+     • DB: 2026_08_27_agent_sessions.sql + 2026_08_27_session_worker_rpcs.sql (tables
+       agent_sessions + session_messages; RPCs create/list/get_messages/start_turn/
+       archive/complete; claim_agent_run returns run_session_id). Worker-only
+       get_session_history (service_role, ownership-checked) + service_role grant on
+       complete_session_turn.
+     ⚠️ MIGRATION NOT YET APPLIED TO PROD — Supabase WAF (Cloudflare 1010) blocked the
+       Management API DDL on the dev link. Apply both .sql files in the Supabase dashboard
+       SQL editor, then verify claim_agent_run returns run_session_id.
+     • Engine: `vibe-trading run --history-file <path>` accepted; threaded through
+       cmd_run -> _run_agent(history=...) (subprocess isolation D1 preserved).
+     • Worker: ClaimedRun.session_id; RunQueue.get_session_history/complete_session_turn;
+       TradiRunner injects --history-file for session runs + persists assistant message
+       (answer + tool trail) via injected hooks; standalone runs unchanged. Full suite 93 pass.
+     • Frontend: sessions.ts (RPC + realtime), SessionList/SessionMessage/ToolActivityLine,
+       Agent.tsx rewritten as session chat (/agent). Build clean; 240/264 tests pass
+       (24 pre-existing failures in Reports/Runtime tests, unrelated to this change).
+     NEXT: apply migration → deploy Railway (worker) + Vercel (frontend) → smoke test.
 
 Not started (deferred):
   🔲 Live trading (mandate-gated, off by default) — roadmap Phase 8
@@ -490,6 +508,21 @@ D8  — **Paystack (NGN, Nigeria launch) + Stripe (international, entity-gated, 
       provider-agnostic subscriptions; webhooks signed + idempotent
 D9  — Auth store sets session synchronously (fixed signup/login race)
 D10 — One metered prompt box on Agent page (not a chat-style multi-turn UI)
+     ⛔ SUPERSEDED 2026-08-27 by D22 (Session Agent Architecture): the Agent page is
+     now a multi-turn session chat. Metering/billing stays LAST (MVP priority order);
+     the session UI does not add per-turn metering.
+D22 — **Multi-Turn Session Agent (2026-08-27)**: the Agent page is a stateful session
+     chat — each user message triggers a full Tradi subprocess run with prior conversation
+     turns injected via `--history-file`, responses persisted to Supabase
+     (agent_sessions + session_messages), frontend subscribes to session_messages in
+     realtime. Subprocess-per-run isolation (D1) preserved — history is injected at
+     invocation, not via shared process state. Each turn pays full subprocess startup
+     (~2-3s); accepted trade-off, deferred lighter path until user feedback. Standalone
+     runs (session_id NULL) keep the legacy one-shot behaviour. Worker reaches the DB via
+     module-level injection hooks (mirrors set_progress_push/set_api_key_fetcher); the
+     worker runs as service_role so it uses the worker-only get_session_history
+     (ownership-checked by explicit user_id) rather than the authenticated
+     get_session_messages.
 D11 — BYOK pivot: users supply their own LLM credential for any of 23
       catalog-driven providers (key-type: OpenAI, DeepSeek, Anthropic, Gemini,
       etc.; url-type: Ollama). Encrypted in Supabase Vault. Worker resolves
