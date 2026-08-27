@@ -169,10 +169,11 @@ export function Agent() {
     : apiKeyLoaded && !apiKeyError && apiKeyConfigured === false;
   const blocked = noSubscription || noApiKey;
 
-  /** Upload one or more research data files (Premium only). */
+  /** Upload one or more research data files (Premium at launch; open to all
+   * during the open beta). */
   const handleFiles = useCallback(async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    if (!isPremium) {
+    if (!isPremium && !BETA_MODE) {
       toast.error("File attachments are a Premium feature");
       return;
     }
@@ -500,7 +501,7 @@ export function Agent() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (!isPremium) {
+                    if (!isPremium && !BETA_MODE) {
                       toast.error("File attachments are a Premium feature");
                       return;
                     }
@@ -508,8 +509,8 @@ export function Agent() {
                   }}
                   disabled={starting || blocked || uploading}
                   className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-elevated hover:text-primary disabled:opacity-40"
-                  aria-label={isPremium ? "Attach data files (CSV, XLSX, JSON)" : "Premium feature — attach data files"}
-                  title={isPremium ? "Attach research data (CSV, XLSX, JSON)" : "File attachments require Premium"}
+                  aria-label={isPremium || BETA_MODE ? "Attach data files (CSV, XLSX, JSON)" : "Premium feature — attach data files"}
+                  title={isPremium || BETA_MODE ? "Attach research data (CSV, XLSX, JSON) — free during beta" : "File attachments require Premium at launch"}
                 >
                   {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />}
                 </button>

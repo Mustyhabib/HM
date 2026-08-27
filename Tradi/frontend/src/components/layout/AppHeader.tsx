@@ -18,18 +18,31 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/common/BrandMark";
 import { getActiveSubscription } from "@/lib/runs";
+import { BETA_MODE } from "@/lib/beta";
 
 /** Subscription pill next to the brand — plan level, consistent everywhere. */
 function PlanPill() {
   const [plan, setPlan] = useState<string | null>(null);
 
   useEffect(() => {
+    if (BETA_MODE) return; // beta pill is static — no fetch needed
     let cancelled = false;
     getActiveSubscription()
       .then((s) => { if (!cancelled) setPlan(s?.planId ?? null); })
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
+
+  if (BETA_MODE) {
+    return (
+      <span
+        title="Open beta — full access, no charge"
+        className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary"
+      >
+        BETA
+      </span>
+    );
+  }
 
   const label = (plan ?? "free").toUpperCase();
   return (

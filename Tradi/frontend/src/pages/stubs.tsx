@@ -1,17 +1,17 @@
 /**
  * Stub pages for roadmap Phase 2–8 features.
- * One file, zero per-page files — imported directly in router.tsx (no lazy needed; tiny components).
- * Each stub shows what phase the feature arrives in and what it will include.
+ *
+ * Data lives in FeaturePreviewDrawer (single source of truth shared with the
+ * in-app feature-preview carousel). Each export is a full-page route component
+ * that looks up its own entry by `to` path.
  */
-import type { LucideIcon } from "lucide-react";
-import { Lock, Globe, TrendingUp, Brain, Dna, FlaskConical, ScrollText, Briefcase, Layers, Radio } from "lucide-react";
-// Note: DataPage removed — replaced by DataCatalog.tsx (real Phase 2 registry view)
+import { Lock } from "lucide-react";
+import { STUB_FEATURES } from "@/components/layout/FeaturePreviewDrawer";
 
-function Stub({
-  icon: Icon, title, phase, description, capabilities,
-}: {
-  icon: LucideIcon; title: string; phase: string; description: string; capabilities: string[];
-}) {
+function Stub({ to }: { to: string }) {
+  const f = STUB_FEATURES.find((x) => x.to === to);
+  if (!f) return null;
+  const Icon = f.icon;
   return (
     <div className="flex h-full items-center justify-center p-6">
       <div className="w-full max-w-md space-y-5 text-center">
@@ -19,15 +19,15 @@ function Stub({
           <Icon className="h-9 w-9 text-muted-foreground/40" />
         </div>
         <div className="space-y-2">
-          <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+          <h1 className="text-xl font-bold tracking-tight">{f.label}</h1>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-semibold text-muted-foreground">
             <Lock className="h-3 w-3" />
-            {phase}
+            {f.phase}
           </span>
         </div>
-        <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
+        <p className="text-sm leading-relaxed text-muted-foreground">{f.description}</p>
         <ul className="space-y-1.5 text-left text-sm">
-          {capabilities.map((c) => (
+          {f.capabilities.map((c) => (
             <li key={c} className="flex items-start gap-2 text-muted-foreground">
               <span className="mt-0.5 h-4 w-4 shrink-0 rounded-full border border-border/60 text-center text-[9px] leading-4">○</span>
               {c}
@@ -40,56 +40,12 @@ function Stub({
   );
 }
 
-export function Markets() {
-  return <Stub icon={Globe} title="Markets" phase="Phase 2 · Data Plane"
-    description="Real-time and historical market data with canonical OHLCV streams, venue routing, and point-in-time guarantees."
-    capabilities={["Live candlestick streaming (BTC, SPY, GOLD, FX)", "1D–1Y range chart with volume overlay", "Market regime indicator (bullish / neutral / bearish)", "Volatility surface and confidence score"]} />;
-}
-
-export function Strategies() {
-  return <Stub icon={TrendingUp} title="Strategies" phase="Phase 3 · Quant Core"
-    description="Deterministic strategy code with a versioned SDK, walk-forward validation, and an execution interface that separates signal from execution."
-    capabilities={["Strategy SDK with typed signal interface", "Walk-forward and out-of-sample validation", "A/B comparison across strategy versions", "Promotion ladder: candidate → validated → paper → live"]} />;
-}
-
-export function MLStudio() {
-  return <Stub icon={Brain} title="ML Studio" phase="Phase 5 · ML"
-    description="Baseline-first ML with a versioned model registry, feature store integration, and MLflow experiment tracking."
-    capabilities={["XGBoost, LightGBM, LSTM model training", "Feature store (canonical data pipeline)", "MLflow experiment tracking + model registry", "Walk-forward evaluation, OOS metrics"]} />;
-}
-
-export function RLStudio() {
-  return <Stub icon={Dna} title="RL Studio" phase="Phase 7 · RL (Research-only)"
-    description="Reinforcement learning for trading strategy research — environments, reward functions, PPO/SAC checkpoints. Research-only; no live execution."
-    capabilities={["Custom trading environments (Gym-compatible)", "PPO, SAC agent training with GPU support", "Reward shaping and risk-adjusted objectives", "Checkpoint management and replay"]} />;
-}
-
-export function Backtests() {
-  return <Stub icon={FlaskConical} title="Backtests" phase="Phase 3 · Quant Core"
-    description="Vectorized and event-driven backtesting with point-in-time data, slippage modeling, and reproducible experiment records."
-    capabilities={["Vectorized backtest engine (daily + intraday)", "Point-in-time data guarantee (no look-ahead)", "Slippage, cost model, and corporate action handling", "Reproducible: records data hash, code commit, seed"]} />;
-}
-
-export function Paper() {
-  return <Stub icon={ScrollText} title="Paper Trading" phase="Phase 6 · Risk + OMS"
-    description="Simulated execution on real-time market data with a full risk engine, OMS, and reconciliation — before any live capital is at risk."
-    capabilities={["Paper account with simulated fills on live prices", "Risk engine: exposure limits, daily loss, max drawdown", "OMS: order intents, idempotency, state machine", "Emergency stop across all paper positions"]} />;
-}
-
-export function Portfolio() {
-  return <Stub icon={Briefcase} title="Portfolio" phase="Phase 6 · Risk + OMS"
-    description="Paper and live account P&L, position ledger, trade journal, and portfolio-level risk attribution."
-    capabilities={["Portfolio P&L (paper + live)", "Position ledger with realized / unrealized breakdown", "Trade journal and attribution", "Drawdown waterfall and Sharpe time-series"]} />;
-}
-
-export function Models() {
-  return <Stub icon={Layers} title="Models" phase="Phase 5 · ML"
-    description="Versioned model registry with lineage from training data through feature version to deployment status."
-    capabilities={["Model registry: version, status, lineage", "Feature importance and SHAP explainability", "TRAINED → VALIDATED → SHADOW → LIVE lifecycle", "MLflow artifact storage"]} />;
-}
-
-export function Live() {
-  return <Stub icon={Radio} title="Live Trading" phase="Phase 8 · Execution · Mandate-gated"
-    description="Controlled live execution through broker adapters — mandate-gated and off by default. A strategy must pass Research → Validate → Paper → Risk before reaching Live."
-    capabilities={["Broker adapters (Alpaca first, IBKR planned)", "Mandate enforcement: Live is a promotion state, not a shortcut", "Fail-closed: stale data / recon mismatch / risk breach → block", "Full audit trail and emergency kill-switch"]} />;
-}
+export function Markets()    { return <Stub to="/markets" />; }
+export function Strategies() { return <Stub to="/strategies" />; }
+export function MLStudio()   { return <Stub to="/ml-studio" />; }
+export function RLStudio()   { return <Stub to="/rl-studio" />; }
+export function Backtests()  { return <Stub to="/backtests" />; }
+export function Paper()      { return <Stub to="/paper" />; }
+export function Portfolio()  { return <Stub to="/portfolio" />; }
+export function Models()     { return <Stub to="/models" />; }
+export function Live()       { return <Stub to="/live" />; }

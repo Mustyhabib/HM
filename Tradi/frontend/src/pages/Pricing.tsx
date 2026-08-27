@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { Check, Sparkles, ArrowRight, Loader2 } from "lucide-react";
+import { Check, Sparkles, ArrowRight, Loader2, Crown } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { initiateSubscription, type PlanId } from "@/lib/billing";
 import { useAuth } from "@/lib/auth-store";
+import { BETA_MODE } from "@/lib/beta";
 
 /** Feature bundle a tier unlocks — server-enforced (start_swarm_run's plan
  * gate; attachments checked client-side today, Premium-only). BYOK pivot:
@@ -110,6 +111,17 @@ export function Pricing() {
         </p>
       </div>
 
+      {/* ─── Beta notice ─── */}
+      {BETA_MODE && (
+        <div className="mt-8 flex items-start gap-2.5 rounded-xl border border-secondary/25 bg-secondary/5 p-4 text-sm text-muted-foreground">
+          <Crown className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
+          <span>
+            Open Beta — everything below is FREE right now. These plans describe what
+            billing will look like at launch. No card, no checkout, no limits during beta.
+          </span>
+        </div>
+      )}
+
       {/* ─── Plan cards ─── */}
       <div className="mt-14 grid grid-cols-1 items-stretch gap-6 sm:grid-cols-3">
         {PLANS.map((plan) => (
@@ -149,28 +161,37 @@ export function Pricing() {
               </div>
             </div>
 
-            <button
-              onClick={() => handleSubscribe(plan.id as PlanId)}
-              disabled={loading !== null}
-              className={cn(
-                "group mt-6 inline-flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition disabled:opacity-60 disabled:cursor-not-allowed w-full",
-                plan.popular
-                  ? "gradient-bg glow-gradient text-white hover:opacity-90"
-                  : "border border-border bg-card text-foreground hover:bg-elevated",
-              )}
-            >
-              {loading === plan.id ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Redirecting…
-                </>
-              ) : (
-                <>
-                  {user ? `Subscribe — ${plan.name}` : `Get ${plan.name}`}
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                </>
-              )}
-            </button>
+            {BETA_MODE ? (
+              <button
+                disabled
+                className="mt-6 inline-flex w-full cursor-default items-center justify-center gap-2 rounded-lg border border-border bg-elevated py-2.5 text-sm font-semibold text-muted-foreground"
+              >
+                Included in Beta
+              </button>
+            ) : (
+              <button
+                onClick={() => handleSubscribe(plan.id as PlanId)}
+                disabled={loading !== null}
+                className={cn(
+                  "group mt-6 inline-flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition disabled:opacity-60 disabled:cursor-not-allowed w-full",
+                  plan.popular
+                    ? "gradient-bg glow-gradient text-white hover:opacity-90"
+                    : "border border-border bg-card text-foreground hover:bg-elevated",
+                )}
+              >
+                {loading === plan.id ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Redirecting…
+                  </>
+                ) : (
+                  <>
+                    {user ? `Subscribe — ${plan.name}` : `Get ${plan.name}`}
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                  </>
+                )}
+              </button>
+            )}
 
             {/* Features */}
             <ul className="mt-6 flex-1 space-y-2.5 border-t border-border/60 pt-5">

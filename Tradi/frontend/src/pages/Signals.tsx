@@ -332,16 +332,24 @@ export function Signals() {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-bold">Signals</h1>
-            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary flex items-center gap-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-              Live
+            <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Preview · Coming soon
             </span>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             AI-generated trading signals from your strategies
           </p>
+          <p className="mt-2 max-w-xl rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-muted-foreground">
+            Signal generation isn't available during the open beta — the entries below are
+            illustrative samples showing what this page will look like at launch.
+          </p>
         </div>
-        <button className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm transition hover:bg-elevated">
+        <button
+          type="button"
+          disabled
+          title="Signal alerts arrive after the beta"
+          className="flex cursor-default items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground"
+        >
           <Bell className="h-4 w-4" />
           Alerts
         </button>

@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import { ArrowRight, Bot, BarChart3, Shield, FlaskConical, TrendingUp } from "lucide-react";
+import { BETA_MODE } from "@/lib/beta";
 
 /* ─── Market ticker data ─── */
 const TICKER_ITEMS = [
@@ -42,45 +43,47 @@ const FEATURES = [
   {
     icon: BarChart3,
     title: "Quantitative Backtesting",
-    desc: "462 alpha factors, 16 backtest engines, cross-market coverage. Real quant-grade analysis without a single line of Python.",
-    tags: [],
-  },
-
-  {
-  icon: BarChart3,
-    title: "Paper Trade with your Backtested Strategy.",
-    desc: "Test your Backtested Strategy with virtual money before you trade with real money in your broker account.",
+    desc: "462 alpha factors, 8 backtest engines, cross-market coverage. Real quant-grade analysis without a single line of Python.",
     tags: [],
   },
 
   {
     icon: FlaskConical,
     title: "Experiment Registry",
-    desc: "Every run is logged, versioned, and replayable. Compare strategies side-by-side and promote winners through validation gates.",
+    desc: "Every run is logged, versioned, and replayable. Compare strategies side-by-side and revisit past research any time.",
     tags: [],
   },
+];
 
+/* Beta roadmap — clearly marked as NOT yet available. These arrive after the
+ * beta (paper trading, live signals, delivery channels). Never render these
+ * as if they work today: each card carries a "Coming soon" badge and the
+ * steps section shows them as upcoming, not current. */
+const COMING_SOON = [
   {
     icon: TrendingUp,
     title: "Research-to-Paper Workflow",
-    desc: "From idea to validated paper trade — the full promotion ladder with walk-forward validation, drawdown gates, and risk checks.",
-    tags: [],
+    desc: "From idea to validated paper trade — a full promotion ladder with walk-forward validation, drawdown gates, and risk checks.",
   },
-
   {
     icon: Shield,
-    title: "Generate Live Entry Signal at the your with your Backtested Strategy.",
-    desc: "From your Backtested Strategy, gets Live Entry Signal via Whatsapp, Telegram, Email, or SMS.",
-    tags: [],
+    title: "Live Entry Signals",
+    desc: "Entry signals from your researched strategies delivered via WhatsApp, Telegram, Email, or SMS.",
   },
 ];
 
 const STEPS = [
   { step: "1", title: "Ask your question", desc: "Describe a strategy, market hypothesis, or asset to research in plain English." },
-  { step: "2", title: "Data is sourced", desc: "The platform pulls canonical, point-in-time market data from the institutional feed." },
+  { step: "2", title: "Data is sourced", desc: "The agent pulls market data from integrated public and exchange feeds with automatic fallbacks." },
   { step: "3", title: "Agent experiments", desc: "The AI agent runs backtests, applies alpha factors, and stress-tests the idea." },
   { step: "4", title: "Get your report", desc: "View a full research report — equity curve, metrics, risk breakdown, and next steps." },
-  { step: "5", title: "Generate Live Entry Signal", desc: "From your Backtested Strategy, gets Live Entry Signal via Whatsapp, Telegram, Email, or SMS." },
+];
+
+/* Coming-soon steps shown greyed/marked in beta so the roadmap is visible
+ * without implying today's availability. */
+const UPCOMING_STEPS = [
+  { step: "5", title: "Paper trade it", desc: "Coming after beta — simulated execution on live prices before real capital." },
+  { step: "6", title: "Live entry signals", desc: "Coming after beta — signal delivery via WhatsApp, Telegram, Email, or SMS." },
 ];
 
 /** Hero preview: terminal chrome + trading chart video */
@@ -181,16 +184,16 @@ export function Landing() {
             </h1>
 
             <p className="mt-5 max-w-[44ch] text-base text-muted-foreground sm:text-lg leading-relaxed">
-              Institutional market data, 462 alpha factors, and an AI research agent —
-              all in one platform. From idea to Live Entry Signal, at your Comfort Zone.
+              Institutional-grade research tooling, 462 alpha factors, and an AI
+              research agent — all in one platform. In open beta now, free to use.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
-                to="/signup"
+                to={BETA_MODE ? "/agent" : "/signup"}
                 className="inline-flex items-center justify-center gap-2 rounded-lg gradient-bg glow-gradient px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 active:scale-[0.98]"
               >
-                Start Researching <ArrowRight className="h-4 w-4" />
+                {BETA_MODE ? "Start Researching — Free" : "Start Researching"} <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 to="/pricing"
@@ -203,9 +206,9 @@ export function Landing() {
             {/* Trust stats */}
             <div className="mt-10 flex flex-wrap items-center gap-6 border-t border-border/50 pt-6">
               {[
-                { value: "403B+", label: "Market ticks" },
                 { value: "462",   label: "Alpha factors" },
                 { value: "8",     label: "Backtest engines" },
+                { value: "24+",   label: "Data sources" },
               ].map(({ value, label }, i) => (
                 <div key={label} className="flex items-center gap-6">
                   {i > 0 && <div className="h-8 w-px bg-border" />}
@@ -250,6 +253,21 @@ export function Landing() {
               </div>
             ))}
           </div>
+
+          {/* Upcoming steps — visible roadmap, clearly not available in beta */}
+          <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
+            {UPCOMING_STEPS.map(({ step, title, desc }) => (
+              <div key={step} className="flex flex-col rounded-xl border border-dashed border-border bg-card/40 p-4 sm:flex-row sm:items-start sm:gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border text-sm font-bold text-muted-foreground/60">
+                  {step}
+                </div>
+                <div>
+                  <h3 className="mt-3 font-semibold text-muted-foreground sm:mt-0">{title}</h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground/70">{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -288,6 +306,25 @@ export function Landing() {
               </div>
             ))}
           </div>
+
+          {/* Coming after beta — roadmap, clearly not available today */}
+          <div className="mt-10">
+            <h3 className="mb-6 text-sm font-semibold uppercase tracking-widest text-muted-foreground/60">Coming after beta</h3>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {COMING_SOON.map(({ icon: Icon, title, desc }) => (
+                <div key={title} className="relative rounded-xl border border-dashed border-border bg-card/40 p-6">
+                  <span className="absolute right-4 top-4 rounded-full border border-border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/60">
+                    Coming soon
+                  </span>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-elevated border border-border">
+                    <Icon className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <h3 className="mt-4 font-semibold text-muted-foreground">{title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground/70">{desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
@@ -297,14 +334,13 @@ export function Landing() {
           <div className="rounded-2xl border border-primary/20 bg-primary/5 p-8 sm:p-10">
             <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-10">
               <div className="flex-1">
-                <span className="text-xs font-medium text-primary uppercase tracking-wide">Phase 2 · Now Live</span>
-                <h3 className="mt-2 text-xl font-bold text-foreground">Institutional data plane, open to all</h3>
+                <span className="text-xs font-medium text-primary uppercase tracking-wide">Phase 2 · In development</span>
+                <h3 className="mt-2 text-xl font-bold text-foreground">Institutional data plane — coming after beta</h3>
                 <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                  Our five-layer canonical pipeline (RAW → VALIDATED → NORMALIZED → DERIVED → FEATURES)
-                  delivers point-in-time, bias-free data to every research run.
-                  Powered by 403B+ ticks across 27 asset classes — Integrating ML Models to enhance the data,
-                  Training and Deploying Models with ability to adapt to Market. Instead of adopting one strategy,
-                  to generate Signal, a Trained Model will change as Market Shifts.
+                  Today your runs use the engine's integrated public and exchange feeds.
+                  Next, our five-layer canonical pipeline (RAW → VALIDATED → NORMALIZED → DERIVED → FEATURES)
+                  will deliver point-in-time, bias-free data to every research run —
+                  403B+ ticks across 27 asset classes, with trained models that adapt as the market shifts.
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-4 sm:shrink-0 sm:grid-cols-1">
@@ -330,17 +366,21 @@ export function Landing() {
         <div className="mx-auto max-w-2xl px-4 text-center sm:px-6">
           <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Ready to start researching?</h2>
           <p className="mt-4 text-muted-foreground">
-            Plans from <span className="font-mono font-semibold text-foreground">₦20,000/month</span>. No credit card required to sign up.
+            {BETA_MODE
+              ? "Everything is free during open beta — no account, no card, no limits."
+              : <>Plans from <span className="font-mono font-semibold text-foreground">₦20,000/month</span>. No credit card required to sign up.</>}
           </p>
           <Link
-            to="/signup"
+            to={BETA_MODE ? "/agent" : "/signup"}
             className="mt-8 inline-flex items-center gap-2 rounded-lg gradient-bg glow-gradient px-8 py-3 text-sm font-semibold text-white transition hover:opacity-90 active:scale-[0.98]"
           >
-            Create Your Account <ArrowRight className="h-4 w-4" />
+            {BETA_MODE ? "Start Researching Free" : "Create Your Account"} <ArrowRight className="h-4 w-4" />
           </Link>
-          <p className="mt-4 text-xs text-muted-foreground/60">
-            Cancel any time.
-          </p>
+          {!BETA_MODE && (
+            <p className="mt-4 text-xs text-muted-foreground/60">
+              Cancel any time.
+            </p>
+          )}
         </div>
       </section>
     </div>

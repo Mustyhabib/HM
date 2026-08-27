@@ -255,10 +255,10 @@ export function Docs() {
           </div>
           <div className="mt-4 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3">
             <p className="text-sm">
-              <strong className="text-foreground">Quota:</strong>{" "}
+              <strong className="text-foreground">Quota (at launch):</strong>{" "}
               <span className="text-muted-foreground">
-                Each completed run (or input-error failure) consumes one use from your monthly
-                quota. System errors are refunded. Unused runs do not roll over to the next month.
+                At launch, each completed run (or input-error failure) will consume one use from a monthly
+                quota; system errors refunded. During the open beta there is no quota — run freely.
               </span>
             </p>
           </div>
@@ -384,12 +384,20 @@ export function Docs() {
 
         {/* Billing */}
         <section id="billing" className="scroll-mt-20">
-          <h2 className="mb-4 text-2xl font-bold">Billing & Quota</h2>
+          <h2 className="mb-4 text-2xl font-bold">Billing &amp; Quota</h2>
+          <div className="mb-6 flex items-start gap-2.5 rounded-xl border border-secondary/25 bg-secondary/5 p-4 text-sm text-muted-foreground">
+            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
+            <span>
+              <strong className="text-foreground">Open Beta:</strong> the platform is completely
+              free right now — no subscription, no quota, no card. Everything below describes how
+              billing will work when we launch, so you can plan ahead. Nothing is charged today.
+            </span>
+          </div>
           <div className="space-y-4">
             <div className="flex gap-3 rounded-xl border border-border bg-card p-5">
               <CreditCard className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
               <div>
-                <h3 className="font-semibold text-foreground">Paystack — Naira billing</h3>
+                <h3 className="font-semibold text-foreground">Paystack — Naira billing (at launch)</h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
                   All charges are in Nigerian Naira (NGN) via Paystack. The USD equivalent on the
                   pricing page is display-only at a fixed reference rate of ₦1,300/USD. H~Mltd
@@ -409,9 +417,9 @@ export function Docs() {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {[
-                    { plan: "Starter", price: "₦70,000",  runs: "3"  },
-                    { plan: "Pro",     price: "₦120,000", runs: "7"  },
-                    { plan: "Premium", price: "₦200,000", runs: "15" },
+                    { plan: "Starter", price: "₦20,000",  runs: "Unlimited*" },
+                    { plan: "Pro",     price: "₦35,000", runs: "Unlimited*" },
+                    { plan: "Premium", price: "₦75,000", runs: "Unlimited*" },
                   ].map(({ plan, price, runs }) => (
                     <tr key={plan} className="hover:bg-elevated/30">
                       <td className="px-4 py-2.5 font-medium text-foreground">{plan}</td>
@@ -422,10 +430,14 @@ export function Docs() {
                 </tbody>
               </table>
             </div>
+            <p className="text-xs text-muted-foreground/70">
+              * Unlimited runs on every tier — bring your own LLM key. Launch pricing shown here
+              matches the current pricing page.
+            </p>
 
             <ul className="space-y-2 text-sm text-muted-foreground">
               {[
-                "Runs reset on each monthly billing renewal date.",
+                "At launch, runs reset on each monthly billing renewal date.",
                 "Unused runs do not roll over to the next period.",
                 "System-caused failures automatically return the run credit to your account.",
                 "Cancel at any time — access continues until period end.",

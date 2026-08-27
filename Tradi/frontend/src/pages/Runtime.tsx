@@ -88,6 +88,14 @@ export function Runtime() {
   return (
     <div className="min-h-screen p-6 lg:p-8">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+        {/* Beta notice — live trading is mandate-gated and not yet active */}
+        <div className="rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-xs text-muted-foreground">
+          <span className="font-semibold text-foreground">Beta notice:</span>{" "}
+          Runtime monitors live trading session status. Live execution is mandate-gated
+          and not yet active — status tiles below reflect the platform's broker-safety
+          state, not an active trading session.
+        </div>
+
         <section className="flex flex-col gap-4 border-b border-border/60 pb-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2 rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-muted-foreground">

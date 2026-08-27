@@ -16,12 +16,15 @@ import {
   Sun,
   Moon,
   X,
+  FileText,
+  Microscope,
 } from "lucide-react";
 import { UserCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/theme";
-import { BETA_MODE } from "@/lib/beta";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { BetaBanner } from "@/components/common/BetaBanner";
+import { FeaturePreviewDrawer } from "@/components/layout/FeaturePreviewDrawer";
 
 /* ─── Nav definition ────────────────────────────────────────────────────────
    Each section has a label (shown expanded) and items.
@@ -40,6 +43,8 @@ const NAV_SECTIONS = [
     items: [
       { to: "/markets",    icon: Globe,           label: "Markets",    locked: true  },
       { to: "/agent",      icon: Bot,             label: "Research",   locked: false },
+      { to: "/reports",    icon: FileText,        label: "Reports",    locked: false },
+      { to: "/alpha-zoo",  icon: Microscope,      label: "Alpha Zoo",  locked: false },
     ],
   },
   {
@@ -76,6 +81,7 @@ function NavItem({
   active,
   compact,
   locked,
+  onPreview,
 }: {
   to: string;
   icon: typeof LayoutDashboard;
@@ -83,7 +89,32 @@ function NavItem({
   active: boolean;
   compact: boolean;
   locked: boolean;
+  onPreview?: () => void;
 }) {
+  // Locked items open the feature-preview drawer instead of navigating.
+  if (locked && onPreview) {
+    return (
+      <button
+        type="button"
+        title={compact ? label : undefined}
+        onClick={onPreview}
+        className={cn(
+          "w-full flex items-center rounded-lg text-sm transition-colors",
+          compact ? "justify-center p-2.5" : "gap-3 px-3 py-2.5",
+          "text-muted-foreground/40 hover:bg-elevated hover:text-muted-foreground",
+        )}
+      >
+        <Icon className="h-[18px] w-[18px] shrink-0" />
+        {!compact && <span className="flex-1 text-left">{label}</span>}
+        {!compact && (
+          <span className="rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/40 border border-border/40">
+            Soon
+          </span>
+        )}
+      </button>
+    );
+  }
+
   return (
     <Link
       to={to}
@@ -123,40 +154,47 @@ function SectionLabel({ label, compact }: { label: string; compact: boolean }) {
 }
 
 // ─── Sidebar nav content (shared between mobile + desktop) ────────────────────
-function SidebarNav({ pathname, compact }: { pathname: string; compact: boolean }) {
+function SidebarNav({
+  pathname,
+  compact,
+  onPreview,
+}: {
+  pathname: string;
+  compact: boolean;
+  onPreview: (to: string) => void;
+}) {
   return (
     <nav
       className={cn("flex-1 overflow-y-auto py-3", compact ? "px-2" : "px-3")}
       aria-label="Sidebar navigation"
     >
       {NAV_SECTIONS.map((section) => {
-        // Open beta: hide not-yet-live sections entirely (tiered, not deleted —
-        // set BETA_MODE=false to show the "Soon" roadmap items again).
-        const items = BETA_MODE
-          ? section.items.filter((item) => !item.locked)
-          : section.items;
-        if (items.length === 0) return null;
+        // In BETA_MODE locked items are now shown — clicking them opens the
+        // feature-preview drawer instead of navigating. BETA_MODE=false
+        // restores the old "Soon" nav-link behaviour unchanged.
+        const items = section.items;
         return (
-        <div key={section.label}>
-          <SectionLabel label={section.label} compact={compact} />
-          <div className="space-y-0.5">
-            {items.map((item) => (
-              <NavItem
-                key={item.to}
-                to={item.to}
-                icon={item.icon}
-                label={item.label}
-                locked={item.locked}
-                compact={compact}
-                active={
-                  item.to === "/dashboard"
-                    ? pathname === "/dashboard"
-                    : pathname.startsWith(item.to)
-                }
-              />
-            ))}
+          <div key={section.label}>
+            <SectionLabel label={section.label} compact={compact} />
+            <div className="space-y-0.5">
+              {items.map((item) => (
+                <NavItem
+                  key={item.to}
+                  to={item.to}
+                  icon={item.icon}
+                  label={item.label}
+                  locked={item.locked}
+                  compact={compact}
+                  onPreview={item.locked ? () => onPreview(item.to) : undefined}
+                  active={
+                    item.to === "/dashboard"
+                      ? pathname === "/dashboard"
+                      : pathname.startsWith(item.to)
+                  }
+                />
+              ))}
+            </div>
           </div>
-        </div>
         );
       })}
     </nav>
@@ -169,11 +207,14 @@ export function Layout() {
   const { theme, toggle: toggleTheme } = useTheme();
 
   const [mobileOpen, setMobileOpen] = useState(false);
+  // Feature-preview drawer: null = closed; a route path = open at that slide
+  const [previewTo, setPreviewTo] = useState<string | null>(null);
 
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   return (
     <div className="flex h-dvh overflow-hidden bg-background">
+      <BetaBanner />
 
       {/* ─── Mobile: backdrop overlay ───────────────────────────────────── */}
       <div
@@ -207,7 +248,7 @@ export function Layout() {
           </button>
         </div>
 
-        <SidebarNav pathname={pathname} compact={false} />
+        <SidebarNav pathname={pathname} compact={false} onPreview={setPreviewTo} />
 
         <div className="border-t border-border/60 px-3 py-3 space-y-1">
           <Link
@@ -243,7 +284,7 @@ export function Layout() {
         aria-label="Primary navigation"
         className="hidden w-56 shrink-0 border-r border-border/60 bg-card md:flex md:flex-col"
       >
-        <SidebarNav pathname={pathname} compact={false} />
+        <SidebarNav pathname={pathname} compact={false} onPreview={setPreviewTo} />
       </aside>
 
       {/* ─── Main content area ───────────────────────────────────────────── */}
@@ -279,6 +320,13 @@ export function Layout() {
           )}
         </main>
       </div>
+
+      {/* ─── Feature-preview drawer (roadmap stubs) ─────────────────────── */}
+      <FeaturePreviewDrawer
+        open={previewTo !== null}
+        initialTo={previewTo}
+        onClose={() => setPreviewTo(null)}
+      />
     </div>
   );
 }

@@ -41,14 +41,16 @@ import {
   Smartphone,
   Eye,
   EyeOff,
-  ExternalLink,
   TrendingUp,
 } from "lucide-react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-store";
 import { ProviderByok } from "@/components/settings/ProviderByok";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { BETA_MODE } from "@/lib/beta";
+import { getActiveSubscription, type SubscriptionStatus } from "@/lib/runs";
+import { supabase } from "@/lib/supabase";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 
@@ -239,6 +241,22 @@ function AccountPanel() {
   const daysActive = Math.floor(
     (Date.now() - new Date(USER.memberSince).getTime()) / (1000 * 60 * 60 * 24),
   );
+  const [runCount, setRunCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { count } = await supabase
+          .from("agent_runs")
+          .select("id", { count: "exact", head: true });
+        if (!cancelled && count !== null) setRunCount(count);
+      } catch {
+        // transient — leave count as null (shows "…" → stays "…" on error)
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <div className="space-y-5">
@@ -265,18 +283,34 @@ function AccountPanel() {
       {/* Activity summary */}
       <Card title="Activity Summary" description="Your platform usage at a glance">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[
-            { icon: Zap, label: "Total Runs", value: USER.totalRuns, color: "text-primary" },
-            { icon: TrendingUp, label: "Signals", value: USER.totalSignals, color: "text-secondary" },
-            { icon: Target, label: "Win Rate", value: `${USER.winRate}%`, color: "text-success" },
-            { icon: Calendar, label: "Days Active", value: daysActive, color: "text-muted-foreground" },
-          ].map(({ icon: Icon, label, value, color }) => (
-            <div key={label} className="rounded-lg border border-border bg-elevated p-4">
-              <Icon className={cn("h-4 w-4", color)} />
-              <div className="mt-2 font-mono text-xl font-bold">{value}</div>
-              <div className="mt-0.5 text-xs text-muted-foreground">{label}</div>
+          <div className="rounded-lg border border-border bg-elevated p-4">
+            <Zap className="h-4 w-4 text-primary" />
+            <div className="mt-2 font-mono text-xl font-bold">
+              {runCount === null ? "…" : runCount}
             </div>
-          ))}
+            <div className="mt-0.5 text-xs text-muted-foreground">Total Runs</div>
+          </div>
+          <div className="rounded-lg border border-border bg-elevated p-4">
+            <TrendingUp className="h-4 w-4 text-secondary" />
+            <div className="mt-2 font-mono text-xl font-bold text-muted-foreground/50">—</div>
+            <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+              Signals
+              <span className="rounded border border-border px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/50">Phase 3</span>
+            </div>
+          </div>
+          <div className="rounded-lg border border-border bg-elevated p-4">
+            <Target className="h-4 w-4 text-success" />
+            <div className="mt-2 font-mono text-xl font-bold text-muted-foreground/50">—</div>
+            <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+              Win Rate
+              <span className="rounded border border-border px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/50">Phase 3</span>
+            </div>
+          </div>
+          <div className="rounded-lg border border-border bg-elevated p-4">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <div className="mt-2 font-mono text-xl font-bold">{daysActive}</div>
+            <div className="mt-0.5 text-xs text-muted-foreground">Days Active</div>
+          </div>
         </div>
       </Card>
 
@@ -324,7 +358,116 @@ function CredentialsPanel() {
   );
 }
 
+const PLAN_PRICES: Record<SubscriptionStatus["planId"], string> = {
+  starter: "₦20,000/month",
+  pro: "₦35,000/month",
+  premium: "₦75,000/month",
+};
+
+const PLAN_FEATURES = [
+  { feature: "Single-agent research runs", included: true },
+  { feature: "Swarm orchestration (30 presets)", included: true },
+  { feature: "File attachments (CSV / XLSX / JSON)", included: false, plan: "Premium" },
+  { feature: "Shadow account backtesting", included: false, plan: "Premium" },
+];
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** Plan Features card — unchanged across every billing state. */
+function PlanFeaturesCard() {
+  return (
+    <Card title="Plan Features">
+      <div className="space-y-2">
+        {PLAN_FEATURES.map(({ feature, included, plan }) => (
+          <div key={feature} className="flex items-center justify-between py-1.5">
+            <span className={cn("text-sm", !included && "text-muted-foreground")}>{feature}</span>
+            {included ? (
+              <Check className="h-4 w-4 text-success" />
+            ) : (
+              <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
+                {plan}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 function BillingPanel() {
+  const [sub, setSub] = useState<SubscriptionStatus | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let c = false;
+    getActiveSubscription()
+      .then((s) => {
+        if (!c) {
+          setSub(s);
+          setLoaded(true);
+        }
+      })
+      .catch(() => {
+        if (!c) setLoaded(true);
+      });
+    return () => {
+      c = true;
+    };
+  }, []);
+
+  if (!loaded) {
+    return <p className="text-sm text-muted-foreground">Checking your plan…</p>;
+  }
+
+  // Open beta: full free access regardless of plan — billing UI is a preview
+  // of what launch will look like, nothing is charged today.
+  if (BETA_MODE) {
+    const heading = sub ? `${capitalize(sub.planId)} (active at launch)` : "Open Beta";
+    return (
+      <div className="space-y-5">
+        <Card>
+          <div className="flex items-start gap-4 rounded-lg border border-primary/30 bg-primary/5 p-5">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl gradient-bg">
+              <Crown className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <div className="text-base font-bold">{heading}</div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                You're on full free access during the beta. Plans below show how billing will
+                work at launch — nothing to pay right now.
+              </p>
+            </div>
+          </div>
+        </Card>
+        <PlanFeaturesCard />
+      </div>
+    );
+  }
+
+  if (!sub) {
+    return (
+      <div className="space-y-5">
+        <Card>
+          <div className="flex items-center justify-between rounded-lg border border-border p-5">
+            <p className="text-sm text-muted-foreground">No active plan.</p>
+            <Link
+              to="/pricing"
+              className="rounded-lg gradient-bg glow-gradient px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+            >
+              Upgrade
+            </Link>
+          </div>
+        </Card>
+        <PlanFeaturesCard />
+      </div>
+    );
+  }
+
+  const statusLabel = sub.status === "active" ? "Active" : "Trialing";
+
   return (
     <div className="space-y-5">
       {/* Current plan */}
@@ -336,19 +479,22 @@ function BillingPanel() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-base font-bold">Pro Plan</span>
+                <span className="text-base font-bold">{capitalize(sub.planId)} Plan</span>
                 <span className="rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
-                  Active
+                  {statusLabel}
                 </span>
               </div>
               <div className="mt-0.5 text-sm text-muted-foreground">
-                ₦35,000/month · Unlimited runs · Renews Sep 1, 2026
+                {PLAN_PRICES[sub.planId]} · Unlimited runs
               </div>
             </div>
           </div>
-          <button className="rounded-lg border border-border px-4 py-2 text-sm font-medium transition hover:bg-elevated">
+          <Link
+            to="/pricing"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium transition hover:bg-elevated"
+          >
             Upgrade
-          </button>
+          </Link>
         </div>
 
         {/* BYOK unlimited note */}
@@ -361,106 +507,7 @@ function BillingPanel() {
         </div>
       </Card>
 
-      {/* Plan features */}
-      <Card title="Plan Features">
-        <div className="space-y-2">
-          {[
-            { feature: "Single-agent research runs", included: true },
-            { feature: "Swarm orchestration (30 presets)", included: true },
-            { feature: "File attachments (CSV / XLSX / JSON)", included: false, plan: "Premium" },
-            { feature: "Shadow account backtesting", included: false, plan: "Premium" },
-          ].map(({ feature, included, plan }) => (
-            <div key={feature} className="flex items-center justify-between py-1.5">
-              <span className={cn("text-sm", !included && "text-muted-foreground")}>{feature}</span>
-              {included ? (
-                <Check className="h-4 w-4 text-success" />
-              ) : (
-                <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
-                  {plan}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      {/* Payment method */}
-      <Card title="Payment Method">
-        <div className="flex items-center justify-between rounded-lg border border-border p-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-14 items-center justify-center rounded-md bg-elevated text-xs font-bold text-muted-foreground">
-              VISA
-            </div>
-            <div>
-              <div className="text-sm font-medium">•••• •••• •••• 4242</div>
-              <div className="text-xs text-muted-foreground">Expires 12/2028</div>
-            </div>
-          </div>
-          <button className="text-sm text-primary hover:underline">Update</button>
-        </div>
-      </Card>
-
-      {/* Billing history */}
-      <Card title="Invoice History">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left">
-                <th className="pb-2.5 pr-4 text-xs font-medium text-muted-foreground">Date</th>
-                <th className="pb-2.5 pr-4 text-xs font-medium text-muted-foreground">
-                  Description
-                </th>
-                <th className="pb-2.5 pr-4 text-xs font-medium text-muted-foreground">Amount</th>
-                <th className="pb-2.5 text-xs font-medium text-muted-foreground">Status</th>
-                <th className="pb-2.5" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {[
-                {
-                  date: "Aug 1, 2026",
-                  desc: "Pro Plan — Monthly",
-                  amount: "₦35,000",
-                  paid: true,
-                },
-                {
-                  date: "Jul 1, 2026",
-                  desc: "Pro Plan — Monthly",
-                  amount: "₦35,000",
-                  paid: true,
-                },
-                {
-                  date: "Jun 1, 2026",
-                  desc: "Starter Plan — Monthly",
-                  amount: "₦20,000",
-                  paid: true,
-                },
-              ].map((row) => (
-                <tr key={row.date}>
-                  <td className="py-3 pr-4 font-mono text-xs text-muted-foreground">{row.date}</td>
-                  <td className="py-3 pr-4 text-sm">{row.desc}</td>
-                  <td className="py-3 pr-4 font-mono text-sm">{row.amount}</td>
-                  <td className="py-3">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-xs text-success">
-                      <Check className="h-3 w-3" />
-                      Paid
-                    </span>
-                  </td>
-                  <td className="py-3 text-right">
-                    <button className="text-xs text-primary hover:underline">Invoice</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="mt-4 border-t border-border pt-4">
-          <button className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition hover:text-foreground">
-            Manage subscription on Paystack
-            <ExternalLink className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </Card>
+      <PlanFeaturesCard />
     </div>
   );
 }
@@ -523,6 +570,12 @@ function NotificationsPanel() {
           />
         </div>
       </Card>
+
+      {/* Beta note */}
+      <p className="rounded-lg border border-border bg-elevated px-4 py-3 text-xs text-muted-foreground">
+        <span className="font-semibold text-foreground">Beta notice:</span> Notification delivery
+        (email and push) is not yet active. Preferences are saved and will apply at launch.
+      </p>
     </div>
   );
 }
@@ -574,12 +627,11 @@ function SecurityPanel({ onSignOut }: { onSignOut: () => void }) {
           />
           {twoFactor && (
             <div className="ml-7 rounded-lg border border-border bg-elevated p-4">
-              <p className="text-sm text-muted-foreground">
-                Scan the QR code with your authenticator app to complete setup.
+              <p className="text-sm font-medium text-foreground">Coming after launch</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                TOTP-based 2FA (authenticator app) is not yet active during the beta.
+                Toggle will persist your preference — setup flow activates at launch.
               </p>
-              <div className="mt-3 flex h-32 w-32 items-center justify-center rounded-lg border border-border bg-card">
-                <span className="text-xs text-muted-foreground">QR Code</span>
-              </div>
             </div>
           )}
         </div>

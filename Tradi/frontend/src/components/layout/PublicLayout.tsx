@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/theme";
 import { BETA_MODE } from "@/lib/beta";
 import { SiteFooter } from "@/components/common/SiteFooter";
+import { BetaBanner } from "@/components/common/BetaBanner";
 
 const NAV_LINKS = [
   { to: "/",       label: "Home"    },
@@ -30,6 +31,7 @@ export function PublicLayout() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
+      <BetaBanner />
 
       {/* ─── Header ─────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-md">

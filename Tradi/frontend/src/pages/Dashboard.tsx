@@ -93,7 +93,7 @@ function PhasePlaceholder({
       <p className="text-xs font-medium text-foreground/60">{title}</p>
       <p className="text-[11px] text-muted-foreground">{description}</p>
       <span className="mt-1 rounded-full border border-border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/50">
-        {phase}
+        Coming after beta · {phase}
       </span>
     </div>
   );
@@ -501,7 +501,9 @@ export function Dashboard() {
             {greeting()}{name ? `, ${name.charAt(0).toUpperCase() + name.slice(1)}` : ""}.
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Here's what's happening across your research &amp; portfolio.
+            Your AI research workspace — open beta.{" "}
+            Research runs are fully live; portfolio, paper trading, and risk surfaces
+            arrive in later phases.
           </p>
         </div>
 
