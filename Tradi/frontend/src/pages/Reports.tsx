@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import {
   AlertTriangle,
@@ -21,7 +20,6 @@ const REPORT_SCAN_LIMIT = 100;
 type SortMode = "created_desc" | "created_asc" | "return_desc" | "sharpe_desc";
 
 export function Reports() {
-  const { t } = useTranslation();
   const [runs, setRuns] = useState<RunListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -41,7 +39,7 @@ export function Reports() {
       setRuns(Array.isArray(list) ? list.filter(isBacktestReportRun) : []);
     } catch (err) {
       setRuns([]);
-      setError(err instanceof Error ? err.message : t("reports.loadError"));
+      setError(err instanceof Error ? err.message : "Failed to load reports.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -88,11 +86,14 @@ export function Reports() {
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs font-medium text-muted-foreground">
               <FileText className="h-3.5 w-3.5" />
-              {t("reports.badge")}
+              Research Reports
             </div>
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">{t("reports.title")}</h1>
-              <p className="mt-2 max-w-2xl text-sm text-muted-foreground">{t("reports.subtitle")}</p>
+              <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
+              <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+                Backtest results and research run summaries. Filter by status, date range,
+                or return metrics — click any row to view the full report.
+              </p>
             </div>
           </div>
           <button
@@ -102,7 +103,7 @@ export function Reports() {
             className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition hover:bg-muted disabled:opacity-50"
           >
             {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            {t("reports.refresh")}
+            Refresh
           </button>
         </section>
 
@@ -112,8 +113,8 @@ export function Reports() {
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("reports.searchPlaceholder")}
-              aria-label={t("alphaZoo.search")}
+              placeholder="Search by run ID, prompt, or ticker…"
+              aria-label="Search reports"
               className="w-full rounded-md border bg-background py-2 ps-9 pe-3 text-sm outline-none transition focus:border-primary"
             />
           </label>
@@ -121,11 +122,11 @@ export function Reports() {
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
             className="rounded-md border bg-background px-3 py-2 text-sm"
-            aria-label={t("settings.status")}
+            aria-label="Filter by status"
           >
             {statusOptions.map((status) => (
               <option key={status} value={status}>
-                {status === "all" ? t("reports.allStatuses") : status}
+                {status === "all" ? "All statuses" : status}
               </option>
             ))}
           </select>
@@ -134,30 +135,30 @@ export function Reports() {
             value={startDate}
             onChange={(event) => setStartDate(event.target.value)}
             className="rounded-md border bg-background px-3 py-2 text-sm"
-            aria-label={t("reports.startDate")}
+            aria-label="Start date"
           />
           <input
             type="date"
             value={endDate}
             onChange={(event) => setEndDate(event.target.value)}
             className="rounded-md border bg-background px-3 py-2 text-sm"
-            aria-label={t("reports.endDate")}
+            aria-label="End date"
           />
           <select
             value={sortMode}
             onChange={(event) => setSortMode(event.target.value as SortMode)}
             className="rounded-md border bg-background px-3 py-2 text-sm"
-            aria-label={t("reports.sort")}
+            aria-label="Sort order"
           >
-            <option value="created_desc">{t("reports.sortNewest")}</option>
-            <option value="created_asc">{t("reports.sortOldest")}</option>
-            <option value="return_desc">{t("reports.sortReturn")}</option>
-            <option value="sharpe_desc">{t("reports.sortSharpe")}</option>
+            <option value="created_desc">Newest first</option>
+            <option value="created_asc">Oldest first</option>
+            <option value="return_desc">Best return</option>
+            <option value="sharpe_desc">Best Sharpe</option>
           </select>
         </section>
 
         <div className="text-sm text-muted-foreground">
-          {t("reports.count", { shown: filtered.length, total: runs.length })}
+          Showing {filtered.length} of {runs.length} reports
         </div>
 
         {loading ? (
@@ -172,7 +173,7 @@ export function Reports() {
           <section className="rounded-md border border-warning/30 bg-warning/5 p-5">
             <div className="flex items-center gap-2 font-medium text-warning">
               <AlertTriangle className="h-5 w-5" />
-              {t("reports.unavailable")}
+              Reports unavailable
             </div>
             <p className="mt-2 text-sm text-muted-foreground">{error}</p>
           </section>
@@ -181,9 +182,13 @@ export function Reports() {
         {!loading && !error && filtered.length === 0 ? (
           <section className="rounded-md border border-dashed p-8 text-center">
             <FileText className="mx-auto h-8 w-8 text-muted-foreground" />
-            <h2 className="mt-3 font-medium">{runs.length === 0 ? t("reports.emptyTitle") : t("reports.noMatchesTitle")}</h2>
+            <h2 className="mt-3 font-medium">
+              {runs.length === 0 ? "No reports yet" : "No matching reports"}
+            </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              {runs.length === 0 ? t("reports.emptyBody") : t("reports.noMatchesBody")}
+              {runs.length === 0
+                ? "Run a backtest or research agent to generate your first report."
+                : "Try adjusting your filters or search query."}
             </p>
           </section>
         ) : null}
@@ -201,7 +206,6 @@ export function Reports() {
 }
 
 function ReportRow({ run }: { run: RunListItem }) {
-  const { t } = useTranslation();
   return (
     <article className="rounded-md border p-4 transition hover:border-primary/40 hover:bg-muted/30">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -212,10 +216,10 @@ function ReportRow({ run }: { run: RunListItem }) {
               {run.run_id}
             </Link>
             <span className="text-xs text-muted-foreground">
-              {formatRunDate(run.created_at, t("reports.unknown", { defaultValue: "Unknown" }))}
+              {formatRunDate(run.created_at)}
             </span>
           </div>
-          <p className="line-clamp-2 text-sm text-muted-foreground">{run.prompt || t("reports.noPrompt")}</p>
+          <p className="line-clamp-2 text-sm text-muted-foreground">{run.prompt || "No prompt"}</p>
           <div className="flex flex-wrap gap-1.5">
             {(run.codes || []).slice(0, 6).map((code) => (
               <span key={code} className="rounded border px-2 py-0.5 font-mono text-xs text-muted-foreground">
@@ -224,7 +228,7 @@ function ReportRow({ run }: { run: RunListItem }) {
             ))}
             {run.start_date || run.end_date ? (
               <span className="rounded border px-2 py-0.5 text-xs text-muted-foreground">
-                {run.start_date || "?"} {t("reports.to")} {run.end_date || "?"}
+                {run.start_date || "?"} to {run.end_date || "?"}
               </span>
             ) : null}
           </div>
@@ -232,22 +236,22 @@ function ReportRow({ run }: { run: RunListItem }) {
 
         <div className="flex flex-col gap-3 lg:items-end">
           <div className="grid grid-cols-2 gap-2 text-end sm:flex sm:flex-wrap sm:justify-end">
-            <MetricPill label={t("reports.return")} value={formatOptionalMetric("total_return", run.total_return)} />
-            <MetricPill label={t("reports.sharpe")} value={formatOptionalMetric("sharpe", run.sharpe)} />
+            <MetricPill label="Return" value={formatOptionalMetric("total_return", run.total_return)} />
+            <MetricPill label="Sharpe" value={formatOptionalMetric("sharpe", run.sharpe)} />
           </div>
           <div className="flex flex-wrap gap-2 lg:justify-end">
             <Link
               to={`/runs/${run.run_id}`}
               className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition hover:opacity-90"
             >
-              {t("reports.fullReport")} <ArrowRight className="h-3.5 w-3.5" />
+              Full Report <ArrowRight className="h-3.5 w-3.5" />
             </Link>
             <Link
               to="/compare"
               className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition hover:bg-muted"
             >
               <GitCompare className="h-3.5 w-3.5" />
-              {t("reports.compare")}
+              Compare
             </Link>
           </div>
         </div>
@@ -257,7 +261,6 @@ function ReportRow({ run }: { run: RunListItem }) {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const { t } = useTranslation();
   const normalized = status.toLowerCase();
   const ok = ["success", "done", "completed", "complete"].includes(normalized);
   return (
@@ -268,7 +271,7 @@ function StatusBadge({ status }: { status: string }) {
       )}
     >
       {ok ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-      {status || t("reports.unknown", { defaultValue: "Unknown" })}
+      {status || "Unknown"}
     </span>
   );
 }
@@ -306,9 +309,9 @@ function dateMs(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function formatRunDate(value: string, unknownLabel: string): string {
+function formatRunDate(value: string): string {
   const parsed = new Date(value);
-  if (!Number.isFinite(parsed.getTime())) return value || unknownLabel;
+  if (!Number.isFinite(parsed.getTime())) return value || "Unknown";
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
     day: "numeric",
