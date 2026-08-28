@@ -48,25 +48,32 @@ export function Agent() {
     let cancelled = false;
     async function boot() {
       setSessionsLoading(true);
-      const list = await listSessions();
-      if (cancelled) return;
-      setSessions(list);
-      setSessionsLoading(false);
-      if (list.length > 0) {
-        setActiveSessionId(list[0].id);
-      } else {
-        const id = await createSession();
+      try {
+        const list = await listSessions();
         if (cancelled) return;
-        setActiveSessionId(id);
-        setSessions([
-          {
-            id,
-            title: "New Research Session",
-            status: "active",
-            last_active_at: new Date().toISOString(),
-            turn_count: 0,
-          },
-        ]);
+        setSessions(list);
+        setSessionsLoading(false);
+        if (list.length > 0) {
+          setActiveSessionId(list[0].id);
+        } else {
+          const id = await createSession();
+          if (cancelled) return;
+          setActiveSessionId(id);
+          setSessions([
+            {
+              id,
+              title: "New Research Session",
+              status: "active",
+              last_active_at: new Date().toISOString(),
+              turn_count: 0,
+            },
+          ]);
+        }
+      } catch {
+        if (!cancelled) {
+          setSessionsLoading(false);
+          setError("Sessions unavailable — the feature may not be set up yet.");
+        }
       }
     }
     boot();
@@ -79,9 +86,13 @@ export function Agent() {
     if (!activeSessionId) return;
     setMessages([]);
     let cancelled = false;
-    getSessionMessages(activeSessionId).then((msgs) => {
-      if (!cancelled) setMessages(msgs);
-    });
+    getSessionMessages(activeSessionId)
+      .then((msgs) => {
+        if (!cancelled) setMessages(msgs);
+      })
+      .catch(() => {
+        // Session messages RPC may not exist yet (migration not applied)
+      });
     const unsub = subscribeToSessionMessages(activeSessionId, (msg) => {
       if (cancelled) return;
       setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));

@@ -301,9 +301,9 @@ export function SaasSettings() {
                   </thead>
                   <tbody className="divide-y divide-border">
                     {[
-                      { date: "Aug 1, 2026", desc: "Pro Plan — Monthly", amount: "₦120,000", status: "Paid" },
-                      { date: "Jul 1, 2026", desc: "Pro Plan — Monthly", amount: "₦120,000", status: "Paid" },
-                      { date: "Jun 1, 2026", desc: "Starter Plan — Monthly", amount: "₦70,000", status: "Paid" },
+                      { date: "Aug 1, 2026", desc: "Pro Plan — Monthly", amount: "₦35,000", status: "Paid" },
+                      { date: "Jul 1, 2026", desc: "Pro Plan — Monthly", amount: "₦35,000", status: "Paid" },
+                      { date: "Jun 1, 2026", desc: "Starter Plan — Monthly", amount: "₦20,000", status: "Paid" },
                     ].map((row) => (
                       <tr key={row.date}>
                         <td className="py-3 font-mono text-xs">{row.date}</td>

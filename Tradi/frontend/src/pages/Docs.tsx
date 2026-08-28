@@ -179,7 +179,7 @@ export function Docs() {
               {
                 step: "02",
                 title: "Choose a plan",
-                desc: "Pick Starter (3 runs), Pro (7 runs), or Premium (15 runs). Pay securely via Paystack in Naira.",
+                desc: "All plans include unlimited runs. Pick Starter, Pro, or Premium based on features you need. During the open beta, everything is free.",
               },
               {
                 step: "03",
@@ -253,12 +253,13 @@ export function Docs() {
               </div>
             ))}
           </div>
-          <div className="mt-4 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3">
+          <div className="mt-4 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
             <p className="text-sm">
-              <strong className="text-foreground">Quota (at launch):</strong>{" "}
+              <strong className="text-foreground">BYOK model:</strong>{" "}
               <span className="text-muted-foreground">
-                At launch, each completed run (or input-error failure) will consume one use from a monthly
-                quota; system errors refunded. During the open beta there is no quota — run freely.
+                You supply your own LLM API key and pay the provider directly for token usage.
+                The platform charges a flat subscription fee — all plans include unlimited runs.
+                A safety rate limit of 30 runs per hour applies.
               </span>
             </p>
           </div>
@@ -384,7 +385,7 @@ export function Docs() {
 
         {/* Billing */}
         <section id="billing" className="scroll-mt-20">
-          <h2 className="mb-4 text-2xl font-bold">Billing &amp; Quota</h2>
+          <h2 className="mb-4 text-2xl font-bold">Billing &amp; BYOK</h2>
           <div className="mb-6 flex items-start gap-2.5 rounded-xl border border-secondary/25 bg-secondary/5 p-4 text-sm text-muted-foreground">
             <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
             <span>

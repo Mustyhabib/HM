@@ -182,12 +182,12 @@ function BrowseView() {
         setTotal(res.total);
         setVisibleCount(PAGE_SIZE);
       })
-      .catch((err: unknown) => {
+      .catch(() => {
         if (!alive) return;
-        const msg = err instanceof Error ? err.message : i18n.t("alphaZoo.failedToLoadAlphas" as any);
-        toast.error(msg);
+        // API server not running in production SaaS mode — show static counts from ZOO_CARDS
+        const staticTotal = ZOO_CARDS.reduce((sum, c) => sum + c.approxCount, 0);
         setAlphas([]);
-        setTotal(0);
+        setTotal(staticTotal);
       })
       .finally(() => {
         if (alive) setLoading(false);

@@ -61,7 +61,7 @@ export function Terms() {
           <h2 className="mb-3 text-base font-semibold text-foreground">4. Subscriptions & Billing</h2>
           <ul className="ml-4 mt-2 list-disc space-y-1.5">
             <li>Subscriptions are billed monthly in Nigerian Naira (NGN) via Paystack.</li>
-            <li>Each plan includes a fixed number of agent runs per billing period. Unused runs do not roll over.</li>
+            <li>All plans include unlimited agent runs. You supply your own LLM API key (BYOK) and pay the LLM provider directly for token usage.</li>
             <li>Subscriptions renew automatically unless cancelled before the renewal date.</li>
             <li>You may cancel at any time from your billing settings. Access continues until the end of the current paid period.</li>
             <li>We may update prices with 30 days' written notice by email. Continued use after the effective date constitutes acceptance of the new price.</li>
@@ -70,25 +70,26 @@ export function Terms() {
         </section>
 
         <section>
-          <h2 className="mb-3 text-base font-semibold text-foreground">5. Run Credits & Refund Policy</h2>
+          <h2 className="mb-3 text-base font-semibold text-foreground">5. Runs & Refund Policy</h2>
           <p>
-            A "run credit" is consumed each time you submit a prompt and the agent begins
-            processing it. Run credits are consumed regardless of whether the run completes
-            successfully, with one exception:
+            Each prompt submission triggers an agent run. You supply your own LLM API key and
+            pay the LLM provider directly for token usage. The platform does not charge per run.
           </p>
           <ul className="ml-4 mt-3 list-disc space-y-1.5">
             <li>
               <strong className="text-foreground">System errors</strong> (infrastructure failures,
-              internal timeouts, platform bugs) — the run credit is automatically returned to your
-              account within 24 hours.
+              internal timeouts, platform bugs) — the run is flagged and does not count against
+              any safety rate limits.
             </li>
             <li>
               <strong className="text-foreground">Input errors</strong> (invalid ticker, unsupported
-              market, malformed query) — the run credit is consumed and is not refunded.
+              market, malformed query) — LLM tokens consumed are billed by your provider; the
+              platform has no involvement in that billing.
             </li>
           </ul>
           <p className="mt-3">
-            Run credits have no cash value and cannot be redeemed for a refund of subscription fees.
+            Subscription fees paid for the current billing period are non-refundable, except where
+            required by applicable Nigerian consumer protection law.
           </p>
         </section>
 
@@ -99,10 +100,10 @@ export function Terms() {
             <li>Violate any applicable law or regulation.</li>
             <li>Facilitate illegal financial activities, market manipulation, or securities fraud.</li>
             <li>Reverse-engineer, decompile, or extract data from the platform in bulk.</li>
-            <li>Use automated scripts, bots, or programs to submit prompts beyond your plan quota.</li>
+            <li>Use automated scripts, bots, or programs to submit prompts beyond the platform's safety rate limits.</li>
             <li>Share your account credentials with other persons.</li>
             <li>Misrepresent AI-generated research outputs as certified professional financial advice.</li>
-            <li>Attempt to circumvent quota limits, access controls, or billing mechanisms.</li>
+            <li>Attempt to circumvent rate limits, access controls, or billing mechanisms.</li>
             <li>Submit prompts designed to probe system internals, extract model weights, or extract proprietary algorithm details.</li>
           </ul>
           <p className="mt-3">
@@ -212,8 +213,8 @@ export function Terms() {
           <h2 className="mb-3 text-base font-semibold text-foreground">14. Contact</h2>
           <p>
             Questions about these Terms? Contact us at{" "}
-            <a href="mailto:legal@hmltd.io" className="text-primary hover:underline">
-              legal@hmltd.io
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">
+              {SUPPORT_EMAIL}
             </a>{" "}
             or read our{" "}
             <Link to="/docs" className="text-primary hover:underline">

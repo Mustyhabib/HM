@@ -11,9 +11,10 @@ import {
   Search,
   XCircle,
 } from "lucide-react";
-import { api, type RunListItem } from "@/lib/api";
+import { type RunListItem } from "@/lib/api";
 import { formatMetricVal } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 
 const REPORT_SCAN_LIMIT = 100;
 
@@ -35,8 +36,19 @@ export function Reports() {
     else setRefreshing(true);
     setError(null);
     try {
-      const list = await api.listRuns(REPORT_SCAN_LIMIT);
-      setRuns(Array.isArray(list) ? list.filter(isBacktestReportRun) : []);
+      const { data, error: dbError } = await supabase
+        .from("agent_runs")
+        .select("id, user_id, prompt, status, created_at, completed_at")
+        .order("created_at", { ascending: false })
+        .limit(REPORT_SCAN_LIMIT);
+      if (dbError) throw new Error(dbError.message);
+      const list: RunListItem[] = (data ?? []).map((row) => ({
+        run_id: row.id,
+        status: row.status ?? "unknown",
+        created_at: row.created_at ?? "",
+        prompt: row.prompt ?? undefined,
+      }));
+      setRuns(list);
     } catch (err) {
       setRuns([]);
       setError(err instanceof Error ? err.message : "Failed to load reports.");
@@ -283,10 +295,6 @@ function MetricPill({ label, value }: { label: string; value: string }) {
       <div className="font-mono text-sm font-medium">{value}</div>
     </div>
   );
-}
-
-function isBacktestReportRun(run: RunListItem): boolean {
-  return Number.isFinite(run.total_return) || Number.isFinite(run.sharpe);
 }
 
 function compareRuns(left: RunListItem, right: RunListItem, mode: SortMode): number {

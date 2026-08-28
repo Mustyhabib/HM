@@ -70,7 +70,7 @@ export function Signup() {
         </div>
 
         <div className="relative border-t border-border/40 pt-6 text-xs text-muted-foreground">
-          Plans from <span className="font-mono font-semibold text-foreground">₦70,000/month</span> · cancel anytime
+          Free during open beta · <span className="font-mono font-semibold text-foreground">plans from ₦20,000/month</span> at launch
         </div>
       </aside>
 

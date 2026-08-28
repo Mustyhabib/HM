@@ -34,8 +34,8 @@ export function Privacy() {
             H~Mltd ("we", "us", "our") is the data controller for personal information processed
             through this platform. If you have privacy questions, contact our data protection team
             at{" "}
-            <a href="mailto:privacy@hmltd.io" className="text-primary hover:underline">
-              privacy@hmltd.io
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">
+              {SUPPORT_EMAIL}
             </a>
             .
           </p>
@@ -223,8 +223,8 @@ export function Privacy() {
           </ul>
           <p className="mt-4">
             To exercise any of these rights, email{" "}
-            <a href="mailto:privacy@hmltd.io" className="text-primary hover:underline">
-              privacy@hmltd.io
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">
+              {SUPPORT_EMAIL}
             </a>
             . We will respond within 30 days.
           </p>
@@ -244,8 +244,8 @@ export function Privacy() {
           <p className="mt-3">
             No system is 100% secure. If you discover a security vulnerability, please report it
             responsibly to{" "}
-            <a href="mailto:security@hmltd.io" className="text-primary hover:underline">
-              security@hmltd.io
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">
+              {SUPPORT_EMAIL}
             </a>
             .
           </p>
@@ -271,8 +271,8 @@ export function Privacy() {
           <p>
             The Service is not directed at persons under 18. We do not knowingly collect personal
             data from minors. If you believe a minor has created an account, contact us at{" "}
-            <a href="mailto:privacy@hmltd.io" className="text-primary hover:underline">
-              privacy@hmltd.io
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">
+              {SUPPORT_EMAIL}
             </a>{" "}
             and we will delete the account promptly.
           </p>
@@ -293,8 +293,8 @@ export function Privacy() {
           <p>
             For privacy enquiries or to exercise your NDPA rights, contact our Data Protection
             Officer at{" "}
-            <a href="mailto:privacy@hmltd.io" className="text-primary hover:underline">
-              privacy@hmltd.io
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">
+              {SUPPORT_EMAIL}
             </a>
             .
           </p>
